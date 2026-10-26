@@ -1,1 +1,8 @@
-{ "functions": { "api/sheet.js": { "maxDuration": 30 } } }
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "vite build",
+  "outputDirectory": "dist",
+  "functions": { "api/[...route].js": { "maxDuration": 30 } },
+  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }]
+}
