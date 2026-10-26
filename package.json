@@ -6,7 +6,7 @@
     "googleapis": "^144.0.0"
   },
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
   "scripts": {
     "seed": "node -r dotenv/config scripts/seed.js"
