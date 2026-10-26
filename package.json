@@ -1,0 +1,17 @@
+{
+  "name": "cure-erp",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "googleapis": "^144.0.0"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "scripts": {
+    "seed": "node -r dotenv/config scripts/seed.js"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.5"
+  }
+}
