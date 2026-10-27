@@ -34,6 +34,12 @@ function Need({ feature, table, action = 'view', children }) {
   return ok ? children : <NotFound />;
 }
 
+// Tabs that have a dedicated screen (PO linking, workflow, stock) must not open the generic add/edit form.
+const DEDICATED_ROUTE = { 'grn-mrn': '/grn', 'purchase-indent': '/purchase-intent', 'purchase-order-domestic': '/purchasing/po', 'purchase-order-import': '/purchasing/po', 'purchase-requisition': '/requisitions', 'opening-stock': '/inventory/opening-stock' };
+function TableRoute() {
+  const { slug } = useParams();
+  return DEDICATED_ROUTE[slug] ? <Navigate to={DEDICATED_ROUTE[slug]} replace /> : <Keyed><TablePage /></Keyed>;
+}
 const Home = () => { const { features, tables } = useAuth(); return features.dashboard ? <Dashboard /> : <Landing tables={tables} />; };
 function Landing({ tables }) {
   const first = Object.values(tables)[0];
@@ -48,7 +54,7 @@ export default function App() {
       <Route element={<Protected />}>
         <Route index element={<Home />} />
         <Route path="change-password" element={<ChangePassword />} />
-        <Route path="t/:slug" element={<Keyed><TablePage /></Keyed>} />
+        <Route path="t/:slug" element={<TableRoute />} />
 
         <Route path="purchase-intent" element={<Need table="purchase-indent"><IntentRegister /></Need>} />
         <Route path="purchase-intent/new" element={<Need table="purchase-indent" action="create"><IntentForm /></Need>} />
