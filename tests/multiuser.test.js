@@ -26,3 +26,10 @@ test('admin creates MWH and CWH users who then work at the same time', async (t)
   const bad = await cwh('POST', '/api/t/grn-mrn', grn('MWH', [{ 'Item Code': 'A1', Quantity: 1, Rate: 1, Batch: 'X', 'Expiry Date': '2031-01-01' }]));
   assert.ok([403, 422].includes(bad.status), `CWH posting to MWH must be refused, got ${bad.status}`);
 });
+
+test('rewritten request (?route=) resolves multi-segment paths', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const r = await app.anon('POST', '/api/handler?route=auth/login', { userId: 'sa', password: 'Test12345pass' });
+  assert.equal(r.status, 200, r.text);
+  const h = await app.anon('GET', '/api/handler?route=health'); assert.equal(h.status, 200);
+});

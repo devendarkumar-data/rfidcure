@@ -1,4 +1,4 @@
-// One serverless entry point. api/[...route].js simply calls this. Keeping one function avoids Vercel's per-plan function limit.
+// One serverless entry point. api/handler.js simply calls this. Keeping one function avoids Vercel's per-plan function limit.
 import { MODULE_NAMES, TABLES, TABLE_BY_SLUG, REFS } from '../shared/registry.js';
 import { actionsFor, ROLE_LABELS } from '../shared/permissions.js';
 import { fieldAccess, STAGE_LABELS } from '../shared/permissions.js';
@@ -109,9 +109,13 @@ export default async function handler(req, res) {
   const started = Date.now();
   try {
     const url = new URL(req.url, 'http://local');
-    const path = url.pathname.replace(/^\/api\/?/, '').replace(/\/+$/, '');
-    const seg = path.split('/').filter(Boolean).map(decodeURIComponent);
     const q = parseQuery(url);
+    // On Vercel every /api/* request is rewritten to one function with the original path in ?route=
+    const viaRewrite = typeof q.route === 'string';
+    const rawPath = viaRewrite ? `/api/${q.route}` : url.pathname;
+    if (viaRewrite) delete q.route;
+    const path = rawPath.replace(/^\/api\/?/, '').replace(/\/+$/, '');
+    const seg = path.split('/').filter(Boolean).map(decodeURIComponent);
     csrfCheck(req);
     const store = getStore();
     const secure = isSecure(req);

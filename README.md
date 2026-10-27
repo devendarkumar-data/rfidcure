@@ -1,6 +1,6 @@
 # Cure Surgical ERP
 
-React (Vite) front end + Vercel serverless API (`api/[...route].js`) + Google Sheets as the data store.
+React (Vite) front end + Vercel serverless API (`api/handler.js`) + Google Sheets as the data store.
 Login with User ID and password, role-based access enforced on the server, warehouse-wise stock with batch/expiry (FEFO),
 and the workflow **Purchase Intent → Purchase Order → PO Authorization → GRN → stock**.
 

@@ -1,4 +1,4 @@
-// Local API server (used by `npm run dev`). In production Vercel runs api/[...route].js instead.
+// Local API server (used by `npm run dev`). In production Vercel runs api/handler.js instead.
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
 import { setStore } from './store/index.js';
