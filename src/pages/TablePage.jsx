@@ -77,6 +77,7 @@ export default function TablePage() {
     <div className="flex justify-end gap-1">
       <button className="btn btn-sm" onClick={() => openRecord(r, 'view')}>View</button>
       {acts.includes('edit') && ['doc', 'master'].includes(table.kind) && !table.posts && <button className="btn btn-sm" onClick={() => openRecord(r, 'edit')}>Edit</button>}
+      {table.posts && canCreate && <button className="btn btn-sm" title="Open a new entry pre-filled from this document (posted documents are corrected by a new entry)" onClick={() => openRecord(r, 'copy')}>Enter similar</button>}
       {acts.includes('delete') && table.kind === 'master' && <button className="btn btn-sm text-red-700" onClick={() => setDlg({ type: 'delete', row: r })}>Delete</button>}
     </div>
   ) : undefined;
@@ -101,6 +102,7 @@ export default function TablePage() {
 
       {dlg?.type === 'import' && <TableImportDialog slug={slug} title={clean(table.title)} columns={table.fields.filter((f) => !f.readonly && f.type !== 'auto' && f.type !== 'calc' && f.name !== table.idCol).map((f) => f.name)} onClose={() => setDlg(null)} onDone={() => { setDlg(null); setRefresh((n) => n + 1); }} />}
       {dlg?.type === 'create' && <Modal title={`New — ${clean(table.title)}`} wide={table.hasLines} onClose={() => setDlg(null)}><RecordForm table={table} mode="create" onSubmit={create} onCancel={() => setDlg(null)} /></Modal>}
+      {dlg?.type === 'copy' && <Modal title={`New entry from ${dlg.row[table.idCol]}`} wide={table.hasLines} onClose={() => setDlg(null)}><RecordForm table={table} mode="create" initial={{ header: Object.fromEntries(Object.entries(dlg.data.record).filter(([k]) => k !== table.idCol && k !== 'Date' && !table.fields.some((f) => f.name === k && (f.type === 'auto' || f.readonly)))), lines: (dlg.data.lines || []).map(({ _k, ...l }) => l) }} onSubmit={create} onCancel={() => setDlg(null)} /></Modal>}
       {dlg?.type === 'edit' && <Modal title={`Edit — ${dlg.row[table.idCol]}`} wide={table.hasLines} onClose={() => setDlg(null)}><RecordForm table={table} mode="edit" initial={{ header: dlg.data.record, lines: dlg.data.lines }} onSubmit={update} onCancel={() => setDlg(null)} /></Modal>}
       {dlg?.type === 'view' && (
         <Modal title={dlg.row[table.idCol]} wide={table.hasLines} onClose={() => setDlg(null)} footer={dlg.data.editable && acts.includes('edit') ? <button className="btn btn-primary" onClick={() => setDlg({ ...dlg, type: 'edit' })}>Edit</button> : null}>
