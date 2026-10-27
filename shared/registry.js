@@ -3,6 +3,7 @@
 // Nothing the browser sends is ever used as a sheet name, range or spreadsheet id.
 
 import TEMPLATE_TABS from './template-tabs.js';
+import { ACCESS_TAB, ROLE_LABELS } from './permissions.js';
 
 export const slugify = (s) => String(s).toLowerCase().replace(/[—–]/g, '-').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
@@ -210,5 +211,6 @@ export const TAB = {
 };
 
 export const USERS_HEADERS = TABLE_BY_TAB.Users?.headers || ['Groups', 'User Name', 'Phone', 'Email', 'Password', 'Branch', 'Status', 'Last Login', 'Warehouse'];
-export const ALLOWED_TABS = new Set([...TABLES.map((t) => t.tab), CREDENTIALS_TAB, DOC_STATUS_TAB, DOC_HISTORY_TAB]);
-export const HEADERS_BY_TAB = { ...Object.fromEntries(TABLES.map((t) => [t.tab, t.headers])), [CREDENTIALS_TAB]: CREDENTIALS_HEADERS, [DOC_STATUS_TAB]: DOC_STATUS_HEADERS, [DOC_HISTORY_TAB]: DOC_HISTORY_HEADERS };
+export const ACCESS_HEADERS = ['Tab', ...Object.values(ROLE_LABELS)];
+export const ALLOWED_TABS = new Set([...TABLES.map((t) => t.tab), CREDENTIALS_TAB, DOC_STATUS_TAB, DOC_HISTORY_TAB, ACCESS_TAB]);
+export const HEADERS_BY_TAB = { ...Object.fromEntries(TABLES.map((t) => [t.tab, t.headers])), [CREDENTIALS_TAB]: CREDENTIALS_HEADERS, [DOC_STATUS_TAB]: DOC_STATUS_HEADERS, [DOC_HISTORY_TAB]: DOC_HISTORY_HEADERS, [ACCESS_TAB]: ACCESS_HEADERS };

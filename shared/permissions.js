@@ -34,19 +34,21 @@ export const ROLE_STAGE_ACTIONS = {
   sales: { dispatch: W, billing: W, reports: R },
   finance: { billing: W, reports: R },
   auditor: { reports: R },
+  // 'All': every warehouse, view + edit on all operational and master tabs. User/security administration stays with Admin / Super Admin.
+  all: { intent: ALL, po: ALL, grn: ALL, transfer: ALL, imprest: ALL, consumption: ALL, dispatch: ALL, billing: ALL, requisition: ALL, reports: ALL, admin: WA },
   data_entry: { grn: ['view', 'create'] },                                                                   // Reports: "-"
 };
 
 export const ROLE_LABELS = {
   super_admin: 'Super Admin', admin: 'Admin', purchase_manager: 'Purchase Manager', mother_warehouse_operator: 'Mother Warehouse Operator', warehouse_operator: 'Warehouse Operator',
   approver: 'Approver', warehouse_manager: 'Warehouse Manager', purchase: 'Purchase Team',
-  sales: 'Sales Team', finance: 'Finance Team', auditor: 'Auditor', data_entry: 'Data Entry Operator',
+  sales: 'Sales Team', finance: 'Finance Team', auditor: 'Auditor', data_entry: 'Data Entry Operator', all: 'All',
 };
 
 // Warehouse-wise access. all = every warehouse, read+write (as far as the stage allows).
 // all-readonly = every warehouse but never write (Auditor "View Only"). assigned = only warehouses listed in Users.Branch.
 export const ROLE_SCOPE = {
-  super_admin: 'all', admin: 'all', finance: 'all', auditor: 'all-readonly', purchase_manager: 'all', approver: 'all', mother_warehouse_operator: 'assigned', warehouse_operator: 'assigned',
+  super_admin: 'all', admin: 'all', all: 'all', finance: 'all', auditor: 'all-readonly', purchase_manager: 'all', approver: 'all', mother_warehouse_operator: 'assigned', warehouse_operator: 'assigned',
   warehouse_manager: 'assigned', purchase: 'assigned', sales: 'assigned', data_entry: 'assigned',
 };
 
@@ -56,6 +58,7 @@ export const ROLE_SCOPE = {
 const w = 'w', r = 'r', n = 'n';
 export const FIELD_GROUPS = ['item', 'batch', 'expiry', 'quantity', 'customer', 'tax', 'status'];
 export const ROLE_FIELD_ACCESS = {
+  all:               { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   super_admin:       { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   admin:             { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   warehouse_manager: { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: n, status: w },
@@ -85,6 +88,7 @@ add('status', ['Status', 'Authorization_Status', 'Link_Status', 'Receipt Status'
 export function roleKey(label) {
   const s = String(label || '').toLowerCase().replace(/[^a-z]+/g, ' ').trim();
   if (!s) return null;
+  if (s === 'all') return 'all';
   if (s.startsWith('super')) return 'super_admin';
   if (s.startsWith('admin')) return 'admin';
   if (s.startsWith('purchase manager')) return 'purchase_manager';
@@ -100,8 +104,36 @@ export function roleKey(label) {
   return null;
 }
 
-export const can = (role, stage, action) => !!ROLE_STAGE_ACTIONS[role]?.[stage]?.includes(action);
-export const actionsFor = (role, stage) => ROLE_STAGE_ACTIONS[role]?.[stage] || [];
+// ---- tab-level access matrix (Administration > Access Control) -----------------------------------------------------
+// Explicit cells (None / View / Edit per group per tab) override the stage defaults above. The matrix lives in the
+// "Access Control" worksheet; the server loads it on every request and calls setAccessMatrix().
+export const ACCESS_LEVELS = ['None', 'View', 'Edit'];
+export const ACCESS_TAB = 'Access Control';
+// Workflow code checks permissions per stage; these tabs stand in for their stage.
+export const STAGE_REP = { intent: 'Purchase Indent', po: 'Purchase Order — Domestic', grn: 'GRN  MRN', transfer: 'Stock Transfer', imprest: 'Imprest Out — New', consumption: 'Material Consumption', requisition: 'Purchase Requisition', admin: 'Users' };
+// Built-in defaults: the 'All' group does not manage users or security unless the matrix says so.
+const DEFAULT_NONE = { all: new Set(['Users', ACCESS_TAB, 'Security', 'Backup', 'Configuration', 'Audit Logs']) };
+let MATRIX = {};
+export const setAccessMatrix = (m) => { MATRIX = m || {}; };
+export const explicitLevel = (role, tab) => MATRIX[role]?.[tab] || null;
+function applyLevel(role, base, tab) {
+  if (role === 'super_admin' || !tab) return base;
+  const lvl = MATRIX[role]?.[tab] || (DEFAULT_NONE[role]?.has(tab) ? 'None' : null);
+  if (!lvl) return base;
+  if (lvl === 'None') return [];
+  if (lvl === 'View') return ['view', 'export'];
+  return [...new Set([...base, 'view', 'create', 'edit', 'export'])];
+}
+export const actionsForTab = (role, stage, tab) => applyLevel(role, ROLE_STAGE_ACTIONS[role]?.[stage] || [], tab);
+export const actionsFor = (role, stage) => applyLevel(role, ROLE_STAGE_ACTIONS[role]?.[stage] || [], STAGE_REP[stage]);
+export const can = (role, stage, action) => actionsFor(role, stage).includes(action);
+export const canTab = (role, stage, tab, action) => actionsForTab(role, stage, tab).includes(action);
+// level a role has by default (no explicit matrix cell) on a tab of the given stage
+export function defaultLevel(role, stage, tab) {
+  if (DEFAULT_NONE[role]?.has(tab)) return 'None';
+  const a = ROLE_STAGE_ACTIONS[role]?.[stage] || [];
+  return a.includes('create') || a.includes('edit') ? 'Edit' : a.includes('view') ? 'View' : 'None';
+}
 export const stagesOf = (role) => Object.keys(ROLE_STAGE_ACTIONS[role] || {});
 export const fieldAccess = (role, name) => {
   const g = FIELD_GROUP_OF[name];

@@ -134,3 +134,34 @@ test('sign in with User Name (case-insensitive), no e-mail needed; names must be
   assert.equal(ok.status, 201, ok.text);
   assert.equal((await app.anon('POST', '/api/auth/login', { userId: 'anil kumar', password: 'Anil@Strong2026' })).status, 200);
 });
+
+test('Access Control matrix grants and removes tab access per group; Super Admin column locked', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa'); const wm = await app.as('wm');
+  assert.equal((await wm('GET', '/api/t/vendor-master')).status, 403, 'masters are admin-only by default');
+  let r = await sa('PUT', '/api/admin/access', { tab: 'Vendor Master', role: 'warehouse_manager', level: 'View' });
+  assert.equal(r.status, 200, r.text);
+  assert.equal((await wm('GET', '/api/t/vendor-master')).status, 200);
+  assert.equal((await wm('POST', '/api/t/vendor-master', { 'Vendor Name': 'X Ltd', 'Sup ID': 'S9' })).status, 403, 'View is read-only');
+  r = await sa('PUT', '/api/admin/access', { tab: 'Vendor Master', role: 'warehouse_manager', level: 'Edit' });
+  assert.equal((await wm('POST', '/api/t/vendor-master', { 'Vendor Name': 'X Ltd', 'Sup ID': 'S9' })).status, 201);
+  r = await sa('PUT', '/api/admin/access', { tab: 'GRN  MRN', role: 'warehouse_manager', level: 'None' });
+  assert.equal((await wm('GET', '/api/t/grn-mrn')).status, 403);
+  const meta = await wm('GET', '/api/meta'); assert.ok(!meta.json.modules.flatMap((m) => m.tables).some((x) => x.title === 'GRN  MRN'));
+  assert.equal((await sa('PUT', '/api/admin/access', { tab: 'GRN  MRN', role: 'super_admin', level: 'None' })).status, 403);
+  assert.equal((await wm('PUT', '/api/admin/access', { tab: 'GRN  MRN', role: 'sales', level: 'Edit' })).status, 403, 'non-admins cannot change access');
+  await sa('PUT', '/api/admin/access', { tab: 'GRN  MRN', role: 'warehouse_manager', level: '' });
+  assert.equal((await wm('GET', '/api/t/grn-mrn')).status, 200, 'blank cell restores the default');
+  const view = await sa('GET', '/api/admin/access'); assert.equal(view.status, 200); assert.ok(view.json.rows.length > 50 && view.json.roles.some((x) => x.key === 'all'));
+});
+
+test('"All" group sees every warehouse; admin can view one warehouse at a time', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  const all = await sa('GET', '/api/stock/balances'); assert.equal(all.status, 200);
+  const whs = new Set((all.json.rows || all.json.balances || []).map((x) => x.warehouse || x.Warehouse));
+  assert.ok(whs.size >= 2, 'seed data spans several warehouses');
+  const one = [...whs][0];
+  const filtered = await sa('GET', '/api/stock/balances', undefined, { 'x-view-warehouse': one });
+  assert.ok((filtered.json.rows || filtered.json.balances || []).every((x) => (x.warehouse || x.Warehouse) === one));
+});

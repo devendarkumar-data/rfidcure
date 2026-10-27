@@ -6,6 +6,10 @@ export class ApiError extends Error {
   constructor(message, status, details) { super(message); this.status = status; this.details = details; }
 }
 
+export const getViewWarehouse = () => { try { return localStorage.getItem('viewWarehouse') || ''; } catch { return ''; } };
+export const setViewWarehouse = (w) => { try { if (w) localStorage.setItem('viewWarehouse', w); else localStorage.removeItem('viewWarehouse'); } catch { /* storage blocked */ } };
+const viewHeader = () => { const w = getViewWarehouse(); return w ? { 'x-view-warehouse': w } : {}; };
+
 const qs = (params) => {
   const u = new URLSearchParams();
   for (const [k, v] of Object.entries(params || {})) if (v !== undefined && v !== null && v !== '') u.set(k, v);
@@ -18,7 +22,7 @@ async function request(method, path, body, { headers = {}, quiet401 = false } = 
   try {
     res = await fetch(path, {
       method, credentials: 'same-origin',
-      headers: { 'x-requested-with': 'cure-erp', ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...headers },
+      headers: { 'x-requested-with': 'cure-erp', ...viewHeader(), ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...headers },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {

@@ -8,6 +8,8 @@ import { USERS_CORE, expectToSheet, patchToSheet, userFromSheet, userToSheet } f
 
 const colName = (n) => { let s = ''; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
 const CELL_LIMIT = 49000;
+// worksheets whose header may be in any order / carry extra columns; value = required columns (missing optional ones are appended)
+const FLEX = { Users: USERS_CORE, 'Access Control': ['Tab'] };
 const norm = (x) => String(x).replace(/[\s\u00a0\u200b\ufeff]+/g, ' ').trim();
 
 export class SheetsStore {
@@ -19,7 +21,7 @@ export class SheetsStore {
   // Sheets API quota is ~60 reads/min for one service account, so rarely-changing tabs are cached longer.
   // Writes made through this instance always invalidate; other warm instances may lag by up to this many ms.
   ttlFor(tab) {
-    if (['Users', 'Credentials', 'Configuration', 'Security'].includes(tab)) return Math.max(this.ttl, 20000);
+    if (['Users', 'Credentials', 'Configuration', 'Security', 'Access Control'].includes(tab)) return Math.max(this.ttl, 20000);
     if (tab.endsWith('Master')) return Math.max(this.ttl, 30000);
     return this.ttl;
   }
@@ -54,7 +56,7 @@ export class SheetsStore {
     const r = await this._retry(() => this.api.spreadsheets.values.get({ spreadsheetId: this.id, range: `'${tab}'!1:1`, valueRenderOption: 'UNFORMATTED_VALUE' }));
     const head = (r.data.values?.[0] || []).map(norm);
     const want = HEADERS_BY_TAB[tab];
-    if (tab === 'Users' && head.length && USERS_CORE.every((h) => head.includes(h))) {
+    if (FLEX[tab] && head.length && FLEX[tab].every((h) => head.includes(h))) {
       const missing = want.filter((h) => !head.includes(h));
       const cols = [...head, ...missing];
       if (missing.length) await this._retry(() => this.api.spreadsheets.values.update({ spreadsheetId: this.id, range: `'${tab}'!A1`, valueInputOption: 'RAW', requestBody: { values: [cols] } }));
@@ -126,7 +128,7 @@ export class SheetsStore {
       if (!(tab in meta)) { out.push({ tab, status: 'missing' }); continue; }
       const r = await this._retry(() => this.api.spreadsheets.values.get({ spreadsheetId: this.id, range: `'${tab}'!1:1`, valueRenderOption: 'UNFORMATTED_VALUE' }));
       const head = (r.data.values?.[0] || []).map(norm); const want = HEADERS_BY_TAB[tab];
-      out.push({ tab, status: !head.length ? 'empty' : (head.join('\u0001') === want.join('\u0001') || (tab === 'Users' && USERS_CORE.every((h) => head.includes(h)))) ? 'ok' : 'mismatch', expected: want, found: head });
+      out.push({ tab, status: !head.length ? 'empty' : (head.join('\u0001') === want.join('\u0001') || (FLEX[tab] && FLEX[tab].every((h) => head.includes(h)))) ? 'ok' : 'mismatch', expected: want, found: head });
     }
     return out;
   }

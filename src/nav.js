@@ -72,6 +72,7 @@ export function buildNav(meta) {
 
   add('admin', 'Administration', 'gear', [
     it(f.users, '/admin/users', 'Users'),
+    it(f.access, '/admin/access', 'Access Control'),
     it(f.dataQuality, '/admin/data-quality', 'Data Quality'),
     ...ADMIN_SLUGS.map((s) => it(!!tables[s], `/t/${s}`, tables[s]?.title)),
   ]);

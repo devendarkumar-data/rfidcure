@@ -14,6 +14,7 @@ import StockBatches from './pages/StockBatches.jsx';
 import StockSummary from './pages/StockSummary.jsx';
 import TablePage from './pages/TablePage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
+import AccessControlPage from './pages/AccessControlPage.jsx';
 import { GrnDetail, GrnForm, GrnRegister, IntentDetail, IntentForm, IntentRegister, PoDetail, PoForm, PoRegister } from './pages/workflow/index.jsx';
 import PoPrint from './pages/workflow/PoPrint.jsx';
 
@@ -69,6 +70,7 @@ export default function App() {
         <Route path="inventory/opening-stock" element={<Need table="opening-stock"><OpeningStock /></Need>} />
         <Route path="inventory/batches" element={<Need feature="stock"><StockBatches /></Need>} />
         <Route path="admin/users" element={<Need feature="users"><UsersPage /></Need>} />
+        <Route path="admin/access" element={<Need feature="access"><AccessControlPage /></Need>} />
         <Route path="admin/data-quality" element={<Need feature="dataQuality"><DataQuality /></Need>} />
         <Route path="*" element={<NotFound />} />
       </Route>

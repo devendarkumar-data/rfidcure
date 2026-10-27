@@ -1,6 +1,7 @@
 // One serverless entry point. api/handler.js simply calls this. Keeping one function avoids Vercel's per-plan function limit.
 import { MODULE_NAMES, TABLES, TABLE_BY_SLUG, REFS } from '../shared/registry.js';
-import { actionsFor, ROLE_LABELS } from '../shared/permissions.js';
+import { actionsFor, actionsForTab, ROLE_LABELS } from '../shared/permissions.js';
+import * as accessMatrix from './access-matrix.js';
 import { fieldAccess, STAGE_LABELS } from '../shared/permissions.js';
 import { config } from './config.js';
 import { getStore } from './store/index.js';
@@ -69,7 +70,7 @@ function fieldMeta(ctx, f) {
   return { name: f.name, type: f.type, options: f.options, yesNo: f.yesNo || undefined, lookup: ref ? f.name : undefined, special: ref?.special, readonly: f.readonly || f.type === 'calc' || f.type === 'auto' || acc !== 'w', hidden: acc === 'n' };
 }
 function tableMeta(ctx, t) {
-  const acts = actionsFor(ctx.user.role, t.stage);
+  const acts = actionsForTab(ctx.user.role, t.stage, t.tab);
   if (!acts.includes('view')) return null;
   const readOnly = ctx.user.scope.mode === 'all-readonly';
   let allowed = acts.filter((a) => a === 'view' || a === 'export' || !readOnly);
@@ -97,9 +98,9 @@ function buildMeta(ctx, mustChange) {
   const has = (stage, a = 'view') => actionsFor(u.role, stage).includes(a);
   const stockFields = ['Item Code', 'Batch Number', 'Quantity'].every((f) => fieldAccess(u.role, f) !== 'n');
   return {
-    user: { id: u.id, name: u.name, role: u.role, roleLabel: u.roleLabel, branch: u.branch, scope: u.scope, mustChange: !!mustChange, readOnly: u.scope.mode === 'all-readonly' },
+    user: { id: u.id, name: u.name, role: u.role, roleLabel: u.roleLabel, branch: u.branch, scope: u.scope, canSwitchWarehouse: u.scope.mode === 'all' || !!u.scope.viewing, mustChange: !!mustChange, readOnly: u.scope.mode === 'all-readonly' },
     modules: [...mods.values()].sort((a, b) => a.code.localeCompare(b.code)),
-    features: { dashboard: has('reports'), stock: has('reports') && stockFields, users: has('admin'), dataQuality: has('admin'), exportReports: has('reports', 'export'), reports: has('reports') },
+    features: { access: has('admin') && actionsForTab(u.role, 'admin', 'Access Control').includes('view'), dashboard: has('reports'), stock: has('reports') && stockFields, users: has('admin'), dataQuality: has('admin'), exportReports: has('reports', 'export'), reports: has('reports') },
     roles: Object.values(ROLE_LABELS), stageLabels: STAGE_LABELS,
   };
 }
@@ -127,6 +128,7 @@ export default async function handler(req, res) {
     if (path === 'auth/login' && req.method === 'POST') {
       const b = await readBody(req);
       const r = await login(store, { userId: b.userId, password: b.password }, ipOf(req));
+      await accessMatrix.loadAccessMatrix(store);
       const ctx = { store, user: r.user };
       return send(res, 200, buildMeta(ctx, r.mustChange), { 'Set-Cookie': sessionCookie(r.token, r.minutes, secure) });
     }
@@ -137,7 +139,12 @@ export default async function handler(req, res) {
       if (e.status === 401) return send(res, 401, { error: e.message }, { 'Set-Cookie': clearCookie(secure) });
       throw e;
     }
+    await accessMatrix.loadAccessMatrix(store);
     const ctx = { store, user: auth.user };
+    // Administrators (scope "all") may look at one warehouse at a time: the browser sends X-View-Warehouse and the user is
+    // treated as assigned to just that warehouse for this request.
+    const vw = String(req.headers['x-view-warehouse'] || '').trim().toUpperCase();
+    if (vw && /^[A-Z0-9_-]{1,20}$/.test(vw) && auth.user.scope.mode === 'all') ctx.user = { ...auth.user, scope: { mode: 'assigned', warehouses: [vw], viewing: vw } };
     const outHeaders = auth.refreshed ? { 'Set-Cookie': sessionCookie(auth.refreshed.token, auth.refreshed.minutes, secure) } : {};
     const ok = (body, status = 200, extra = {}) => send(res, status, body, { ...outHeaders, ...extra });
 
@@ -253,6 +260,10 @@ export default async function handler(req, res) {
     if (path === 'dashboard' && req.method === 'GET') return ok(await reports.dashboard(ctx, q));
     if (path === 'data-quality' && req.method === 'GET') return ok(await reports.dataQuality(ctx));
 
+    if (seg[0] === 'admin' && seg[1] === 'access') {
+      if (req.method === 'GET') return ok(await accessMatrix.accessView(ctx));
+      if (req.method === 'PUT') return ok(await accessMatrix.setAccess(ctx, await readBody(req)));
+    }
     if (seg[0] === 'admin' && seg[1] === 'users') {
       if (!seg[2] && req.method === 'GET') return ok(await admin.listUsers(ctx));
       if (!seg[2] && req.method === 'POST') return ok(await admin.createUser(ctx, await readBody(req)), 201);

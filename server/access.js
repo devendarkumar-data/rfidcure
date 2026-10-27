@@ -1,10 +1,10 @@
 // Server-side authorisation: stage permissions, warehouse scope and field-level control.
 // Every protected route goes through these helpers. The UI hides things too, but this is the real gate.
-import { can, fieldAccess } from '../shared/permissions.js';
+import { canTab, fieldAccess } from '../shared/permissions.js';
 import { forbidden, sstr } from './util.js';
 
 export function assertCan(ctx, table, action) {
-  if (!can(ctx.user.role, table.stage, action)) throw forbidden(`Your role (${ctx.user.roleLabel}) cannot ${action} ${table.tab}`);
+  if (!canTab(ctx.user.role, table.stage, table.tab, action)) throw forbidden(`Your role (${ctx.user.roleLabel}) cannot ${action} ${table.tab}`);
   if (['create', 'edit', 'delete', 'approve'].includes(action) && ctx.user.scope.mode === 'all-readonly') throw forbidden('Your account is read-only');
 }
 export const canDo = (ctx, table, action) => {

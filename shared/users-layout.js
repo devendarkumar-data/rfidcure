@@ -7,7 +7,7 @@
 import { roleKey, ROLE_LABELS } from './permissions.js';
 
 export const USERS_SHEET_HEADERS = ['Groups', 'User Name', 'Phone', 'Email', 'Password', 'Branch', 'Status', 'Last Login', 'Warehouse'];
-const ORDER = ['super_admin', 'admin', 'purchase_manager', 'approver', 'warehouse_manager', 'purchase', 'warehouse_operator', 'mother_warehouse_operator', 'sales', 'finance', 'auditor', 'data_entry'];
+const ORDER = ['super_admin', 'admin', 'all', 'purchase_manager', 'approver', 'warehouse_manager', 'purchase', 'warehouse_operator', 'mother_warehouse_operator', 'sales', 'finance', 'auditor', 'data_entry'];
 
 export function roleFromGroups(groups) {
   const keys = String(groups ?? '').split(/[,;|/]+/).map((t) => roleKey(t)).filter(Boolean);
@@ -48,6 +48,7 @@ export const expectToSheet = (e) => (e && e.col === 'User ID' ? { ...e, col: 'Em
 export const ROLE_INFO = [
   ['Super Admin', 'Everything, including Billing and User management', 'All'],
   ['Admin', 'Everything except Billing, with User management', 'All'],
+  ['All', 'View and edit every operational and master tab on every warehouse; no User, Access Control or Security administration', 'All'],
   ['Purchase Manager', 'Purchase Intent and PO with approve, GRN view, Requisition view, Reports', 'All'],
   ['Approver', 'Approve or reject Intents, POs and Requisitions, Reports', 'All'],
   ['Purchase Team', 'Intent view, create and edit POs, GRN, Requisition view, Reports', 'Own warehouse only'],

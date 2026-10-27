@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
+import { api, getViewWarehouse, setViewWarehouse } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import Icon from '../components/Icon.jsx';
 import { buildNav } from '../nav.js';
@@ -10,6 +11,20 @@ const isActive = (loc, to) => {
   if (loc.pathname !== p) return false;
   return s ? loc.search === `?${s}` || decodeURIComponent(loc.search) === `?${decodeURIComponent(s)}` : true;
 };
+
+// Administrators with all-warehouse access can look at one warehouse at a time.
+function WarehouseSwitch({ user }) {
+  const [list, setList] = useState([]);
+  useEffect(() => { api.get('/api/lookup', { field: 'Warehouse' }).then((r) => setList((r.options || []).map((o) => o.value))).catch(() => {}); }, []);
+  const cur = getViewWarehouse();
+  const change = (e) => { setViewWarehouse(e.target.value); window.location.reload(); };
+  return (
+    <label className="flex items-center gap-1.5"><span>View warehouse:</span>
+      <select aria-label="View warehouse" className="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs text-slate-700" value={cur} onChange={change}>
+        <option value="">All warehouses</option>{list.map((w) => <option key={w} value={w}>{w}</option>)}
+      </select></label>
+  );
+}
 
 function scopeBadge(user) {
   const s = user.scope;
@@ -109,7 +124,7 @@ export default function AppLayout() {
           </div>
         </header>
         <div className="hidden print:!hidden items-center justify-end gap-2 bg-slate-50 px-5 py-1 text-xs text-slate-500 sm:flex">
-          <span>Warehouse access:</span><span className="rounded bg-brand-50 px-2 py-0.5 text-brand-700">{scopeBadge(user)}</span>
+          {user.canSwitchWarehouse ? <WarehouseSwitch user={user} /> : <><span>Warehouse access:</span><span className="rounded bg-brand-50 px-2 py-0.5 text-brand-700">{scopeBadge(user)}</span></>}
         </div>
         <main className="flex-1 overflow-y-auto p-3 sm:p-5 print:overflow-visible print:p-0"><Outlet /></main>
       </div>

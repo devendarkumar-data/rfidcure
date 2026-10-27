@@ -2,7 +2,7 @@
 import ExcelJS from 'exceljs';
 import { Readable } from 'node:stream';
 import { HEADERS_BY_TAB } from '../shared/registry.js';
-import { can, fieldAccess } from '../shared/permissions.js';
+import { can, fieldAccess, actionsForTab } from '../shared/permissions.js';
 import { audit } from './audit.js';
 import { inScope } from './access.js';
 import { warehouseList } from './crud.js';
@@ -14,7 +14,7 @@ export const OPENING_HEADERS = HEADERS_BY_TAB[TAB];
 const daysBetween = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000);
 
 function needView(ctx) {
-  if (!can(ctx.user.role, 'reports', 'view')) throw forbidden('Your role cannot view stock');
+  if (!actionsForTab(ctx.user.role, 'reports', 'Opening Stock').includes('view')) throw forbidden('Your role cannot view stock');
   const miss = ['Item Code', 'Batch Number', 'Quantity'].filter((f) => fieldAccess(ctx.user.role, f) === 'n');
   if (miss.length) throw forbidden('Field-level restrictions hide stock quantities, items or batches from your role');
 }
@@ -22,7 +22,7 @@ function needView(ctx) {
 // ---- view ---------------------------------------------------------------------------------------------------------
 export async function listOpening(ctx, q = {}) {
   needView(ctx);
-  if (q.export && !can(ctx.user.role, 'reports', 'export')) throw forbidden();
+  if (q.export && !actionsForTab(ctx.user.role, 'reports', 'Opening Stock').includes('export')) throw forbidden();
   const asOn = normDate(q.asOn) || today();
   const [{ rows: opening }, { rows: ledger }] = await Promise.all([ctx.store.read(TAB), ctx.store.read('Stock Ledger')]);
   // movement posted after go-live, up to the chosen date
@@ -70,7 +70,7 @@ export async function listOpening(ctx, q = {}) {
   const pageSize = Math.min(200, Math.max(1, parseInt(q.pageSize, 10) || 25));
   const pages = Math.max(1, Math.ceil(list.length / pageSize));
   const page = Math.min(pages, Math.max(1, parseInt(q.page, 10) || 1));
-  return { rows: list.slice((page - 1) * pageSize, page * pageSize), total: list.length, page, pageSize, pages, totals, asOn, facets, canImport: can(ctx.user.role, 'admin', 'create') && ctx.user.scope.mode !== 'all-readonly' };
+  return { rows: list.slice((page - 1) * pageSize, page * pageSize), total: list.length, page, pageSize, pages, totals, asOn, facets, canImport: actionsForTab(ctx.user.role, 'admin', 'Opening Stock').includes('create') && ctx.user.scope.mode !== 'all-readonly' };
 }
 
 // ---- import -------------------------------------------------------------------------------------------------------
@@ -148,7 +148,7 @@ async function validateGrid(ctx, grid, mode) {
 }
 
 export async function importOpening(ctx, body) {
-  if (!can(ctx.user.role, 'admin', 'create') || ctx.user.scope.mode === 'all-readonly') throw forbidden('Only an Administrator can import opening stock');
+  if (!actionsForTab(ctx.user.role, 'admin', 'Opening Stock').includes('create') || ctx.user.scope.mode === 'all-readonly') throw forbidden('Your role cannot import opening stock');
   const r = await checkImport(ctx, body);
   const preview = { mode: r.mode, counts: r.counts, errors: r.errors, warnings: r.warnings.slice(0, 100), sample: r.rows.slice(0, 10) };
   if (!body?.confirm) return { ...preview, committed: false };
@@ -166,7 +166,7 @@ export async function importOpening(ctx, body) {
 
 // ---- add one row / edit one row --------------------------------------------------------------------------------------
 const needAdmin = (ctx, action) => {
-  if (!can(ctx.user.role, 'admin', action) || ctx.user.scope.mode === 'all-readonly') throw forbidden(`Only an Administrator can ${action} opening stock`);
+  if (!actionsForTab(ctx.user.role, 'admin', 'Opening Stock').includes(action) || ctx.user.scope.mode === 'all-readonly') throw forbidden(`Your role cannot ${action} opening stock`);
 };
 
 export async function addOpeningRow(ctx, body) {
