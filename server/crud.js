@@ -154,7 +154,7 @@ export async function nextDocNo(store, table, date) {
   for (const r of rows) { const id = sstr(r[table.idCol]); if (id.startsWith(prefix)) max = Math.max(max, parseInt(id.slice(prefix.length), 10) || 0); }
   return `${prefix}${String(max + 1).padStart(5, '0')}`;
 }
-async function nextMasterId(store, table) {
+export async function nextMasterId(store, table) {
   const abbr = table.tab.replace(/ Master$/i, '').split(/\s+/).filter(Boolean).map((w) => w[0].toUpperCase()).join('').slice(0, 4) || 'M';
   const { rows } = await store.read(table.tab, { fresh: true });
   let max = 0;

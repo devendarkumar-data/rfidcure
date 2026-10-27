@@ -23,7 +23,7 @@ export function buildNav(meta) {
   add('opening', 'Opening Stock', 'box', [
     it(has(tables['opening-stock'], 'view'), '/inventory/opening-stock', 'Opening Stock Register'),
     it(f.stock && !!tables['opening-stock'] && f.users, '/inventory/opening-stock?import=1', 'Import Opening Stock'),
-    it(f.reports && has(tables['opening-stock'], 'view'), '/reports/opening-stock-register', 'Export Opening Stock'),
+    it(f.reports && has(tables['opening-stock'], 'view'), '/inventory/opening-stock?export=1', 'Export Opening Stock'),
   ]);
 
   const pi = tables['purchase-indent']; const po = tables['purchase-order-domestic'];

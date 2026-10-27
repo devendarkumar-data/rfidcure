@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { api } from '../api.js';
+import { api, download } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import Card from '../components/Card.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
@@ -13,6 +13,7 @@ import Spinner from '../components/Spinner.jsx';
 import { useToast } from '../components/Toast.jsx';
 import NotFound from './NotFound.jsx';
 import RecordForm from './RecordForm.jsx';
+import TableImportDialog from '../components/TableImportDialog.jsx';
 
 const clean = (s) => s.replace(/\s{2,}/g, ' ');
 
@@ -83,7 +84,12 @@ export default function TablePage() {
   return (
     <>
       <PageHeader title={clean(table.title)} subtitle={table.posts ? 'Saving a document here posts to the stock ledger.' : readonlyKinds.includes(table.kind) ? 'Read-only register' : undefined}
-        actions={canCreate && <button className="btn btn-primary" onClick={() => setDlg({ type: 'create' })}><Icon name="plus" className="h-4 w-4" /> New</button>} />
+        actions={<>
+          {table.kind === 'master' && acts.includes('export') && <button className="btn" onClick={() => download(`/api/t/${slug}`, { export: 'xlsx' }, `${slug}.xlsx`).catch((e) => toast.error(e.message))}><Icon name="download" className="h-4 w-4" /> Export Excel</button>}
+          {table.kind === 'master' && acts.includes('export') && <button className="btn" onClick={() => download(`/api/t/${slug}`, { export: 'csv' }, `${slug}.csv`).catch((e) => toast.error(e.message))}><Icon name="download" className="h-4 w-4" /> Export CSV</button>}
+          {table.kind === 'master' && canCreate && <button className="btn" onClick={() => setDlg({ type: 'import' })}>Import</button>}
+          {canCreate && <button className="btn btn-primary" onClick={() => setDlg({ type: 'create' })}><Icon name="plus" className="h-4 w-4" /> New</button>}
+        </>} />
       {hasDate && (
         <FilterBar onReset={() => setRange({ from: '', to: '' })}>
           <FilterItem label="From"><input type="date" className="input" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></FilterItem>
@@ -93,6 +99,7 @@ export default function TablePage() {
       <DataTable endpoint={`/api/t/${slug}`} columns={columns} params={range} rowActions={rowActions} exportable={acts.includes('export')} exportName={table.slug}
         refreshKey={refresh} rowKey={(r) => r[table.idCol] ?? r.__row ?? JSON.stringify(r)} onRowClick={table.idCol ? (r) => openRecord(r, 'view') : undefined} />
 
+      {dlg?.type === 'import' && <TableImportDialog slug={slug} title={clean(table.title)} columns={table.fields.filter((f) => !f.readonly && f.type !== 'auto' && f.type !== 'calc' && f.name !== table.idCol).map((f) => f.name)} onClose={() => setDlg(null)} onDone={() => { setDlg(null); setRefresh((n) => n + 1); }} />}
       {dlg?.type === 'create' && <Modal title={`New — ${clean(table.title)}`} wide={table.hasLines} onClose={() => setDlg(null)}><RecordForm table={table} mode="create" onSubmit={create} onCancel={() => setDlg(null)} /></Modal>}
       {dlg?.type === 'edit' && <Modal title={`Edit — ${dlg.row[table.idCol]}`} wide={table.hasLines} onClose={() => setDlg(null)}><RecordForm table={table} mode="edit" initial={{ header: dlg.data.record, lines: dlg.data.lines }} onSubmit={update} onCancel={() => setDlg(null)} /></Modal>}
       {dlg?.type === 'view' && (

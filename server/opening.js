@@ -74,7 +74,7 @@ export async function listOpening(ctx, q = {}) {
 }
 
 // ---- import -------------------------------------------------------------------------------------------------------
-function parseCsv(text) {
+export function parseCsv(text) {
   const rows = []; let row = [], cur = '', inQ = false;
   const s = text.replace(/^﻿/, '');
   for (let i = 0; i < s.length; i++) {
@@ -90,7 +90,7 @@ function parseCsv(text) {
 }
 const cellVal = (v) => (v instanceof Date ? v.toISOString().slice(0, 10) : v && typeof v === 'object' ? (v.result ?? v.text ?? (Array.isArray(v.richText) ? v.richText.map((x) => x.text).join('') : '')) : v ?? '');
 
-async function readFile(name, b64) {
+export async function readFile(name, b64, sheetName = TAB) {
   if (!b64 || typeof b64 !== 'string') throw bad('No file received');
   const buf = Buffer.from(b64, 'base64');
   if (!buf.length) throw bad('The file is empty');
@@ -99,7 +99,7 @@ async function readFile(name, b64) {
   if (!/\.xlsx$/i.test(name || '')) throw bad('Upload an .xlsx or .csv file');
   const wb = new ExcelJS.Workbook();
   try { await wb.xlsx.read(Readable.from(buf)); } catch { throw bad('Could not read the Excel file. Save it as .xlsx and try again.'); }
-  const ws = wb.getWorksheet(TAB) || wb.worksheets[0];
+  const ws = wb.getWorksheet(sheetName) || wb.worksheets[0];
   if (!ws) throw bad('The workbook has no sheets');
   const out = [];
   ws.eachRow({ includeEmpty: false }, (r) => out.push(r.values.slice(1).map(cellVal)));

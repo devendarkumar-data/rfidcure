@@ -36,14 +36,14 @@ export const Back = ({ to, children }) => <Link to={to} className="mb-1 inline-b
 export const KV = ({ k, children }) => <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{k}</dt><dd className="mt-0.5 text-sm">{empty(children) || children === '' ? <span className="text-slate-300">—</span> : children}</dd></div>;
 
 // Editable line grid. cols: {k,label,type:'item'|'number'|'date'|'text'|'select'|'ro',options,num}
-export function Grid({ cols, lines, onChange, readOnly = false, minLines = 1, errors = {}, extra }) {
+export function Grid({ cols, lines, onChange, readOnly = false, minLines = 1, errors = {}, extra, describe = true }) {
   const idRef = useRef(1000);
   const set = (i, patch) => onChange(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   useEffect(() => { if (!readOnly && !lines.length && minLines) onChange([{ _k: idRef.current++ }]); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const cell = (c, l, i) => {
     const v = l[c.k] ?? '';
     if (readOnly || c.type === 'ro') return c.type === 'number' || c.num ? <span className="tabular-nums">{n2(v)}</span> : <span>{String(v) || <span className="text-slate-300">—</span>}</span>;
-    if (c.type === 'item') return <div className="min-w-[15rem]"><ItemPicker value={l['Item Code'] ? `${l['Item Code']} — ${l.Items || ''}` : ''} disabled={!!l['Intent No']} onChange={({ code, name, unit }) => set(i, { 'Item Code': code, Items: name, Description: name, Units: unit || 'NOS' })} /></div>;
+    if (c.type === 'item') return <div className="min-w-[15rem]"><ItemPicker value={l['Item Code'] ? `${l['Item Code']} — ${l.Items || ''}` : ''} disabled={!!l['Intent No']} onChange={({ code, name, unit }) => set(i, { 'Item Code': code, Items: name, ...(describe ? { Description: name } : {}), Units: unit || 'NOS' })} /></div>;
     if (c.type === 'select') return <select className="input min-w-[7rem]" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label}>{c.options.map((o) => <option key={o}>{o}</option>)}</select>;
     if (c.type === 'number') return <input className="input min-w-[6rem] text-right" type="number" min="0" step="any" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label} />;
     if (c.type === 'date') return <input className="input min-w-[9rem]" type="date" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label} />;

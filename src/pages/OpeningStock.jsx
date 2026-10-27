@@ -124,6 +124,10 @@ export default function OpeningStock() {
   const canExport = tables['opening-stock']?.actions.includes('export');
   useEffect(() => { api.get('/api/lookup', { field: 'Warehouse' }).then((r) => setWhs((r.options || []).filter((o) => o.inScope !== false))).catch(() => {}); }, []);
   const tick = useTick();
+  useEffect(() => { // menu link "Export Opening Stock"
+    if (sp.get('export') === '1' && canExport) { const n = new URLSearchParams(sp); n.delete('export'); setSp(n, { replace: true }); download('/api/stock/opening', { ...f, export: 'xlsx' }, 'opening-stock.xlsx').catch((e) => toast.error(e.message)); }
+  }, [canExport]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (sp.get('import') === '1' && info?.canImport) { setImp(true); const n = new URLSearchParams(sp); n.delete('import'); setSp(n, { replace: true }); } }, [info]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     let live = true;
     api.get('/api/stock/opening', { ...f, pageSize: 1 }).then((r) => { if (live) { setInfo(r); setFacets(r.facets); } }).catch(() => {});
@@ -139,10 +143,10 @@ export default function OpeningStock() {
     <>
       <PageHeader title="Opening Stock" subtitle="Stock loaded at go-live, by warehouse, item and batch. “Qty till date” adds all postings made after opening, up to the date you choose."
         actions={<>
-          {canExport && <button className="btn" onClick={() => download('/api/stock/opening', { ...f, export: 'xlsx' }, 'opening-stock.xlsx').catch((e) => toast.error(e.message))}><Icon name="download" className="h-4 w-4" /> Excel</button>}
-          {canExport && <button className="btn" onClick={() => download('/api/stock/opening', { ...f, export: 'csv' }, 'opening-stock.csv').catch((e) => toast.error(e.message))}><Icon name="download" className="h-4 w-4" /> CSV</button>}
+          {canExport && <button className="btn" onClick={() => download('/api/stock/opening', { ...f, export: 'xlsx' }, 'opening-stock.xlsx').catch((e) => toast.error(e.message))}><Icon name="download" className="h-4 w-4" /> Export Excel</button>}
+          {canExport && <button className="btn" onClick={() => download('/api/stock/opening', { ...f, export: 'csv' }, 'opening-stock.csv').catch((e) => toast.error(e.message))}><Icon name="download" className="h-4 w-4" /> Export CSV</button>}
           {info?.canImport && <button className="btn" onClick={() => setRowDlg({})}>+ Add opening stock</button>}
-          {info?.canImport && <button className="btn btn-primary" onClick={() => setImp(true)}>Import</button>}
+          {info?.canImport && <button className="btn btn-primary" onClick={() => setImp(true)}>Import Opening Stock</button>}
         </>} />
       <FilterBar onReset={() => setSp({}, { replace: true })}>
         <MultiSelect label="Warehouse" allLabel="All permitted" options={whs.map((w) => w.value)} value={(f.warehouse ? f.warehouse.split('|') : [])} onChange={(v) => setF({ warehouse: v.join('|') })} />

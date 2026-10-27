@@ -10,6 +10,7 @@ import * as crud from './crud.js';
 import * as admin from './admin.js';
 import * as reports from './reports.js';
 import * as wf from './workflow.js';
+import * as tableIo from './table-io.js';
 import * as opening from './opening.js';
 import * as reqs from './requisition.js';
 import * as repdefs from './report-defs.js';
@@ -160,11 +161,23 @@ export default async function handler(req, res) {
         if (req.method === 'GET') {
           if (table.kind === 'settings') return ok(await crud.getSettingsRecord(ctx, table));
           const r = await crud.listRecords(ctx, table, q);
-          if (q.export) { await audit(store, { user: ctx.user, module: table.tab, action: 'Export', remarks: `${r.total} rows` }); return send(res, 200, toCsv(r.columns.map((c) => c.name), r.rows), { ...outHeaders, 'Content-Disposition': `attachment; filename="${table.slug}.csv"` }); }
+          if (q.export) {
+            await audit(store, { user: ctx.user, module: table.tab, action: 'Export', remarks: `${r.total} rows` });
+            const names = r.columns.map((c) => c.name);
+            if (q.export === 'xlsx') return send(res, 200, await toXlsx(table.tab, names, r.rows), { ...outHeaders, 'Content-Disposition': `attachment; filename="${table.slug}.xlsx"` });
+            return send(res, 200, toCsv(names, r.rows), { ...outHeaders, 'Content-Disposition': `attachment; filename="${table.slug}.csv"` });
+          }
           return ok(r);
         }
         if (req.method === 'POST') { const b = await readBody(req); return ok(await crud.createRecord(ctx, table, b, req.headers['idempotency-key'], table.workflow === 'grn' ? wf.grnHooks(ctx) : {}), 201); }
         if (req.method === 'PUT' && table.kind === 'settings') return ok(await crud.saveSettingsRecord(ctx, table, await readBody(req)));
+      }
+      if (sub === 'import' && req.method === 'POST') return ok(await tableIo.importTable(ctx, table, await readBody(req)));
+      if (sub === 'template' && req.method === 'GET') {
+        if (table.kind !== 'master') throw new HttpError(405, 'No import template for this table');
+        const cols = tableIo.importColumns(table);
+        if (q.format === 'xlsx') return send(res, 200, await toXlsx(table.tab, cols, []), { ...outHeaders, 'Content-Disposition': `attachment; filename="${table.slug}-template.xlsx"` });
+        return send(res, 200, toCsv(cols, []), { ...outHeaders, 'Content-Disposition': `attachment; filename="${table.slug}-template.csv"` });
       }
       if (sub === 'record') {
         if (!q.id) throw bad('id is required');

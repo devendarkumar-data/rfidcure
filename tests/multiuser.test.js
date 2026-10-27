@@ -71,3 +71,22 @@ test('PO get returns supplier block and company for the print format', async (t)
   assert.equal(g.json.vendor.code, 'VE00096'); assert.equal(g.json.vendor.gstin, '24AAHFB9279M1ZU'); assert.equal(g.json.vendor.pincode, '360021');
   assert.match(g.json.company.name, /Cure/);
 });
+
+test('master import: validate, all-or-nothing, skip existing, export xlsx', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  const csv = (rows) => Buffer.from(rows.join('\n')).toString('base64');
+  const good = csv(['Sup ID,Vendor Name,Supp Contact,Address,City,GSTIN', 'VE1,ACME ORTHO,9999,Plot 1,RAJKOT,24AAAAA0000A1Z5', 'VE2,BETA MEDI,8888,Plot 2,SURAT,']);
+  const check = await sa('POST', '/api/t/vendor-master/import', { filename: 'v.csv', content: good }); assert.equal(check.status, 200, check.text);
+  assert.equal(check.json.committed, false); assert.equal(check.json.counts.rows, 2); assert.equal(check.json.counts.errors, 0);
+  const done = await sa('POST', '/api/t/vendor-master/import', { filename: 'v.csv', content: good, confirm: true }); assert.equal(done.json.committed, true, done.text);
+  const list = await sa('GET', '/api/t/vendor-master?pageSize=50'); assert.equal(list.json.rows.filter((r) => /ACME|BETA/.test(r['Vendor Name'])).length, 2);
+  // existing rows are errors unless skipExisting; nothing is written when errors exist
+  const dup = await sa('POST', '/api/t/vendor-master/import', { filename: 'v.csv', content: good, confirm: true }); assert.equal(dup.json.committed, false); assert.equal(dup.json.counts.errors, 2);
+  const skip = await sa('POST', '/api/t/vendor-master/import', { filename: 'v.csv', content: good, confirm: true, skipExisting: true }); assert.equal(skip.json.counts.skipped, 2);
+  const miss = await sa('POST', '/api/t/vendor-master/import', { filename: 'x.csv', content: csv(['Foo,Bar', '1,2']) }); assert.equal(miss.status, 400);
+  // permissions + templates + exports
+  const au = await app.as('au'); assert.equal((await au('POST', '/api/t/vendor-master/import', { filename: 'v.csv', content: good })).status, 403);
+  const xl = await sa('GET', '/api/t/vendor-master?export=xlsx'); assert.equal(xl.status, 200); assert.match(xl.headers.get('content-type'), /spreadsheetml/);
+  assert.equal((await sa('GET', '/api/t/vendor-master/template?format=xlsx')).status, 200);
+});

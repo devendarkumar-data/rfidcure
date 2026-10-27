@@ -145,3 +145,7 @@ To add a user by hand, fill a row and type a password in the **Password** column
 - **Vendor Master** gained optional columns `Address, City, Pincode, State, GSTIN, Drug Lic` (used on the PO). **Item Master** gained `UOM` (shown as Units on indents/POs; defaults to NOS). Existing sheets are upgraded automatically: the app appends the new header cells on first use and leaves all data untouched. Vendor Code on the PO is the vendor's `Sup ID`.
 - Opening Stock filters (Warehouse, Category, Brand, Expiry status = Expired / Expiry soon (≤ 90 days) / Valid / No expiry) are multi-select and combine.
 - Purchase Indent defaults the requesting warehouse to the signed-in person's warehouse, fills Units from the item, and shows live current stock at that warehouse.
+
+## Import / Export
+- **Master pages** (Item, Vendor, Warehouse, Hospital/Location, other masters): *Export Excel*, *Export CSV* and *Import* buttons. Import takes .xlsx/.csv (blank templates provided), checks every row with the same rules as the form, shows an error report, and writes nothing until the whole file is valid (option to skip rows that already exist). Master Ids are generated automatically; existing records are never changed.
+- **Opening Stock**: *Export Excel*, *Export CSV*, *Import Opening Stock* (replace or add) and *Add opening stock*; the menu links Import/Export Opening Stock open the same actions.

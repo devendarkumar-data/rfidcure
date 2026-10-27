@@ -91,7 +91,7 @@ export function ReqForm() {
         <div className="sm:col-span-4"><label className="label">Notes</label><textarea className="input min-h-[3rem]" value={hdr['Narration-Notes']} onChange={(e) => setHdr({ ...hdr, 'Narration-Notes': e.target.value })} /></div>
       </div></Card>
       <Card title="Items" className="mb-4">
-        <Grid cols={cols} lines={shown} onChange={(l) => setLines(l)} />
+        <Grid cols={cols} lines={shown} describe={false} onChange={(l) => setLines(l)} />
         {!!short.length && <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">Mother Warehouse stock is lower than the quantity asked for on {short.length} item{short.length > 1 ? 's' : ''}. The requisition can still be raised; the Mother Warehouse can dispatch part of it or raise a Purchase Indent for the shortage.</p>}
       </Card>
       <div className="flex flex-wrap justify-end gap-2"><button className="btn" disabled={busy} onClick={() => nav(-1)}>Cancel</button><button className="btn" disabled={busy} onClick={() => save(false)}>Save draft</button><button className="btn btn-primary" disabled={busy} onClick={() => save(true)}>{busy ? 'Saving…' : 'Submit for approval'}</button></div>
