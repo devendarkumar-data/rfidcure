@@ -252,3 +252,17 @@ test('GRN Operator and Entry Operator permissions', async (t) => {
   assert.equal((await e('DELETE', `/api/t/material-consumption/record?id=${encodeURIComponent(c.json.id || '')}`)).status, 403, 'no delete');
   assert.equal((await e('POST', '/api/wf/intents', { header: { Date: '2026-10-27' }, lines: [{ 'Item Code': 'A1', Quantity: 1 }], submit: false })).status, 403);
 });
+
+test('GRN can be raised against a PO that is still Pending Authorization; approval later keeps receipt status', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa'); const ad = await app.as('ad');
+  const po = await sa('POST', '/api/wf/pos', { header: { Date: '2026-10-27', 'Vendor Account': 'BOMBAY ORTHO INDUSTRIES', Location: 'MWH' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 5, Rate: 10, 'GST %': 12 }], submit: true });
+  assert.equal(po.status, 201, po.text); const id = po.json.id;
+  const open = await sa('GET', '/api/wf/pos/open'); assert.ok(open.json.rows.some((r) => r['Document No.'] === id && r.Status === 'Pending Authorization'));
+  const g = await sa('POST', '/api/t/grn-mrn', { header: { Date: '2026-10-27', 'Supplier Ref No': id }, lines: [{ 'PO Line': 1, 'Received Qty': 5, 'Rejected / Damaged Qty': 0, Batch: 'PG-1', 'Expiry Date': '2031-01-01' }] });
+  assert.equal(g.status, 201, g.text);
+  const after = await sa('GET', `/api/wf/pos/get?id=${encodeURIComponent(id)}`); assert.equal(after.json.status.Status, 'Pending Authorization', 'authorization still pending');
+  const ap = await ad('POST', `/api/wf/pos/action?id=${encodeURIComponent(id)}`, { action: 'approve' });
+  assert.equal(ap.status, 200, ap.text); assert.equal(ap.json.status.Status, 'Completed', 'fully received PO completes on authorization');
+  const list = await sa('GET', '/api/t/grn-mrn'); assert.ok(list.json.rows[0]['Supplier Ref No'] === id && list.json.rows[0]['Vendor Account']);
+});

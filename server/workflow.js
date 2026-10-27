@@ -19,7 +19,8 @@ export const PO = 'Purchase Order';
 export const IS = { DRAFT: 'Draft', PENDING: 'Pending Review', RETURNED: 'Returned for Correction', APPROVED: 'Approved', REJECTED: 'Rejected', PART: 'Partially Converted to PO', FULL: 'Fully Converted to PO', CLOSED: 'Closed' };
 export const PS = { DRAFT: 'Draft', PENDING: 'Pending Authorization', RETURNED: 'Returned for Correction', APPROVED: 'Approved', REJECTED: 'Rejected', PART: 'Partially Received', DONE: 'Completed', CLOSED: 'Closed', CANCELLED: 'Cancelled' };
 const PO_ACTIVE_FOR_INTENT = new Set([PS.DRAFT, PS.PENDING, PS.RETURNED, PS.APPROVED, PS.PART, PS.DONE, PS.CLOSED]); // Rejected / Cancelled POs release the intent quantity
-const PO_OPEN_FOR_GRN = new Set([PS.APPROVED, PS.PART]);
+// Goods can be received against a PO as soon as it is created (Pending Authorization) - authorization is not a precondition for a GRN.
+const PO_OPEN_FOR_GRN = new Set([PS.PENDING, PS.APPROVED, PS.PART]);
 const intentTable = () => TABLE_BY_TAB['Purchase Indent'];
 const poTables = () => [TABLE_BY_TAB['Purchase Order — Domestic'], TABLE_BY_TAB['Purchase Order — Import']];
 const poTableByType = (t) => (t === 'import' ? poTables()[1] : poTables()[0]);
@@ -147,6 +148,7 @@ async function refreshPoReceipt(ctx, poNo) {
     const row = rows.find((r) => r[t.idCol] === poNo); if (!row) continue;
     const st = (await statusMap(ctx.store, { fresh: true })).get(`${PO}|${poNo}`);
     if (!st || !PO_OPEN_FOR_GRN.has(st.Status)) return;
+    if (st.Status === PS.PENDING) return; // stays Pending Authorization until an authoriser decides; balances are always computed from the GRNs
     const { received } = await poReceived(ctx);
     const next = receiptStatus(poLineBalances(poNo, parseLines(row.Lines), received));
     if (next !== st.Status) await setStatus(ctx, st, { Status: next }, { event: 'Receipt', remarks: next === PS.DONE ? 'Fully received' : 'Partially received' });
@@ -366,7 +368,7 @@ function poCan(ctx, st) {
     approve: auth, reject: auth, return: auth,
     cancel: (has('edit') || has('approve')) && [PS.DRAFT, PS.RETURNED, PS.PENDING].includes(s) && (ownerOrAdmin || has('approve')),
     close: has('approve') && [PS.APPROVED, PS.PART].includes(s),
-    receive: can(ctx.user.role, 'grn', 'create') && [PS.APPROVED, PS.PART].includes(s),
+    receive: can(ctx.user.role, 'grn', 'create') && [PS.PENDING, PS.APPROVED, PS.PART].includes(s),
     print: true,
     editQuantities: auth,
   };
@@ -506,7 +508,8 @@ export async function poAction(ctx, id, body) {
         await ctx.store.updateRow(t.tab, d.row.__row, { Lines: JSON.stringify(lines) }, { col: t.idCol, val: id });
         for (const i of lines.map((l) => sstr(l['Intent No'])).filter(Boolean)) intents.add(i);
       }
-      const status = action === 'approve' ? PS.APPROVED : action === 'reject' ? PS.REJECTED : PS.RETURNED;
+      let status = action === 'approve' ? PS.APPROVED : action === 'reject' ? PS.REJECTED : PS.RETURNED;
+      if (action === 'approve') status = receiptStatus(poLineBalances(id, lines, (await poReceived(ctx)).received)); // goods may already have been received while pending
       await setStatus(ctx, d.st, { Status: status, 'Reviewed By': ctx.user.id, 'Reviewed At': t0, 'Review Remarks': remarks, ...(money || {}) }, { event: action === 'approve' ? 'Approved' : action === 'reject' ? 'Rejected' : 'Returned for correction', remarks, details: changes.length ? { authoriserChanges: changes } : '' });
     } else if (action === 'cancel') {
       need(remarks, 'Remarks are required to cancel a PO');
@@ -645,7 +648,7 @@ export function grnHooks(ctx) {
       if (!poNo) return body; // direct receipt (no PO) keeps the existing GRN behaviour
       const x = (await allPos(ctx, { fresh: true })).find((p) => p.r[p.t.idCol] === poNo);
       if (!x) throw unprocessable(`PO ${poNo} was not found`);
-      if (!PO_OPEN_FOR_GRN.has(x.s.Status)) throw unprocessable(`PO ${poNo} is "${x.s.Status}". Goods can be received only against an Approved or Partially Received PO.`);
+      if (!PO_OPEN_FOR_GRN.has(x.s.Status)) throw unprocessable(`PO ${poNo} is "${x.s.Status}". Goods can be received only against a Pending Authorization, Authorized or Partially Received PO.`);
       const dest = sstr(x.r.Destination || x.r.Location);
       const header = { ...body.header, 'Supplier Ref No': poNo, 'Vendor Account': x.r['Vendor Account'], 'Type Of Purchase': x.r['Type Of Purchase'] || body.header['Type Of Purchase'], Warehouse: dest, 'Update Stock': 'Yes' };
       if (body.header.Warehouse && sstr(body.header.Warehouse).toUpperCase() !== dest.toUpperCase()) throw unprocessable(`PO ${poNo} is destined for ${dest}; the GRN warehouse must match`);

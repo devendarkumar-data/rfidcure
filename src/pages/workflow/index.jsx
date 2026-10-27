@@ -578,13 +578,13 @@ export function GrnForm() {
   };
   return (
     <>
-      <PageHeader back={<Back to="/grn">GRN Register</Back>} title="Create GRN" subtitle="Receive goods against an approved Purchase Order. Accepted quantity is posted to stock once." />
+      <PageHeader back={<Back to="/grn">GRN Register</Back>} title="Create GRN" subtitle="Receive goods against a Purchase Order — it appears here as soon as it is created, authorization is not required. Accepted quantity is posted to stock once." />
       <ErrorBox msg={err} />
       <Card title="1. Purchase Order" className="mb-4">
-        {!pos.length ? <p className="text-sm text-slate-500">No approved Purchase Orders are waiting for receipt in your warehouses.</p> : (<>
+        {!pos.length ? <p className="text-sm text-slate-500">No Purchase Orders are waiting for receipt in your warehouses.</p> : (<>
           <input className="input mb-2 sm:max-w-sm" placeholder="Search PO or vendor…" value={q} onChange={(e) => setQ(e.target.value)} />
           <select className="input" value={po} onChange={(e) => setPo(e.target.value)} aria-label="Purchase order">
-            <option value="">— Select a PO —</option>{list.map((p) => <option key={p['Document No.']} value={p['Document No.']}>{p['Document No.']} · {p['Vendor Account']} · {p.Warehouse} · {p.Status}</option>)}
+            <option value="">— Select a PO —</option>{list.map((p) => <option key={p['Document No.']} value={p['Document No.']}>{p['Document No.']} · {p['Vendor Account']} · {p.Warehouse} · {poLabel(p.Status)}</option>)}
           </select>
           {po && !cur && <p className="mt-2 text-sm text-red-600">PO {po} is not open for receipt (it may be fully received, closed, or outside your warehouses).</p>}
         </>)}
@@ -621,7 +621,12 @@ export function GrnForm() {
 
 export function GrnRegister() {
   const nav = useNavigate(); const { tables } = useAuth(); const [range, setRange] = useState({ from: '', to: '' }); const t = tables['grn-mrn'];
-  const columns = [{ name: 'Document No.', label: 'GRN No.', render: (v) => <span className="font-medium text-brand-700">{v}</span> }, { name: 'Date' }, { name: 'Supplier Ref No', label: 'PO No.' }, { name: 'Vendor Account', label: 'Vendor' }, { name: 'Warehouse' }, { name: 'Invoice No.' }, { name: 'Invoice Value', type: 'number' }];
+  // every GRN column from the sheet (field-level access still applies), key ones first and relabelled
+  const LABEL = { 'Document No.': 'GRN No.', 'Supplier Ref No': 'PO No.', 'Vendor Account': 'Vendor' };
+  const FIRST = ['Document No.', 'Date', 'Supplier Ref No', 'Vendor Account', 'Type Of Purchase', 'Warehouse', 'Invoice No.', 'Invoice Date', 'Invoice Value'];
+  const names = (t?.fields || []).map((f) => f.name); const ordered = [...FIRST.filter((n) => names.includes(n)), ...names.filter((n) => !FIRST.includes(n) && n !== 'Lines')];
+  const columns = ordered.map((name) => ({ name, ...(LABEL[name] ? { label: LABEL[name] } : {}), ...(name === 'Document No.' ? { render: (v) => <span className="font-medium text-brand-700">{v}</span> } : {}), ...(name === 'Invoice Value' ? { type: 'number' } : {}), ...(name === 'Narration-Notes' ? { sortable: false } : {}) }));
+  const canCreate = t?.actions.includes('create');
   return (
     <>
       <PageHeader title="GRN Register" actions={t?.actions.includes('create') && <Link className="btn btn-primary" to="/grn/new">+ Create GRN</Link>} />
@@ -630,7 +635,14 @@ export function GrnRegister() {
         <FilterItem label="To"><input type="date" className="input" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></FilterItem>
       </FilterBar>
       <DataTable endpoint="/api/t/grn-mrn" columns={columns} params={range} exportable={t?.actions.includes('export')} exportName="grn" defaultSort={{ col: 'Date', dir: 'desc' }}
-        rowKey={(r) => r['Document No.']} onRowClick={(r) => nav(`/grn/${encodeURIComponent(r['Document No.'])}`)} />
+        rowKey={(r) => r['Document No.']} onRowClick={(r) => nav(`/grn/${encodeURIComponent(r['Document No.'])}`)}
+        rowActions={(r) => (
+          <div className="flex justify-end gap-1">
+            <Link className="btn btn-sm" to={`/grn/${encodeURIComponent(r['Document No.'])}`}>View</Link>
+            {r['Supplier Ref No'] && <Link className="btn btn-sm" to={`/purchasing/po/${encodeURIComponent(r['Supplier Ref No'])}`}>PO</Link>}
+            {canCreate && r['Supplier Ref No'] && <Link className="btn btn-sm btn-primary" title="Receive more against the same PO (only if it still has a balance)" to={`/grn/new?po=${encodeURIComponent(r['Supplier Ref No'])}`}>Receive more</Link>}
+          </div>
+        )} />
     </>
   );
 }
@@ -645,8 +657,7 @@ export function GrnDetail() {
     <>
       <PageHeader back={<Back to="/grn">GRN Register</Back>} title={`GRN ${id}`} actions={h['Supplier Ref No'] && <Link className="btn" to={`/purchasing/po/${encodeURIComponent(h['Supplier Ref No'])}`}>View PO {h['Supplier Ref No']}</Link>} />
       <Card title="Header" className="mb-4"><dl className="grid gap-4 sm:grid-cols-4">
-        <KV k="Date">{h.Date}</KV><KV k="PO No.">{h['Supplier Ref No']}</KV><KV k="Vendor">{h['Vendor Account']}</KV><KV k="Warehouse">{h.Warehouse}</KV>
-        <KV k="Invoice no.">{h['Invoice No.']}</KV><KV k="Invoice date">{h['Invoice Date']}</KV><KV k="Invoice value">{h['Invoice Value']}</KV><KV k="Notes">{h['Narration-Notes']}</KV>
+        {Object.entries(h).filter(([k]) => k !== 'Lines' && k !== '__row').map(([k, v]) => <KV key={k} k={k === 'Supplier Ref No' ? 'PO No.' : k === 'Vendor Account' ? 'Vendor' : k}>{String(v ?? '')}</KV>)}
       </dl></Card>
       <Card title="Items" pad={false}><div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-100">
         <thead><tr>{['#', 'Item', 'PO line', 'Ordered', 'Received', 'Rejected', 'Accepted', 'Batch', 'Expiry'].map((x) => <th key={x} className="th">{x}</th>)}</tr></thead>
