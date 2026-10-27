@@ -21,7 +21,7 @@ export default function Field({ field, value, onChange, required, disabled, erro
   } else if (field.lookup) {
     control = <Combobox id={id} field={field.lookup} value={v} disabled={ro} onChange={(val) => onChange(val)} extraParams={extraParams} allowFree />;
   } else if (field.type === 'textarea') {
-    control = <textarea id={id} className="input min-h-[4.5rem]" value={v} disabled={ro} maxLength={5000} onChange={(e) => onChange(e.target.value)} />;
+    control = <textarea id={id} className="input min-h-[4.5rem] [.compact_&]:min-h-0 [.compact_&]:h-9" value={v} disabled={ro} maxLength={5000} onChange={(e) => onChange(e.target.value)} />;
   } else if (field.type === 'number') {
     control = <input id={id} className="input" type="number" inputMode="decimal" min="0" step="any" value={v} disabled={ro} onChange={(e) => onChange(e.target.value === '' ? '' : e.target.value)} />;
   } else if (field.type === 'date') {
@@ -30,7 +30,7 @@ export default function Field({ field, value, onChange, required, disabled, erro
     control = <input id={id} className="input" type="text" value={v} disabled={ro} maxLength={500} onChange={(e) => onChange(e.target.value)} />;
   }
   return (
-    <div className={field.type === 'textarea' ? 'sm:col-span-2' : ''}>
+    <div className={field.type === 'textarea' ? 'sm:col-span-2 [.compact_&]:col-span-2' : ''}>
       <label htmlFor={id} className="label">{field.name}{required && <span className="text-red-600"> *</span>}</label>
       {control}
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
