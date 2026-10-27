@@ -210,6 +210,8 @@ export function IntentRegister() {
         rowActions={(r) => (
           <div className="flex justify-end gap-1">
             <Link className="btn btn-sm" to={`/purchase-intent/${encodeURIComponent(r['Document No.'])}`}>{r.actions.approve ? 'Review' : 'View'}</Link>
+            {r.actions.approve && <button className="btn btn-sm btn-primary" title="Approve the full requested quantity" onClick={(e) => { e.stopPropagation(); act(r['Document No.'], 'approve').catch(() => {}); }}>Approve</button>}
+            {r.actions.reject && <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); setDlg(<RemarksDialog title={`Reject intent ${r['Document No.']}`} required danger confirmLabel="Reject" onConfirm={(rm) => act(r['Document No.'], 'reject', rm).then(() => setDlg(null)).catch(() => {})} onCancel={() => setDlg(null)} />); }}>Reject</button>}
             {r.actions.edit && <Link className="btn btn-sm" to={`/purchase-intent/new?edit=${encodeURIComponent(r['Document No.'])}`}>Edit</Link>}
             {r.actions.submit && <button className="btn btn-sm" onClick={() => act(r['Document No.'], 'submit').catch(() => {})}>Submit</button>}
             {r.actions.convert && poCreate && <Link className="btn btn-sm btn-primary" to={`/purchasing/po/new?intent=${encodeURIComponent(r['Document No.'])}`}>Create PO</Link>}
@@ -437,6 +439,8 @@ export function PoRegister() {
   const f = { view, status: sp.get('status') || '', from: sp.get('from') || '', to: sp.get('to') || '', vendor: sp.get('vendor') || '', intent: sp.get('intent') || '', type: sp.get('type') || '' };
   const setF = (patch) => { const n = { ...f, ...patch }; setSp(Object.fromEntries(Object.entries(n).filter(([, v]) => v)), { replace: true }); };
   const t = tables['purchase-order-domestic'];
+  const toast = useToast(); const [rk, setRk] = useState(0); const [dlg, setDlg] = useState(null);
+  const act = async (id, action, remarks) => { try { await api.post(`/api/wf/pos/action?id=${encodeURIComponent(id)}`, { action, remarks }); toast.success(`PO ${id}: ${action === 'approve' ? 'authorized' : 'rejected'}`); setRk((n) => n + 1); } catch (e) { toast.error(e.message); throw e; } };
   const columns = [
     { name: 'Document No.', label: 'PO No.', render: (v) => <span className="font-medium text-brand-700">{v}</span> }, { name: 'Date' }, { name: 'PO Type', sortable: false }, { name: 'Vendor Account', label: 'Vendor' },
     { name: 'Source Purchase Intent', label: 'Intent', sortable: false }, { name: 'Item Summary', sortable: false }, { name: 'Total Quantity', label: 'Qty', type: 'number', sortable: false },
@@ -455,14 +459,17 @@ export function PoRegister() {
         <FilterItem label="Intent no."><input className="input" value={f.intent} onChange={(e) => setF({ intent: e.target.value })} /></FilterItem>
         <FilterItem label="Type"><select className="input" value={f.type} onChange={(e) => setF({ type: e.target.value })}><option value="">All</option><option value="domestic">Domestic</option><option value="import">Import</option></select></FilterItem>
       </FilterBar>
-      <DataTable key={view} endpoint="/api/wf/pos" columns={columns} params={f} exportable exportName={`purchase-orders-${view}`} searchPlaceholder="Search PO, vendor, item, intent…" defaultSort={{ col: 'Date', dir: 'desc' }}
+      <DataTable key={view} endpoint="/api/wf/pos" columns={columns} params={f} refreshKey={rk} exportable exportName={`purchase-orders-${view}`} searchPlaceholder="Search PO, vendor, item, intent…" defaultSort={{ col: 'Date', dir: 'desc' }}
         rowKey={(r) => r['Document No.']} onRowClick={(r) => nav(`/purchasing/po/${encodeURIComponent(r['Document No.'])}`)}
         rowActions={(r) => (
           <div className="flex justify-end gap-1">
             <Link className="btn btn-sm" to={`/purchasing/po/${encodeURIComponent(r['Document No.'])}`}>{r.actions.approve ? 'Authorize' : 'View'}</Link>
+            {r.actions.approve && <button className="btn btn-sm btn-primary" title="Authorize the PO as raised" onClick={(e) => { e.stopPropagation(); act(r['Document No.'], 'approve').catch(() => {}); }}>Approve</button>}
+            {r.actions.reject && <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); setDlg(<RemarksDialog title={`Reject PO ${r['Document No.']}`} required danger confirmLabel="Reject" onConfirm={(rm) => act(r['Document No.'], 'reject', rm).then(() => setDlg(null)).catch(() => {})} onCancel={() => setDlg(null)} />); }}>Reject</button>}
             {r.actions.receive && <Link className="btn btn-sm btn-primary" to={`/grn/new?po=${encodeURIComponent(r['Document No.'])}`}>Receive</Link>}
           </div>
         )} />
+      {dlg}
     </>
   );
 }
