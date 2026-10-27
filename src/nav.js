@@ -20,11 +20,7 @@ export function buildNav(meta) {
   add('masters', 'Masters', 'db', [mast('item-master', 'Item Master'), mast('vendor-master', 'Vendor Master'), mast('warehouse-master', 'Warehouse Master'), mast('customer-hospital-master', 'Hospital / Location Master'),
     ...m03.map((t) => ({ to: `/t/${t.slug}`, label: t.title.replace(/\s{2,}/g, ' ') }))]);
 
-  add('opening', 'Opening Stock', 'box', [
-    it(has(tables['opening-stock'], 'view'), '/inventory/opening-stock', 'Opening Stock Register'),
-    it(f.stock && !!tables['opening-stock'] && f.users, '/inventory/opening-stock?import=1', 'Import Opening Stock'),
-    it(f.reports && has(tables['opening-stock'], 'view'), '/inventory/opening-stock?export=1', 'Export Opening Stock'),
-  ]);
+  if (has(tables['opening-stock'], 'view')) sections.push({ key: 'opening', label: 'Opening Stock', icon: 'box', to: '/inventory/opening-stock', items: [] });
 
   const pi = tables['purchase-indent']; const po = tables['purchase-order-domestic'];
   add('purchasing', 'Purchasing', 'cart', [
