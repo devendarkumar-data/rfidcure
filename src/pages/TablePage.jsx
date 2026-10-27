@@ -43,7 +43,7 @@ export default function TablePage() {
 
   const columns = useMemo(() => {
     if (!table) return [];
-    const cols = table.fields.filter((f) => f.type !== 'textarea').slice(0, 9).map((f) => ({ name: f.name, type: f.type === 'number' ? 'number' : 'text' }));
+    const cols = table.fields.filter((f) => f.type !== 'textarea').slice(0, /imprest/i.test(table.slug) ? 60 : 9).map((f) => ({ name: f.name, type: f.type === 'number' ? 'number' : 'text' }));
     if (table.hasLines) cols.push({ name: '__lines', label: 'Lines', type: 'number', sortable: false });
     return cols;
   }, [table]);
