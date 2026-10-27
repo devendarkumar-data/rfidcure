@@ -35,6 +35,10 @@ export const ROLE_STAGE_ACTIONS = {
   sales: { dispatch: W, billing: W, reports: R },
   finance: { billing: W, reports: R },
   auditor: { reports: R },
+  // GRN Operator: creates / submits GRN only; everything else is view-only (no edit / delete of GRN either).
+  grn_operator: { intent: R, po: R, grn: ['view', 'create', 'export'], transfer: R, imprest: R, consumption: R, dispatch: R, requisition: R, reports: R, admin: R },
+  // Entry Operator: adds / edits Imprest In, Imprest Out and Consumption; views GRN; everything else is view-only.
+  entry_operator: { intent: R, po: R, grn: R, transfer: R, imprest: W, consumption: W, dispatch: R, requisition: R, reports: R, admin: R },
   // 'All': every warehouse, view + edit on all operational and master tabs. User/security administration stays with Admin / Super Admin.
   all: { intent: [...W, 'delete'], po: [...W, 'delete'], grn: ALL, transfer: ALL, imprest: ALL, consumption: ALL, dispatch: ALL, billing: ALL, requisition: ALL, reports: ALL, admin: WA },
   data_entry: { grn: ['view', 'create'] },                                                                   // Reports: "-"
@@ -43,14 +47,14 @@ export const ROLE_STAGE_ACTIONS = {
 export const ROLE_LABELS = {
   super_admin: 'Super Admin', admin: 'Admin', purchase_manager: 'Purchase Manager', mother_warehouse_operator: 'Mother Warehouse Operator', warehouse_operator: 'Warehouse Operator',
   approver: 'Approver', warehouse_manager: 'Warehouse Manager', purchase: 'Purchase Team',
-  sales: 'Sales Team', finance: 'Finance Team', auditor: 'Auditor', data_entry: 'Data Entry Operator', all: 'All',
+  sales: 'Sales Team', finance: 'Finance Team', auditor: 'Auditor', data_entry: 'Data Entry Operator', all: 'All', grn_operator: 'GRN Operator', entry_operator: 'Entry Operator',
 };
 
 // Warehouse-wise access. all = every warehouse, read+write (as far as the stage allows).
 // all-readonly = every warehouse but never write (Auditor "View Only"). assigned = only warehouses listed in Users.Branch.
 export const ROLE_SCOPE = {
   super_admin: 'all', admin: 'all', all: 'all', finance: 'all', auditor: 'all-readonly', purchase_manager: 'all', approver: 'all', mother_warehouse_operator: 'assigned', warehouse_operator: 'assigned',
-  warehouse_manager: 'assigned', purchase: 'assigned', sales: 'assigned', data_entry: 'assigned',
+  warehouse_manager: 'assigned', purchase: 'assigned', sales: 'assigned', data_entry: 'assigned', grn_operator: 'assigned', entry_operator: 'assigned',
 };
 
 // Field-wise control. Groups = headings of the matrix. w = read+write, r = read only, n = hidden.
@@ -59,6 +63,8 @@ export const ROLE_SCOPE = {
 const w = 'w', r = 'r', n = 'n';
 export const FIELD_GROUPS = ['item', 'batch', 'expiry', 'quantity', 'customer', 'tax', 'status'];
 export const ROLE_FIELD_ACCESS = {
+  grn_operator:      { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: n, status: w },
+  entry_operator:    { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: n, status: w },
   all:               { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   super_admin:       { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   admin:             { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
@@ -90,6 +96,8 @@ export function roleKey(label) {
   const s = String(label || '').toLowerCase().replace(/[^a-z]+/g, ' ').trim();
   if (!s) return null;
   if (s === 'all') return 'all';
+  if (s.startsWith('grn operator')) return 'grn_operator';
+  if (s.startsWith('entry operator')) return 'entry_operator';
   if (s.startsWith('super')) return 'super_admin';
   if (s.startsWith('admin')) return 'admin';
   if (s.startsWith('purchase manager')) return 'purchase_manager';
@@ -113,7 +121,8 @@ export const ACCESS_TAB = 'Access Control';
 // Workflow code checks permissions per stage; these tabs stand in for their stage.
 export const STAGE_REP = { intent: 'Purchase Indent', po: 'Purchase Order — Domestic', grn: 'GRN  MRN', transfer: 'Stock Transfer', imprest: 'Imprest Out — New', consumption: 'Material Consumption', requisition: 'Purchase Requisition', admin: 'Users' };
 // Built-in defaults: the 'All' group does not manage users or security unless the matrix says so.
-const DEFAULT_NONE = { all: new Set(['Users', ACCESS_TAB, 'Security', 'Backup', 'Configuration', 'Audit Logs']) };
+const SENSITIVE = ['Users', ACCESS_TAB, 'Security', 'Backup', 'Configuration', 'Audit Logs'];
+const DEFAULT_NONE = { all: new Set(SENSITIVE), grn_operator: new Set([...SENSITIVE, 'Login Sessions', 'Activity Log']), entry_operator: new Set([...SENSITIVE, 'Login Sessions', 'Activity Log']) };
 let MATRIX = {};
 export const setAccessMatrix = (m) => { MATRIX = m || {}; };
 export const explicitLevel = (role, tab) => MATRIX[role]?.[tab] || null;

@@ -218,3 +218,37 @@ test('only Approver, Admin and Super Admin approve/reject Indents and POs', asyn
   assert.equal((await wm('POST', `/api/wf/pos/action?id=${pid}`, { action: 'approve' })).status, 403, 'creator role cannot authorise');
   assert.equal((await ad('POST', `/api/wf/pos/action?id=${pid}`, { action: 'approve' })).status, 200, 'Admin can authorise');
 });
+
+test('GRN Operator and Entry Operator permissions', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const pw = 'Op@Strong2026x';
+  await app.store.append('Users', [
+    { 'User ID': 'grnop', 'User Name': 'grnop', Role: 'GRN Operator', Branch: 'MWH', Status: 'Active', Password: pw },
+    { 'User ID': 'entop', 'User Name': 'entop', Role: 'Entry Operator', Branch: 'MWH', Status: 'Active', Password: pw },
+  ]);
+  await app.store.append('Warehouse Master', [{ 'Master Id': 'W-1', 'Warehouse Name': 'MAX HOSPITAL', 'Warehouse Type': 'Hospital' }]);
+  const g = await app.as('grnop', pw); const e = await app.as('entop', pw); const sa = await app.as('sa');
+  // GRN Operator: creates GRN, cannot edit it, view-only elsewhere
+  const made = await g('POST', '/api/t/grn-mrn', grn('MWH', [{ 'Item Code': 'A1', Quantity: 2, Rate: 10, Batch: 'GO-1', 'Expiry Date': '2031-01-01' }]));
+  assert.equal(made.status, 201, made.text);
+  const gid = made.json.id || made.json['Document No.'];
+  assert.equal((await g('PUT', `/api/t/grn-mrn/record?id=${encodeURIComponent(gid)}`, { header: { 'Narration-Notes': 'x' } })).status, 403, 'GRN edit restricted');
+  assert.equal((await g('POST', '/api/t/material-consumption', { header: { Warehouse: 'MWH' }, lines: [{ 'Item Code': 'A1', Quantity: 1, Batch: 'B-LATE' }] })).status, 403);
+  assert.equal((await g('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-27', 'To Warehouse': 'MAX HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 1, Batch: 'B-LATE' }] })).status, 403);
+  assert.equal((await g('POST', '/api/wf/intents', { header: { Date: '2026-10-27' }, lines: [{ 'Item Code': 'A1', Quantity: 1 }], submit: false })).status, 403);
+  assert.equal((await g('GET', '/api/wf/pos?view=pending-auth')).status, 200, 'can view pending / authorized POs');
+  assert.equal((await g('GET', '/api/admin/users')).status, 403);
+  assert.equal((await g('GET', '/api/stock/balances')).status, 200, 'opening stock / inventory visible');
+  // Entry Operator: no GRN create, can view GRN; Imprest and Consumption add; consumption deducts stock
+  assert.equal((await e('GET', '/api/t/grn-mrn')).status, 200);
+  assert.equal((await e('POST', '/api/t/grn-mrn', grn('MWH', [{ 'Item Code': 'A1', Quantity: 1, Rate: 1, Batch: 'EO', 'Expiry Date': '2031-01-01' }]))).status, 403);
+  const before = (await sa('GET', '/api/stock/balances?pageSize=200&warehouse=MWH')).json.rows.filter((r) => r['Item Code'] === 'A1').reduce((s, r) => s + r.Quantity, 0);
+  const c = await e('POST', '/api/t/material-consumption', { header: { Warehouse: 'MWH' }, lines: [{ 'Item Code': 'A1', Quantity: 3, Batch: 'B-LATE' }] });
+  assert.equal(c.status, 201, c.text);
+  const after = (await sa('GET', '/api/stock/balances?pageSize=200&warehouse=MWH')).json.rows.filter((r) => r['Item Code'] === 'A1').reduce((s, r) => s + r.Quantity, 0);
+  assert.equal(before - after, 3, 'consumption deducted from MWH');
+  { const io = await e('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-27', 'To Warehouse': 'MAX HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 1, Batch: 'B-LATE' }] }); assert.equal(io.status, 201, io.text); }
+  assert.equal((await e('POST', '/api/t/imprest-in-new', { header: { Date: '2026-10-27', 'To Warehouse': 'MWH' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 1, Batch: 'B-LATE', 'Expiry Date': '2030-01-01' }] })).status < 500, true);
+  assert.equal((await e('DELETE', `/api/t/material-consumption/record?id=${encodeURIComponent(c.json.id || '')}`)).status, 403, 'no delete');
+  assert.equal((await e('POST', '/api/wf/intents', { header: { Date: '2026-10-27' }, lines: [{ 'Item Code': 'A1', Quantity: 1 }], submit: false })).status, 403);
+});

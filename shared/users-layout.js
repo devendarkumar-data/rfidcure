@@ -7,7 +7,7 @@
 import { roleKey, ROLE_LABELS } from './permissions.js';
 
 export const USERS_SHEET_HEADERS = ['Groups', 'User Name', 'Phone', 'Email', 'Password', 'Branch', 'Status', 'Last Login', 'Warehouse'];
-const ORDER = ['super_admin', 'admin', 'all', 'purchase_manager', 'approver', 'warehouse_manager', 'purchase', 'warehouse_operator', 'mother_warehouse_operator', 'sales', 'finance', 'auditor', 'data_entry'];
+const ORDER = ['super_admin', 'admin', 'all', 'purchase_manager', 'approver', 'warehouse_manager', 'purchase', 'warehouse_operator', 'mother_warehouse_operator', 'sales', 'finance', 'auditor', 'grn_operator', 'entry_operator', 'data_entry'];
 
 export function roleFromGroups(groups) {
   const keys = String(groups ?? '').split(/[,;|/]+/).map((t) => roleKey(t)).filter(Boolean);
@@ -55,6 +55,8 @@ export const ROLE_INFO = [
   ['Warehouse Manager', 'Intent, GRN, Transfer, Imprest, Consumption, Dispatch, Requisition with approve, Reports view', 'Own warehouse only'],
   ['Warehouse Operator', 'Intent, GRN create, Requisition, Reports view', 'Own warehouse only'],
   ['Mother Warehouse Operator', 'Intent, GRN create, Transfer, Imprest, Consumption, Requisition with approve and dispatch, Reports view', 'Own warehouse only'],
+  ['GRN Operator', 'Create and submit GRN; view GRN records, Pending PO and Authorized PO; everything else view-only (no edit or delete)', 'Own warehouse only'],
+  ['Entry Operator', 'Add and edit Imprest In, Imprest Out and Consumption (consumption deducts stock); view GRN; everything else view-only', 'Own warehouse only'],
   ['Sales Team', 'Dispatch, Billing, Reports view', 'Own warehouse only'],
   ['Finance Team', 'Billing, Reports view', 'All'],
   ['Auditor', 'Reports view only', 'All, read only'],
