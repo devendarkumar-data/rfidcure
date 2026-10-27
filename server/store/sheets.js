@@ -27,6 +27,7 @@ export class SheetsStore {
       try { return await fn(); } catch (e) {
         const code = e?.code || e?.response?.status;
         if ((code === 429 || code >= 500) && i < 4) { await sleep(500 * 2 ** i + Math.random() * 250); continue; }
+        if (code === 403 || code === 404) console.error('[sheets] Google replied', code, String(e?.message || '').slice(0, 300));
         if (code === 403 || code === 404) throw new HttpError(502, 'Google Sheets refused access. Check that the spreadsheet is shared with the service account (Editor) and the id is correct.');
         throw new HttpError(502, `Google Sheets error: ${e?.message || e}`);
       }
