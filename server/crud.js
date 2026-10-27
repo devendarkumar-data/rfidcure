@@ -404,7 +404,7 @@ export async function lookup(ctx, field, q, limit = 30) {
   if (ref.special === 'item') {
     const cat = await itemCatalog(ctx.store);
     const out = [];
-    for (const it of cat.values()) { if (!needle || it.code.toLowerCase().includes(needle) || it.name.toLowerCase().includes(needle)) { out.push({ value: it.code, label: `${it.code} — ${it.name}`, name: it.name, unit: it.unit || '' }); if (out.length >= limit) break; } }
+    for (const it of cat.values()) { if (!needle || it.code.toLowerCase().includes(needle) || it.name.toLowerCase().includes(needle)) { out.push({ value: it.code, label: `${it.code} — ${it.name}`, name: it.name, unit: it.unit || '', brand: it.brand || '' }); if (out.length >= limit) break; } }
     return { options: out };
   }
   if (ref.special === 'warehouse') {

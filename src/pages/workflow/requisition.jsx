@@ -105,6 +105,12 @@ export function ReqRegister() {
   const f = { view, status: sp.get('status') || '', warehouse: sp.get('warehouse') || '', item: sp.get('item') || '', from: sp.get('from') || '', to: sp.get('to') || '' };
   const setF = (patch) => { const n = { ...f, ...patch }; setSp(Object.fromEntries(Object.entries(n).filter(([, v]) => v)), { replace: true }); };
   const t = tables['purchase-requisition'];
+  const toast = useToast(); const [rej, setRej] = useState(null); const [rk, setRk] = useState(0); const [busyId, setBusyId] = useState('');
+  const act = async (id, action, remarks = '') => {
+    setBusyId(id);
+    try { await api.post(`/api/wf/reqs/action?id=${encodeURIComponent(id)}`, { action, remarks }); toast.success(`Requisition ${id}: ${action === 'approve' ? 'approved (full quantity)' : 'rejected'}`); setRej(null); setRk((k) => k + 1); }
+    catch (e) { toast.error(e.message); } finally { setBusyId(''); }
+  };
   const columns = [
     { name: 'Document No.', label: 'Requisition', render: (v) => <span className="font-medium text-brand-700">{v}</span> }, { name: 'Date' }, { name: 'Requesting Warehouse', label: 'From' }, { name: 'Issuing Warehouse', label: 'To (issuer)' }, { name: 'Priority' },
     { name: 'Item Summary', sortable: false }, { name: 'Total Requested', label: 'Required', type: 'number', sortable: false }, { name: 'Total Approved', label: 'Approved', type: 'number', sortable: false },
@@ -120,13 +126,16 @@ export function ReqRegister() {
         <FilterItem label="From"><input type="date" className="input" value={f.from} onChange={(e) => setF({ from: e.target.value })} /></FilterItem>
         <FilterItem label="To"><input type="date" className="input" value={f.to} onChange={(e) => setF({ to: e.target.value })} /></FilterItem>
       </FilterBar>
-      <DataTable key={view} endpoint="/api/wf/reqs" columns={columns} params={f} exportable exportName="purchase-requisitions" searchPlaceholder="Search number, warehouse, item…" defaultSort={{ col: 'Date', dir: 'desc' }}
+      <DataTable key={view} endpoint="/api/wf/reqs" columns={columns} params={f} refreshKey={rk} exportable exportName="purchase-requisitions" searchPlaceholder="Search number, warehouse, item…" defaultSort={{ col: 'Date', dir: 'desc' }}
         rowKey={(r) => r['Document No.']} onRowClick={(r) => nav(`/requisitions/${encodeURIComponent(r['Document No.'])}`)}
         rowActions={(r) => (
           <div className="flex justify-end gap-1">
+            {r.actions.approve && <button className="btn btn-sm btn-primary" disabled={busyId === r['Document No.']} title="Approve the full requested quantity" onClick={(e) => { e.stopPropagation(); act(r['Document No.'], 'approve'); }}>Approve</button>}
+            {r.actions.approve && <button className="btn btn-sm" disabled={busyId === r['Document No.']} onClick={(e) => { e.stopPropagation(); setRej(r['Document No.']); }}>Reject</button>}
             <Link className="btn btn-sm" to={`/requisitions/${encodeURIComponent(r['Document No.'])}`}>{r.actions.approve ? 'Review' : r.actions.dispatch ? 'Dispatch' : r.actions.receive ? 'Receive' : 'View'}</Link>
           </div>
         )} />
+      {rej && <RemarksDialog title={`Reject requisition ${rej}`} required danger confirmLabel="Reject" onConfirm={(rm) => act(rej, 'reject', rm)} onCancel={() => setRej(null)} />}
     </>
   );
 }

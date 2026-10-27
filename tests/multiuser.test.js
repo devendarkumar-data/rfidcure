@@ -90,3 +90,14 @@ test('master import: validate, all-or-nothing, skip existing, export xlsx', asyn
   const xl = await sa('GET', '/api/t/vendor-master?export=xlsx'); assert.equal(xl.status, 200); assert.match(xl.headers.get('content-type'), /spreadsheetml/);
   assert.equal((await sa('GET', '/api/t/vendor-master/template?format=xlsx')).status, 200);
 });
+
+test('PO lines carry the extended spec fields and item-info works', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  const r = await sa('POST', '/api/wf/pos', { header: { Date: '2026-10-27', 'Type Of Purchase': 'Local', 'Voucher Prefix': 'PO', 'Vendor Account': 'BOMBAY ORTHO INDUSTRIES', Location: 'MWH', Destination: 'MWH' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Warehouse: 'MWH', 'Reorder Level': 5, 'Nos. of Pcs/Box': 10, Quantity: 2, Rate: 100, 'SP Rate': 120, 'Price Type': 'Price Book', 'Price Book Rate': 110, 'Special Rate': 95, 'Last PO Rate': 90, Brand: 'X', 'Item Group': 'G', Division: 'D', 'GST %': 12 }], submit: false });
+  assert.equal(r.status, 201, r.text);
+  const g = await sa('GET', `/api/wf/pos/get?id=${encodeURIComponent(r.json.id)}`);
+  assert.equal(g.json.lines[0]['Price Type'], 'Price Book'); assert.equal(g.json.lines[0].Division, 'D');
+  const info = await sa('GET', '/api/wf/pos/item-info?code=A1&warehouse=MWH');
+  assert.equal(info.status, 200, info.text); assert.equal(info.json.lastRate, 100);
+});

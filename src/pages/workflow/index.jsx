@@ -36,14 +36,15 @@ export const Back = ({ to, children }) => <Link to={to} className="mb-1 inline-b
 export const KV = ({ k, children }) => <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{k}</dt><dd className="mt-0.5 text-sm">{empty(children) || children === '' ? <span className="text-slate-300">—</span> : children}</dd></div>;
 
 // Editable line grid. cols: {k,label,type:'item'|'number'|'date'|'text'|'select'|'ro',options,num}
-export function Grid({ cols, lines, onChange, readOnly = false, minLines = 1, errors = {}, extra, describe = true }) {
+export function Grid({ cols, lines, onChange, readOnly = false, minLines = 1, errors = {}, extra, describe = true, onItem }) {
   const idRef = useRef(1000);
   const set = (i, patch) => onChange(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   useEffect(() => { if (!readOnly && !lines.length && minLines) onChange([{ _k: idRef.current++ }]); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const cell = (c, l, i) => {
     const v = l[c.k] ?? '';
     if (readOnly || c.type === 'ro') return c.type === 'number' || c.num ? <span className="tabular-nums">{n2(v)}</span> : <span>{String(v) || <span className="text-slate-300">—</span>}</span>;
-    if (c.type === 'item') return <div className="min-w-[15rem]"><ItemPicker value={l['Item Code'] ? `${l['Item Code']} — ${l.Items || ''}` : ''} disabled={!!l['Intent No']} onChange={({ code, name, unit }) => set(i, { 'Item Code': code, Items: name, ...(describe ? { Description: name } : {}), Units: unit || 'NOS' })} /></div>;
+    if (c.type === 'item') return <div className="min-w-[15rem]"><ItemPicker value={l['Item Code'] ? `${l['Item Code']} — ${l.Items || ''}` : ''} disabled={!!l['Intent No']} onChange={({ code, name, unit, brand }) => set(i, { 'Item Code': code, Items: name, ...(describe ? { Description: name } : {}), Units: unit || 'NOS' }) || onItem?.(i, { code, name, unit, brand })} /></div>;
+    if (c.type === 'ref') return <div className="min-w-[10rem]"><Combobox field={c.field} value={v} onChange={(x) => set(i, { [c.k]: x })} /></div>;
     if (c.type === 'select') return <select className="input min-w-[7rem]" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label}>{c.options.map((o) => <option key={o}>{o}</option>)}</select>;
     if (c.type === 'number') return <input className="input min-w-[6rem] text-right" type="number" min="0" step="any" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label} />;
     if (c.type === 'date') return <input className="input min-w-[9rem]" type="date" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label} />;
@@ -289,18 +290,25 @@ function calc(type, hdr, lines) {
   return { lines: out, subtotal: r2(sub), tax: r2(tax), grand: r2(grand) };
 }
 
-const poCols = (type) => [
+const poCols = (type) => (type === 'domestic' ? [
+  { k: 'Items', label: 'Items', type: 'item' }, { k: 'Description', label: 'Description', type: 'text' }, { k: 'Warehouse', label: 'Warehouse', type: 'ref', field: 'Warehouse' }, { k: 'Units', label: 'Units', type: 'text' },
+  { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' }, { k: 'Nos. of Pcs/Box', label: 'Nos. of Pcs/Box', type: 'number' },
+  { k: 'Quantity', label: 'Quantity', type: 'number' }, { k: 'Rate', label: 'Rate', type: 'number' }, { k: 'SP Rate', label: 'SP Rate', type: 'number' },
+  { k: 'Price Type', label: 'Price Type', type: 'select', options: ['', 'Price Book', 'Special Book'] }, { k: 'Price Book Rate', label: 'Price Book Rate', type: 'number' }, { k: 'Special Rate', label: 'Special Rate', type: 'number' }, { k: 'Last PO Rate', label: 'Last PO Rate', type: 'number' },
+  { k: 'Brand', label: 'Brand', type: 'ref', field: 'Brand' }, { k: 'Item Group', label: 'Item Group', type: 'ref', field: 'Item Group' }, { k: 'Division', label: 'Division', type: 'ref', field: 'Division' },
+  { k: 'Other Discount', label: 'Discount', type: 'number' }, { k: 'GST %', label: 'GST %', type: 'number' },
+  { k: 'Intent No', label: 'Intent', type: 'ro' }, { k: 'Intent Line', label: 'Int. line', type: 'ro' }, { k: 'Line Total', label: 'Line Total', type: 'ro', num: true },
+] : [
   { k: 'Items', label: 'Item', type: 'item' }, { k: 'Units', label: 'Units', type: 'text' }, { k: 'Intent No', label: 'Intent', type: 'ro' }, { k: 'Intent Line', label: 'Int. line', type: 'ro' },
-  { k: 'Quantity', label: 'Quantity', type: 'number' }, { k: 'Rate', label: type === 'import' ? 'Rate (FX)' : 'Rate', type: 'number' }, { k: 'Other Discount', label: 'Discount', type: 'number' },
-  ...(type === 'domestic' ? [{ k: 'GST %', label: 'GST %', type: 'number' }] : [{ k: 'PKG Charges', label: 'PKG Charges', type: 'number' }]),
-  { k: 'Line Total', label: 'Line Total', type: 'ro', num: true },
-];
+  { k: 'Quantity', label: 'Quantity', type: 'number' }, { k: 'Rate', label: 'Rate (FX)', type: 'number' }, { k: 'Other Discount', label: 'Discount', type: 'number' },
+  { k: 'PKG Charges', label: 'PKG Charges', type: 'number' }, { k: 'Line Total', label: 'Line Total', type: 'ro', num: true },
+]);
 
 export function PoForm() {
   const nav = useNavigate(); const toast = useToast(); const { user } = useAuth(); const [sp] = useSearchParams(); const editId = sp.get('edit'); const intentParam = sp.get('intent');
   const [key] = useState(() => idemKey());
   const [type, setType] = useState('domestic');
-  const [hdr, setHdr] = useState({ Date: todayIST(), 'Vendor Account': '', Location: '', 'Is IGST': 'No', 'Place of Supply': '', 'Payment Terms': '', 'Terms of Delivery': '', 'Narration-Notes': '', 'Supplier Ref No': '', 'Exchange Rate': '', Currency: '' });
+  const [hdr, setHdr] = useState({ Date: todayIST(), 'Type Of Purchase': '', 'Voucher Prefix': 'PO', 'Vendor Account': '', Location: '', 'Is IGST': 'No', 'Place of Supply': '', 'Payment Terms': '', 'Terms of Delivery': '', 'Narration-Notes': '', 'Supplier Ref No': '', 'Exchange Rate': '', Currency: '' });
   const [lines, setLines] = useState([]); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [ready, setReady] = useState(false);
   const [picker, setPicker] = useState(false); const [override, setOverride] = useState(''); const [needOverride, setNeedOverride] = useState(false);
   const canOverride = ['super_admin', 'admin', 'purchase_manager'].includes(user?.role) || user?.actions?.includes?.('po:approve');
@@ -327,6 +335,11 @@ export function PoForm() {
     })();
   }, [editId, intentParam, addFromIntents]);
 
+  const onItem = (i, it) => {
+    if (type !== 'domestic') return;
+    setLines((cur) => cur.map((l, j) => (j === i ? { ...l, Description: it.name, Brand: it.brand || l.Brand, Warehouse: l.Warehouse || hdr.Location } : l)));
+    api.get('/api/wf/pos/item-info', { code: it.code, warehouse: hdr.Location }).then((r) => setLines((cur) => cur.map((l, j) => (j === i && l['Item Code'] === it.code ? { ...l, 'Current Stock': r.currentStock, 'Reorder Level': r.reorderLevel || l['Reorder Level'], 'Last PO Rate': r.lastRate || l['Last PO Rate'], Brand: r.brand || l.Brand, Units: l.Units || r.unit } : l)))).catch(() => {});
+  };
   const c = useMemo(() => calc(type, hdr, lines), [type, hdr, lines]);
   if (!ready) return <Spinner />;
   const setH = (k, v) => setHdr((h) => ({ ...h, [k]: v }));
@@ -354,8 +367,11 @@ export function PoForm() {
         <div className="grid gap-3 sm:grid-cols-3">
           {!editId && <div><label className="label">PO type</label><select className="input" value={type} onChange={(e) => { setType(e.target.value); setLines([]); }}><option value="domestic">Domestic</option><option value="import">Import</option></select></div>}
           <div><label className="label">Date</label><input type="date" className="input" value={hdr.Date} onChange={(e) => setH('Date', e.target.value)} /></div>
+          {type === 'domestic' && <div><label className="label">Type of purchase</label><Combobox field="Type Of Purchase" value={hdr['Type Of Purchase']} onChange={(v) => setH('Type Of Purchase', v)} /></div>}
+          {type === 'domestic' && <div><label className="label">Voucher prefix</label><input className="input" value={hdr['Voucher Prefix']} onChange={(e) => setH('Voucher Prefix', e.target.value)} /></div>}
           <div><label className="label">Vendor <span className="text-red-600">*</span></label><Combobox field="Vendor Account" value={hdr['Vendor Account']} onChange={(v) => setH('Vendor Account', v)} /></div>
           <div><label className="label">Location{type === 'domestic' && ' / Destination'}</label><Combobox field="Location" value={hdr.Location} onChange={(v) => setH('Location', v)} />{type === 'domestic' && <p className="mt-0.5 text-xs text-slate-500">Destination always equals Location on a Domestic PO.</p>}</div>
+          {type === 'domestic' && <div><label className="label">Destination</label><input className="input bg-slate-50" readOnly value={hdr.Location} /></div>}
           <div><label className="label">Supplier reference</label><input className="input" value={hdr['Supplier Ref No']} onChange={(e) => setH('Supplier Ref No', e.target.value)} /></div>
           {type === 'domestic' ? (<>
             <div><label className="label">IGST?</label><select className="input" value={hdr['Is IGST']} onChange={(e) => setH('Is IGST', e.target.value)}><option>No</option><option>Yes</option></select></div>
@@ -371,7 +387,7 @@ export function PoForm() {
         </div>
       </Card>
       <Card title="Items" className="mb-4">
-        <Grid cols={poCols(type)} lines={c.lines} onChange={setLines} extra={<button type="button" className="btn btn-sm btn-primary" onClick={() => setPicker(true)}>+ Add from approved intents</button>} />
+        <Grid cols={poCols(type)} lines={c.lines} onChange={setLines} onItem={onItem} extra={<button type="button" className="btn btn-sm btn-primary" onClick={() => setPicker(true)}>+ Add from approved intents</button>} />
         <dl className="mt-4 ml-auto grid max-w-xs grid-cols-2 gap-1 text-sm">
           <dt className="text-slate-500">Subtotal</dt><dd className="text-right tabular-nums">{inr(c.subtotal)}</dd>
           {type === 'domestic' && <><dt className="text-slate-500">{/^yes$/i.test(hdr['Is IGST']) ? 'IGST' : 'CGST + SGST'}</dt><dd className="text-right tabular-nums">{inr(c.tax)}</dd></>}
@@ -479,16 +495,17 @@ export function PoDetail() {
       <ErrorBox msg={msg} />
       <Card title="Header" className="mb-4"><dl className="grid gap-4 sm:grid-cols-4">
         <KV k="Date">{header.Date}</KV><KV k="Vendor">{header['Vendor Account']}</KV><KV k="Location">{header.Location}</KV><KV k="Destination">{header.Destination}</KV>
-        <KV k="Source intents">{status['Source Ref']}</KV><KV k="Created by">{status['Created By']}</KV><KV k="Submitted">{status['Submitted At']?.slice(0, 16).replace('T', ' ')}</KV><KV k="Place of supply">{header['Place of Supply']}</KV>
+        <KV k="Source intents">{status['Source Ref']}</KV><KV k="Created by">{status['Created By']}</KV><KV k="Submitted">{status['Submitted At']?.slice(0, 16).replace('T', ' ')}</KV><KV k="Place of supply">{header['Place of Supply']}</KV><KV k="Type of purchase">{header['Type Of Purchase']}</KV><KV k="Voucher prefix">{header['Voucher Prefix']}</KV><KV k="Supplier ref">{header['Supplier Ref No']}</KV>
         <KV k="Authorised by">{status['Reviewed By']}</KV><KV k="Authorised at">{status['Reviewed At']?.slice(0, 16).replace('T', ' ')}</KV><KV k="Remarks">{status['Review Remarks']}</KV><KV k="Payment / delivery terms">{[header['Payment Terms'], header['Terms of Delivery'] || header['Terms Of Delivery']].filter(Boolean).join(' · ')}</KV>
       </dl></Card>
       <Card title={authorizing ? 'Items — adjust quantity or remove lines before authorizing' : 'Items'} pad={false} className="mb-4">
         <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-100">
-          <thead><tr>{['#', 'Item', 'Intent', 'Stock', 'Quantity', 'Rate', 'Disc.', poType === 'domestic' ? 'GST %' : 'PKG', 'Line total', 'Received', 'Balance', ...(authorizing ? ['Remove'] : [])].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
+          <thead><tr>{['#', 'Item', 'Intent', 'Stock', ...(poType === 'domestic' ? ['Reorder', 'Brand', 'Item Group', 'Division', 'Last PO rate', 'Price type'] : []), 'Quantity', 'Rate', 'Disc.', poType === 'domestic' ? 'GST %' : 'PKG', 'Line total', 'Received', 'Balance', ...(authorizing ? ['Remove'] : [])].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-slate-100">{lines.map((l) => { const e = edit[l['Line No']] || {}; return (
             <tr key={l['Line No']} className={e.remove ? 'bg-red-50 line-through opacity-60' : ''}>
               <td className="td">{l['Line No']}</td><td className="td"><div className="font-medium">{l.Items}</div><div className="text-xs text-slate-500">{l['Item Code']}</div></td>
               <td className="td text-xs">{l['Intent No'] ? `${l['Intent No']} / ${l['Intent Line']}` : '—'}</td><td className="td text-right tabular-nums">{n2(l['Current Stock'])}</td>
+              {poType === 'domestic' && <><td className="td text-right tabular-nums">{n2(l['Reorder Level'])}</td><td className="td">{l.Brand}</td><td className="td">{l['Item Group']}</td><td className="td">{l.Division}</td><td className="td text-right tabular-nums">{n2(l['Last PO Rate'])}</td><td className="td">{l['Price Type']}</td></>}
               <td className="td text-right">{authorizing ? <input className="input w-24 text-right" type="number" min="0" step="any" aria-label={`Quantity line ${l['Line No']}`} value={e.quantity ?? ''} disabled={e.remove} onChange={(ev) => setEdit({ ...edit, [l['Line No']]: { ...e, quantity: ev.target.value } })} /> : <span className="tabular-nums">{n2(l.Quantity)}</span>}</td>
               <td className="td text-right tabular-nums">{n2(l.Rate)}</td><td className="td text-right tabular-nums">{n2(l['Other Discount'])}</td><td className="td text-right tabular-nums">{n2(poType === 'domestic' ? l['GST %'] : l['PKG Charges'])}</td>
               <td className="td text-right tabular-nums">{n2(l['Line Total'])}</td><td className="td text-right tabular-nums">{n2(l['Received Qty'])}</td><td className="td text-right tabular-nums">{n2(l['Balance Qty'])}</td>

@@ -39,7 +39,7 @@ export function buildCatalog(itemMasterRows, balances) {
   const c = new Map();
   for (const r of itemMasterRows) {
     const code = sstr(r.Code); if (!code) continue;
-    c.set(code, { code, name: sstr(r['Item Name']), category: sstr(r['Item Category']), brand: sstr(r.Brand), unit: sstr(r.UOM) });
+    c.set(code, { code, name: sstr(r['Item Name']), category: sstr(r['Item Category']), brand: sstr(r.Brand), unit: sstr(r.UOM), minStock: toNum(r['Min Stock Level']) });
   }
   for (const e of balances.values()) {
     if (!c.has(e.itemCode)) c.set(e.itemCode, { code: e.itemCode, name: e.itemName, category: e.category, brand: e.brand });

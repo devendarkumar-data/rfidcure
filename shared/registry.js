@@ -98,7 +98,7 @@ export const SPECS = [
     form: 'Priority:Dropdown:Low,Normal,High,Urgent',
     lines: 'Items:Dropdown|Units:Text|Current Stock:Number|Mother Stock:Number|Quantity:Number|Approved Qty:Number|Reason:Text|Line No:Number' },
   { tab: 'Purchase Order — Domestic', kind: 'doc', stage: 'po', workflow: 'po', poType: 'domestic', prefix: 'PO', required: ['Date', 'Vendor Account'],
-    lines: 'Items:Dropdown|Description:Text|Units:Text|Current Stock:Number|Quantity:Number|Rate:Number|Other Discount:Number|GST %:Number|Gross:Calculated|Taxable Value:Calculated|CGST:Calculated|SGST:Calculated|IGST:Calculated|Line Total:Calculated|Intent No:Text|Intent Line:Number|Line No:Number' },
+    lines: 'Items:Dropdown|Description:Text|Warehouse:Dropdown|Units:Text|Current Stock:Number|Reorder Level:Number|Nos. of Pcs/Box:Number|Quantity:Number|Rate:Number|SP Rate:Number|Price Type:Dropdown:Price Book,Special Book|Price Book Rate:Number|Special Rate:Number|Last PO Rate:Number|Brand:Dropdown|Item Group:Dropdown|Division:Dropdown|Other Discount:Number|GST %:Number|Gross:Calculated|Taxable Value:Calculated|CGST:Calculated|SGST:Calculated|IGST:Calculated|Line Total:Calculated|Intent No:Text|Intent Line:Number|Line No:Number' },
   { tab: 'Purchase Order — Import', kind: 'doc', stage: 'po', workflow: 'po', poType: 'import', prefix: 'BOI', required: ['Date', 'Vendor Account'],
     lines: 'Items:Dropdown|Description:Text|Units:Text|Current Stock:Number|Quantity:Number|Rate:Number|Rate (INR):Calculated|PKG Charges:Number|Other Discount:Number|Gross:Calculated|Line Total:Calculated|Intent No:Text|Intent Line:Number|Line No:Number' },
   { tab: 'GRN  MRN', kind: 'doc', stage: 'grn', workflow: 'grn', prefix: 'GRN', post: 'grn', wh: ['Warehouse'], required: ['Date', 'Warehouse'],

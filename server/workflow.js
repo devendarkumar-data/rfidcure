@@ -583,6 +583,20 @@ export async function poDefaults(ctx) {
   return { location: loc, destination: loc, note: 'Domestic PO: Location defaults to this warehouse and Destination always equals Location. Set Configuration.Location to change it.', warehouses: await warehouseList(ctx.store) };
 }
 
+// Per-item helper data for the PO line grid: last PO rate, reorder level, brand, stock at a warehouse.
+export async function poItemInfo(ctx, q = {}) {
+  if (!can(ctx.user.role, 'po', 'view')) throw forbidden();
+  const code = sstr(q.code); if (!code) throw bad('code is required');
+  let last = null;
+  for (const x of await allPos(ctx)) {
+    const d = normDate(x.r.Date);
+    for (const l of x.lines) if (sstr(l['Item Code']) === code && toNum(l.Rate) > 0 && (!last || d >= last.d)) last = { d, rate: toNum(l.Rate) };
+  }
+  const it = (await itemCatalog(ctx.store)).get(code) || {};
+  const stockOf = await currentStockMap(ctx);
+  return { lastRate: last?.rate || 0, reorderLevel: it.minStock || 0, brand: it.brand || '', unit: it.unit || '', currentStock: stockOf(sstr(q.warehouse), code) };
+}
+
 // POs a GRN can be raised against.
 export async function openPos(ctx, q = {}) {
   if (!can(ctx.user.role, 'grn', 'create')) throw forbidden();

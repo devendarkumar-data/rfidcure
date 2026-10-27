@@ -149,3 +149,7 @@ To add a user by hand, fill a row and type a password in the **Password** column
 ## Import / Export
 - **Master pages** (Item, Vendor, Warehouse, Hospital/Location, other masters): *Export Excel*, *Export CSV* and *Import* buttons. Import takes .xlsx/.csv (blank templates provided), checks every row with the same rules as the form, shows an error report, and writes nothing until the whole file is valid (option to skip rows that already exist). Master Ids are generated automatically; existing records are never changed.
 - **Opening Stock**: *Export Excel*, *Export CSV*, *Import Opening Stock* (replace or add) and *Add opening stock*; the menu links Import/Export Opening Stock open the same actions.
+
+## Purchase Order line fields
+Domestic PO lines carry the full spec set (Items, Description, Warehouse, Units, Closing Stock, Reorder Level, Nos. of Pcs/Box, Quantity, Rate, SP Rate, Price Type, Price Book Rate, Special Rate, Last PO Rate, Brand, Item Group, Division, discount, GST %). They are stored as JSON in the PO's `Lines` cell, so the sheet needs no extra columns. Closing Stock, Reorder Level (Item Master Min Stock Level), Brand and Last PO Rate autofill when an item is picked.
+Purchase Requisition register rows have inline Approve (full requested quantity) and Reject buttons for users allowed to approve.

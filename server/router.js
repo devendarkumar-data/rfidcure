@@ -201,6 +201,7 @@ export default async function handler(req, res) {
       if (r2 === 'pos' && req.method === 'GET') { const r = await wf.listPos(ctx, q); return q.export ? csv(r, 'purchase-orders') : ok(r); }
       if (r2 === 'pos/get' && req.method === 'GET') return ok(await wf.getPo(ctx, q.id));
       if (r2 === 'pos/defaults' && req.method === 'GET') return ok(await wf.poDefaults(ctx));
+      if (r2 === 'pos/item-info' && req.method === 'GET') return ok(await wf.poItemInfo(ctx, q));
       if (r2 === 'pos/open' && req.method === 'GET') return ok(await wf.openPos(ctx, q));
       if (r2 === 'pos' && req.method === 'POST') return ok(await wf.savePo(ctx, body, null, idem), 201);
       if (r2 === 'pos' && req.method === 'PUT') return ok(await wf.savePo(ctx, body, q.id));
