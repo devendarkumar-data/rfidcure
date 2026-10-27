@@ -14,7 +14,7 @@ const NO_WH_ROLES = ['Super Admin', 'Admin', 'Finance Team', 'Auditor'];
 
 function UserForm({ initial, roles, warehouses, onSave, onCancel }) {
   const editing = !!initial;
-  const [v, setV] = useState(() => ({ 'User ID': '', 'User Name': '', Role: roles[0] || '', Status: 'Active', Email: '', ...initial }));
+  const [v, setV] = useState(() => ({ 'User Name': '', Phone: '', Email: '', Password: '', Role: roles[0] || '', Status: 'Active', ...initial }));
   const [sel, setSel] = useState(() => new Set(String(initial?.Branch || '').split(/[,;/|\s]+/).filter(Boolean).map((s) => s.toUpperCase())));
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const set = (k, x) => setV((s) => ({ ...s, [k]: x }));
@@ -27,11 +27,12 @@ function UserForm({ initial, roles, warehouses, onSave, onCancel }) {
   return (
     <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2" aria-label="User">
       {err && <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-2">{err}</div>}
-      <div><label className="label" htmlFor="u-id">User ID *</label><input id="u-id" className="input" value={v['User ID']} disabled={editing} onChange={(e) => set('User ID', e.target.value)} required pattern="[A-Za-z0-9._\-]{3,40}" title="3-40 letters, numbers, dot, dash or underscore" /></div>
+      <div><label className="label" htmlFor="u-role">Groups (role) *</label><select id="u-role" className="input" value={v.Role} onChange={(e) => set('Role', e.target.value)}>{roles.map((r) => <option key={r}>{r}</option>)}</select></div>
       <div><label className="label" htmlFor="u-name">User Name *</label><input id="u-name" className="input" value={v['User Name']} onChange={(e) => set('User Name', e.target.value)} required maxLength={80} /></div>
-      <div><label className="label" htmlFor="u-role">Role *</label><select id="u-role" className="input" value={v.Role} onChange={(e) => set('Role', e.target.value)}>{roles.map((r) => <option key={r}>{r}</option>)}</select></div>
+      <div><label className="label" htmlFor="u-phone">Phone</label><input id="u-phone" className="input" inputMode="tel" value={v.Phone} onChange={(e) => set('Phone', e.target.value)} maxLength={20} /></div>
+      <div><label className="label" htmlFor="u-email">Email (sign-in ID) *</label><input id="u-email" type="email" className="input" value={v.Email} disabled={editing} required onChange={(e) => set('Email', e.target.value)} /></div>
+      {!editing && <div><label className="label" htmlFor="u-pw">Password</label><input id="u-pw" className="input" value={v.Password} onChange={(e) => set('Password', e.target.value)} placeholder="Leave blank to generate one" autoComplete="off" /></div>}
       <div><label className="label" htmlFor="u-status">Status</label><select id="u-status" className="input" value={v.Status} onChange={(e) => set('Status', e.target.value)}><option>Active</option><option>Inactive</option></select></div>
-      <div className="sm:col-span-2"><label className="label" htmlFor="u-email">Email (optional)</label><input id="u-email" type="email" className="input" value={v.Email} onChange={(e) => set('Email', e.target.value)} /></div>
       <fieldset className="sm:col-span-2">
         <legend className="label">Assigned warehouses {needsWh && '*'}</legend>
         {warehouses.length ? (
@@ -42,7 +43,7 @@ function UserForm({ initial, roles, warehouses, onSave, onCancel }) {
         ) : <p className="text-sm text-slate-500">No warehouses found yet.</p>}
         <p className="mt-1 text-xs text-slate-500">{needsWh ? 'This role only sees data for the ticked warehouses.' : 'This role has access to all warehouses; the selection is ignored.'}</p>
       </fieldset>
-      {!editing && <p className="text-xs text-slate-500 sm:col-span-2">A one-time temporary password is generated; the user must change it at first sign-in.</p>}
+      {!editing && <p className="text-xs text-slate-500 sm:col-span-2">Without a typed password, a one-time temporary password is generated. Either way the user must change it at first sign-in.</p>}
       <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" className="btn" onClick={onCancel}>Cancel</button><button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save changes' : 'Create user'}</button></div>
     </form>
   );
@@ -74,13 +75,26 @@ export default function UsersPage() {
       <PageHeader title="User Management" subtitle="Create users, assign roles and warehouses, deactivate leavers and reset passwords." actions={<button className="btn btn-primary" onClick={() => setDlg({ type: 'new' })}><Icon name="plus" className="h-4 w-4" /> New user</button>} />
       <LocalTable rows={rows} onEdit={(r) => setDlg({ type: 'edit', row: r })} onReset={(r) => setDlg({ type: 'reset', row: r })} />
       {dlg?.type === 'new' && <Modal title="New user" onClose={() => setDlg(null)}><UserForm roles={roles} warehouses={info.warehouses} onCancel={() => setDlg(null)}
-        onSave={async (v) => { const r = await api.post('/api/admin/users', v); toast.success(`User ${r.id} created`); setDlg({ type: 'secret', title: 'User created', id: r.id, password: r.temporaryPassword }); reload(); }} /></Modal>}
-      {dlg?.type === 'edit' && <Modal title={`Edit ${dlg.row['User ID']}`} onClose={() => setDlg(null)}><UserForm initial={dlg.row} roles={roles.includes(dlg.row.Role) ? roles : [dlg.row.Role, ...roles]} warehouses={info.warehouses} onCancel={() => setDlg(null)}
+        onSave={async (v) => { const r = await api.post('/api/admin/users', { ...v, 'User ID': v.Email }); toast.success(`User ${r.id} created`); setDlg({ type: 'secret', title: 'User created', id: r.id, password: r.temporaryPassword }); reload(); }} /></Modal>}
+      {dlg?.type === 'edit' && <Modal title={`Edit ${dlg.row['User Name']}`} onClose={() => setDlg(null)}><UserForm initial={dlg.row} roles={roles.includes(dlg.row.Role) ? roles : [dlg.row.Role, ...roles]} warehouses={info.warehouses} onCancel={() => setDlg(null)}
         onSave={async (v) => { await api.put(`/api/admin/users?id=${encodeURIComponent(dlg.row['User ID'])}`, v); toast.success('User updated'); setDlg(null); reload(); }} /></Modal>}
       {dlg?.type === 'reset' && <ConfirmDialog title="Reset password" confirmLabel="Reset password" message={`Reset the password for ${dlg.row['User ID']}? Their current password stops working immediately and all their sessions are signed out.`} onCancel={() => setDlg(null)}
         onConfirm={async () => { try { const r = await api.post(`/api/admin/users/reset?id=${encodeURIComponent(dlg.row['User ID'])}`); setDlg({ type: 'secret', title: 'Password reset', id: r.id, password: r.temporaryPassword }); reload(); } catch (e) { toast.error(e.message); setDlg(null); } }} />}
       {dlg?.type === 'secret' && <SecretModal title={dlg.title} id={dlg.id} password={dlg.password} onClose={() => setDlg(null)} />}
+      <RoleReference info={info.roleInfo || []} />
     </>
+  );
+}
+
+function RoleReference({ info }) {
+  return (
+    <div className="card mt-4 overflow-hidden">
+      <div className="border-b border-slate-200 p-3"><h2 className="text-sm font-semibold">Groups (roles) and what they can access</h2><p className="text-xs text-slate-500">Type one of these names in the Groups column. Roles marked "Own warehouse only" need a Branch (warehouse) to see any data.</p></div>
+      <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200">
+        <thead><tr><th className="th">Groups</th><th className="th">Access</th><th className="th">Warehouse</th></tr></thead>
+        <tbody className="divide-y divide-slate-100">{info.map((r) => <tr key={r.role}><td className="td font-medium whitespace-nowrap">{r.role}</td><td className="td">{r.access}</td><td className="td whitespace-nowrap">{r.warehouse}</td></tr>)}</tbody>
+      </table></div>
+    </div>
   );
 }
 
@@ -93,11 +107,11 @@ function LocalTable({ rows, onEdit, onReset }) {
       <div className="border-b border-slate-200 p-3"><input className="input sm:max-w-sm" placeholder="Search users…" aria-label="Search users" value={q} onChange={(e) => setQ(e.target.value)} /></div>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-200">
-          <thead><tr>{['User ID', 'User Name', 'Role', 'Branch', 'Status', 'Last Login', ''].map((h) => <th key={h || 'a'} className="th">{h || 'Actions'}</th>)}</tr></thead>
+          <thead><tr>{['Groups', 'User Name', 'Phone', 'Email', 'Password', 'Branch', 'Status', 'Last Login', ''].map((h) => <th key={h || 'a'} className="th">{h || 'Actions'}</th>)}</tr></thead>
           <tbody className="divide-y divide-slate-100">
             {list.map((r) => (
               <tr key={r['User ID']} className="hover:bg-slate-50">
-                <td className="td font-medium">{r['User ID']}</td><td className="td">{r['User Name']}</td><td className="td">{r.Role}</td>
+                <td className="td font-medium">{r.Role || <span className="text-red-600">no valid role</span>}</td><td className="td">{r['User Name']}</td><td className="td">{r.Phone}</td><td className="td">{r.Email || r['User ID']}</td><td className="td text-xs text-slate-500">{r['Password Status']}</td>
                 <td className="td">{r.Branch || <span className="text-slate-400">all / n.a.</span>}</td>
                 <td className="td"><StatusBadge value={r.Locked ? 'Locked' : r.Status} /></td>
                 <td className="td whitespace-nowrap">{r['Last Login'] || <span className="text-slate-300">never</span>}</td>

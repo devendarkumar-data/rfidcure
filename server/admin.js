@@ -1,6 +1,7 @@
 // User administration (Users + Credentials tabs). Only Super Admin / Admin (stage 'admin').
 import { randomBytes } from 'node:crypto';
 import { can, ROLE_LABELS, roleKey } from '../shared/permissions.js';
+import { ROLE_INFO } from '../shared/users-layout.js';
 
 import { audit, activity } from './audit.js';
 import { checkPasswordPolicy, getSettings, hashPassword, parseWarehouses } from './auth.js';
@@ -13,7 +14,7 @@ const ID_RE = /^[A-Za-z0-9._+@-]{3,60}$/;
 
 function pub(row, cred) {
   return { 'User ID': sstr(row['User ID']), 'User Name': sstr(row['User Name']), Role: sstr(row.Role), Branch: sstr(row.Branch), Status: sstr(row.Status), 'Last Login': sstr(row['Last Login']),
-    Email: sstr(cred?.Email), 'Must Change Password': sstr(cred?.['Must Change Password']), Locked: !!(cred && Date.parse(cred['Locked Until'] || '') > Date.now()) };
+    Phone: sstr(row.Phone), Email: sstr(row.Email) || sstr(cred?.Email), Groups: sstr(row.Groups), 'Password Status': sstr(row.Password) ? 'Pending first login' : cred?.['Password Hash'] ? 'Set' : 'Not set', 'Must Change Password': sstr(cred?.['Must Change Password']), Locked: !!(cred && Date.parse(cred['Locked Until'] || '') > Date.now()) };
 }
 // An Admin must never be able to create, change or lock out a Super Admin (privilege escalation).
 function assertMayTouch(ctx, targetRoleLabel, newRoleLabel) {
@@ -25,7 +26,7 @@ export async function listUsers(ctx) {
   adminOnly(ctx, 'view');
   const [u, c, wh] = await Promise.all([ctx.store.read('Users'), ctx.store.read('Credentials'), warehouseList(ctx.store)]);
   const creds = new Map(c.rows.map((r) => [sstr(r['User ID']).toLowerCase(), r]));
-  return { rows: u.rows.map((r) => pub(r, creds.get(sstr(r['User ID']).toLowerCase()))), roles: Object.values(ROLE_LABELS), warehouses: wh };
+  return { rows: u.rows.map((r) => pub(r, creds.get(sstr(r['User ID']).toLowerCase()))), roles: Object.values(ROLE_LABELS), roleInfo: ROLE_INFO, warehouses: wh };
 }
 
 async function validateUser(ctx, b, { creating }) {
@@ -40,21 +41,21 @@ async function validateUser(ctx, b, { creating }) {
   const bad_ = parseWarehouses(branch).filter((w) => wl.length && !wl.includes(w));
   if (bad_.length) throw bad(`Unknown warehouse(s) in Branch: ${bad_.join(', ')}`);
   if (key && !['super_admin', 'admin', 'finance', 'auditor'].includes(key) && !branch) throw bad(`${canonical} needs at least one assigned warehouse in Branch`);
-  const email = sstr(b.Email); if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw bad('Email is not valid');
-  return { 'User Name': name, Role: canonical, Branch: branch, Status: status[0].toUpperCase() + status.slice(1).toLowerCase(), Email: email };
+  const email = sstr(b.Email); if (creating && email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw bad('Email is not valid');
+  return { 'User Name': name, Role: canonical, Branch: branch, Status: status[0].toUpperCase() + status.slice(1).toLowerCase(), Email: email, Phone: sstr(b.Phone).slice(0, 20) };
 }
 
 export async function createUser(ctx, b) {
   adminOnly(ctx, 'create');
   return withLock('users', async () => {
-    const id = sstr(b['User ID']); if (!ID_RE.test(id)) throw bad('User ID (e-mail) must be 3-60 letters, numbers or . _ + - @');
+    const id = sstr(b['User ID'] || b.Email); if (!ID_RE.test(id)) throw bad('User ID (e-mail) must be 3-60 letters, numbers or . _ + - @');
     const v = await validateUser(ctx, b, { creating: true });
     assertMayTouch(ctx, '', v.Role);
     const { rows } = await ctx.store.read('Users', { fresh: true });
     if (rows.some((r) => sstr(r['User ID']).toLowerCase() === id.toLowerCase())) throw conflict('User ID already exists');
     const pw = sstr(b.Password) || tempPassword();
     checkPasswordPolicy(pw, await getSettings(ctx.store, 'Security'), id);
-    await ctx.store.append('Users', [{ 'User ID': id, 'User Name': v['User Name'], Role: v.Role, Branch: v.Branch, Status: v.Status, 'Last Login': '' }]);
+    await ctx.store.append('Users', [{ 'User ID': id, 'User Name': v['User Name'], Phone: v.Phone, Email: v.Email || id, Role: v.Role, Branch: v.Branch, Status: v.Status, 'Last Login': '' }]);
     await ctx.store.append('Credentials', [{ 'User ID': id, Email: v.Email, 'Password Hash': await hashPassword(pw), 'Must Change Password': 'Yes', 'Failed Attempts': 0, 'Locked Until': '', 'Password Updated': new Date().toISOString() }]);
     await audit(ctx.store, { user: ctx.user, module: 'Users', doc: id, action: 'Create', next: { ...v } });
     return { id, temporaryPassword: pw };
@@ -74,8 +75,8 @@ export async function updateUser(ctx, id, b) {
       const others = rows.filter((r) => roleKey(r.Role) === 'super_admin' && /^active$/i.test(sstr(r.Status)) && r !== row);
       if (!others.length) throw conflict('At least one active Super Admin must remain');
     }
-    await ctx.store.updateRow('Users', row.__row, { 'User Name': v['User Name'], Role: v.Role, Branch: v.Branch, Status: v.Status }, { col: 'User ID', val: row['User ID'] });
-    if ('Email' in b) {
+    await ctx.store.updateRow('Users', row.__row, { 'User Name': v['User Name'], Phone: v.Phone, Role: v.Role, Branch: v.Branch, Status: v.Status }, { col: 'User ID', val: row['User ID'] });
+    if (false) {
       const c = (await ctx.store.read('Credentials', { fresh: true })).rows.find((r) => sstr(r['User ID']).toLowerCase() === sstr(id).toLowerCase());
       if (c) await ctx.store.updateRow('Credentials', c.__row, { Email: v.Email });
     }

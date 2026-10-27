@@ -43,3 +43,19 @@ export function patchToSheet(p) {
   return out;
 }
 export const expectToSheet = (e) => (e && e.col === 'User ID' ? { ...e, col: 'Email' } : e);
+
+// Reference shown on the Admin > Users screen: what each Groups value gives access to.
+export const ROLE_INFO = [
+  ['Super Admin', 'Everything, including Billing and User management', 'All'],
+  ['Admin', 'Everything except Billing, with User management', 'All'],
+  ['Purchase Manager', 'Purchase Intent and PO with approve, GRN view, Requisition view, Reports', 'All'],
+  ['Approver', 'Approve or reject Intents, POs and Requisitions, Reports', 'All'],
+  ['Purchase Team', 'Intent view, create and edit POs, GRN, Requisition view, Reports', 'Own warehouse only'],
+  ['Warehouse Manager', 'Intent, GRN, Transfer, Imprest, Consumption, Dispatch, Requisition with approve, Reports view', 'Own warehouse only'],
+  ['Warehouse Operator', 'Intent, GRN create, Requisition, Reports view', 'Own warehouse only'],
+  ['Mother Warehouse Operator', 'Intent, GRN create, Transfer, Imprest, Consumption, Requisition with approve and dispatch, Reports view', 'Own warehouse only'],
+  ['Sales Team', 'Dispatch, Billing, Reports view', 'Own warehouse only'],
+  ['Finance Team', 'Billing, Reports view', 'All'],
+  ['Auditor', 'Reports view only', 'All, read only'],
+  ['Data Entry Operator', 'Data entry screens you grant, no approvals', 'Own warehouse only'],
+].map(([role, access, warehouse]) => ({ role, access, warehouse }));
