@@ -57,7 +57,7 @@ test('Purchase Intent -> PO authorization -> GRN workflow', async (t) => {
     const over = await pm('POST', '/api/wf/pos', poBody([line(1, 'A1', 9, 100)]));
     assert.equal(over.status, 422); assert.match(over.json.error, /exceeds the remaining approved quantity 8/);
     const r = await pm('POST', '/api/wf/pos', { ...poBody([line(1, 'A1', 5, 100), line(2, 'C3', 5, 40)]), submit: false }, { 'idempotency-key': 'po-key-12345678' });
-    assert.equal(r.status, 201, r.text); ctx.po = r.json.id; assert.match(ctx.po, /^PO\/26-27\/00001$/);
+    assert.equal(r.status, 201, r.text); ctx.po = r.json.id; assert.match(ctx.po, /^PO\/26-27\/00001\/DOM$/);
     assert.equal(r.json.header.Location, 'MWH'); assert.equal(r.json.header.Destination, 'MWH'); // configurable default, destination follows location
     assert.equal(r.json.status.Status, 'Draft');
     // 5*100=500 @12% = 60 ; 5*40=200 @12% = 24 -> sub 700 tax 84 grand 784
@@ -171,4 +171,14 @@ test('Purchase Intent -> PO authorization -> GRN workflow', async (t) => {
     const d = (await pm('GET', '/api/dashboard?from=2026-01-01&to=2026-12-31')).json;
     assert.equal(d.workflow.intents.total, 1); assert.equal(d.workflow.pos.total, 3); assert.equal(d.workflow.pos.pendingAuthorization, 0); assert.equal(d.workflow.grns.againstPo, 2);
   });
+});
+
+test('PO numbers carry a DOM / IMP suffix and a PO can be raised without an indent', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  const line = { 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 2, Rate: 10, 'GST %': 12 };
+  const d = await sa('POST', '/api/wf/pos', { header: { Date: '2026-10-27', 'Vendor Account': 'BOMBAY ORTHO INDUSTRIES', Location: 'MWH' }, lines: [line] });
+  assert.equal(d.status, 201, d.text); assert.match(d.json.id, /^PO\/26-27\/\d{5}\/DOM$/);
+  const i = await sa('POST', '/api/wf/pos', { poType: 'import', header: { Date: '2026-10-27', 'Vendor Account': 'BOMBAY ORTHO INDUSTRIES', Location: 'MWH', Currency: 'USD', 'Exchange Rate': 83 }, lines: [{ ...line, 'GST %': undefined }] });
+  assert.equal(i.status, 201, i.text); assert.match(i.json.id, /^PO\/26-27\/\d{5}\/IMP$/);
 });

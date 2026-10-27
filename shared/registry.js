@@ -100,9 +100,9 @@ export const SPECS = [
   { tab: 'Purchase Requisition', kind: 'doc', stage: 'requisition', workflow: 'req', prefix: 'PR', wh: ['Requesting Warehouse', 'Issuing Warehouse'], required: ['Date', 'Requesting Warehouse'],
     form: 'Priority:Dropdown:Low,Normal,High,Urgent',
     lines: 'Items:Dropdown|Units:Text|Current Stock:Number|Mother Stock:Number|Quantity:Number|Approved Qty:Number|Reason:Text|Line No:Number' },
-  { tab: 'Purchase Order — Domestic', kind: 'doc', stage: 'po', workflow: 'po', poType: 'domestic', prefix: 'PO', required: ['Date', 'Vendor Account'],
+  { tab: 'Purchase Order — Domestic', kind: 'doc', stage: 'po', workflow: 'po', poType: 'domestic', prefix: 'PO', suffix: 'DOM', required: ['Date', 'Vendor Account'],
     lines: 'Items:Dropdown|Description:Text|Warehouse:Dropdown|Units:Text|Current Stock:Number|Reorder Level:Number|Nos. of Pcs/Box:Number|Quantity:Number|Rate:Number|SP Rate:Number|Price Type:Dropdown:Price Book,Special Book|Price Book Rate:Number|Special Rate:Number|Last PO Rate:Number|Brand:Dropdown|Item Group:Dropdown|Division:Dropdown|Other Discount:Number|GST %:Number|Gross:Calculated|Taxable Value:Calculated|CGST:Calculated|SGST:Calculated|IGST:Calculated|Line Total:Calculated|Intent No:Text|Intent Line:Number|Line No:Number' },
-  { tab: 'Purchase Order — Import', kind: 'doc', stage: 'po', workflow: 'po', poType: 'import', prefix: 'BOI', required: ['Date', 'Vendor Account'],
+  { tab: 'Purchase Order — Import', kind: 'doc', stage: 'po', workflow: 'po', poType: 'import', prefix: 'PO', suffix: 'IMP', required: ['Date', 'Vendor Account'],
     lines: 'Items:Dropdown|Description:Text|Units:Text|Current Stock:Number|Quantity:Number|Rate:Number|Rate (INR):Calculated|PKG Charges:Number|Other Discount:Number|Gross:Calculated|Line Total:Calculated|Intent No:Text|Intent Line:Number|Line No:Number' },
   { tab: 'GRN  MRN', kind: 'doc', stage: 'grn', workflow: 'grn', prefix: 'GRN', post: 'grn', wh: ['Warehouse'], required: ['Date', 'Warehouse'],
     form: 'Update Stock:Checkbox|Raise Receipt:Checkbox|Attachment:Text',
@@ -184,7 +184,7 @@ function buildTable(t) {
   const table = {
     workflow: spec.workflow || null, poType: spec.poType || null,
     slug: slugify(t.tab), tab: t.tab, module: t.module, moduleName: t.moduleName, kind: spec.kind, stage: spec.stage,
-    headers, fields, idCol, prefix: spec.prefix || null, post: spec.post || null, wh: spec.wh || [],
+    headers, fields, idCol, prefix: spec.prefix || null, suffix: spec.suffix || null, post: spec.post || null, wh: spec.wh || [],
     required: spec.master || spec.kind === 'master'
       ? [headers[1]].concat(t.tab === 'Item Master' ? ['Code'] : [])
       : spec.required || [],

@@ -152,7 +152,7 @@ export async function nextDocNo(store, table, date) {
   const prefix = `${table.prefix}/${fyOf(date)}/`;
   let max = 0;
   for (const r of rows) { const id = sstr(r[table.idCol]); if (id.startsWith(prefix)) max = Math.max(max, parseInt(id.slice(prefix.length), 10) || 0); }
-  return `${prefix}${String(max + 1).padStart(5, '0')}`;
+  return `${prefix}${String(max + 1).padStart(5, '0')}${table.suffix ? `/${table.suffix}` : ''}`;
 }
 export async function nextMasterId(store, table) {
   const abbr = table.tab.replace(/ Master$/i, '').split(/\s+/).filter(Boolean).map((w) => w[0].toUpperCase()).join('').slice(0, 4) || 'M';
