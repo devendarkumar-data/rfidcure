@@ -16,7 +16,6 @@ export default function Login() {
   return (
     <div className="flex min-h-full items-center justify-center bg-gradient-to-br from-brand-800 to-brand-600 p-4">
       <form onSubmit={submit} className="w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl" aria-label="Sign in">
-        <img src="/logo.png" alt="Cure Surgical — Better Solutions. Healthier Tomorrow." className="mx-auto mb-4 h-14 w-auto" />
         <h1 className="mb-1 text-center text-lg font-semibold">Sign in to Cure ERP</h1>
         <p className="mb-5 text-center text-sm text-slate-500">Use the User ID and password issued by your administrator.</p>
         {err && <div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
