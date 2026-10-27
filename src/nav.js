@@ -45,7 +45,6 @@ export function buildNav(meta) {
     it(has(grn, 'create'), '/grn/new', 'Create GRN'),
     it(has(grn, 'view'), '/grn', 'GRN Register'),
     it(has(tables['imprest-out-new'], 'create'), '/t/imprest-out-new?new=1', 'Imprest Out — New'),
-    it(has(tables['imprest-out-new'], 'view'), '/t/imprest-out-new', 'Imprest Out — Entries'),
     it(has(tables['imprest-out-register'], 'view'), '/t/imprest-out-register', 'Imprest Out Register'),
     it(has(tables['imprest-in-new'], 'create'), '/t/imprest-in-new?new=1', 'Imprest In — New'),
     it(has(tables['imprest-in-new'], 'view'), '/t/imprest-in-new', 'Imprest In — Entries'),
