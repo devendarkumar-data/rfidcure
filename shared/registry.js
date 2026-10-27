@@ -4,6 +4,7 @@
 
 import TEMPLATE_TABS from './template-tabs.js';
 import { ACCESS_TAB, ROLE_LABELS } from './permissions.js';
+import { CURRENCIES, PURCHASE_TYPES } from './po-options.js';
 
 export const slugify = (s) => String(s).toLowerCase().replace(/[—–]/g, '-').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
@@ -28,7 +29,6 @@ export const REFS = {
   Doctor: M('Doctor Master', 'Doctor Name'),
   'Sales Executive': M('Sales Executive Master', 'Salesperson Name'),
   'Vendor Account': M('Vendor Master', 'Vendor Name'),
-  'Type Of Purchase': M('Purchase Type Master', 'Name'),
   'Place of Supply': STATE, 'Ship to State': STATE, 'Dispatch State': STATE,
   'Ship to City': CITY, 'Dispatch City': CITY,
   Brand: M('Brand Master', 'Name'), 'Item Group': M('Item Group Master', 'Name'),
@@ -42,7 +42,9 @@ REFS.Items = REFS.Item = { special: 'item' };
 
 const YN = ['Yes', 'No'];
 const INDENT_STATUS = ['Draft', 'Submitted', 'Approved', 'Partially Fulfilled', 'Fulfilled', 'Rejected'];
+export { PURCHASE_TYPES, CURRENCIES };
 const FIXED_OPTIONS = {
+  'Type Of Purchase': PURCHASE_TYPES, Currency: CURRENCIES.map(([c]) => c),
   'Submit For Approval': YN, 'Submit for Approval': YN, 'Is IGST': YN,
   Status: ['Active', 'Inactive'],
 };

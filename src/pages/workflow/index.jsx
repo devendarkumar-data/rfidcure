@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, idemKey } from '../../api.js';
+import { BASE_CURRENCY, CURRENCIES, PURCHASE_TYPES } from '../../../shared/po-options.js';
 import { useAuth } from '../../auth.jsx';
 import Card from '../../components/Card.jsx';
 import Combobox from '../../components/Combobox.jsx';
@@ -277,7 +278,10 @@ export function IntentDetail() {
 
 // ---------------------------------------------------------------------------------------------------------------------
 // PURCHASE ORDER
-const PO_VIEWS = { 'pending-auth': 'Pending PO Authorization', pending: 'Pending Purchase Orders (approved, not fully received)', approved: 'Approved POs', all: 'All Purchase Orders' };
+const PO_VIEWS = { 'pending-auth': 'PO Pending Authorization', pending: 'Pending Purchase Orders (authorized, not fully received)', approved: 'Authorized POs', all: 'All Purchase Orders' };
+// Display names for PO statuses (stored values are unchanged)
+export const PO_LABEL = { 'Pending Authorization': 'PO Pending Authorization', Approved: 'PO Authorized' };
+export const poLabel = (s) => PO_LABEL[s] || s;
 const PO_STATUSES = ['Draft', 'Pending Authorization', 'Returned for Correction', 'Approved', 'Partially Received', 'Completed', 'Rejected', 'Closed', 'Cancelled'];
 
 // client-side mirror of server calcPoLines, for live totals only (the server recalculates)
@@ -310,6 +314,7 @@ export function PoForm() {
   const nav = useNavigate(); const toast = useToast(); const { user } = useAuth(); const [sp] = useSearchParams(); const editId = sp.get('edit'); const intentParam = sp.get('intent');
   const [key] = useState(() => idemKey());
   const [type, setType] = useState('domestic');
+  const [canChoose, setCanChoose] = useState(true); const [whList, setWhList] = useState([]);
   const [hdr, setHdr] = useState({ Date: todayIST(), 'Type Of Purchase': '', 'Voucher Prefix': 'PO', 'Vendor Account': '', Location: '', 'Is IGST': 'No', 'Place of Supply': '', 'Payment Terms': '', 'Terms of Delivery': '', 'Narration-Notes': '', 'Supplier Ref No': '', 'Exchange Rate': '', Currency: '' });
   const [lines, setLines] = useState([]); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [ready, setReady] = useState(false);
   const [picker, setPicker] = useState(false); const [override, setOverride] = useState(''); const [needOverride, setNeedOverride] = useState(false);
@@ -330,7 +335,7 @@ export function PoForm() {
           const r = await api.get('/api/wf/pos/get', { id: editId });
           setType(r.poType); setHdr((h) => ({ ...h, ...r.header })); setLines(r.lines.map((l, i) => ({ ...l, _k: `e${i}` })));
         } else {
-          const d = await api.get('/api/wf/pos/defaults'); setHdr((h) => ({ ...h, Location: d.location }));
+          const d = await api.get('/api/wf/pos/defaults'); setHdr((h) => ({ ...h, Location: d.location })); setCanChoose(d.canChooseWarehouse); setWhList(d.warehouses || []);
           if (intentParam) { const r = await api.get('/api/wf/intents/open', { q: intentParam }); const it = r.rows.find((x) => x['Document No.'] === intentParam); if (it) addFromIntents(it.lines.map((line) => ({ no: it['Document No.'], line }))); else setErr(`Intent ${intentParam} has no approved quantity left to order`); }
         }
       } catch (e) { setErr(e.message); } finally { setReady(true); }
@@ -348,6 +353,7 @@ export function PoForm() {
   const save = async (submit) => {
     setErr('');
     if (!hdr['Vendor Account']) return setErr('Select a vendor');
+    if (type === 'import' && !hdr.Currency) return setErr('Select the currency');
     if (type === 'import' && !(num(hdr['Exchange Rate']) > 0)) return setErr('Enter the exchange rate');
     const out = c.lines.filter((l) => l['Item Code']).map(({ _k, _tax, _igst, ...l }) => Object.fromEntries(Object.entries(l).filter(([, v]) => !empty(v))));
     if (!out.length) return setErr('Add at least one item');
@@ -357,7 +363,7 @@ export function PoForm() {
     try {
       const body = { poType: type, header, lines: out, submit, ...(override.trim() ? { override: { reason: override.trim() } } : {}) };
       const r = editId ? await api.put(`/api/wf/pos?id=${encodeURIComponent(editId)}`, body) : await api.post('/api/wf/pos', body, { headers: { 'Idempotency-Key': key } });
-      toast.success(submit ? `PO ${r.id} sent for authorization` : `PO ${r.id} saved as draft`);
+      toast.success(submit ? `PO ${r.id} created — PO Pending Authorization` : `PO ${r.id} saved as draft`);
       nav(`/purchasing/po/${encodeURIComponent(r.id)}`);
     } catch (e) { setErr(e.message); if (/exceeds the remaining approved/.test(e.message)) setNeedOverride(true); } finally { setBusy(false); }
   };
@@ -366,26 +372,26 @@ export function PoForm() {
       <PageHeader back={<Back to="/purchasing/po">Purchase Orders</Back>} title={editId ? `Edit PO ${editId}` : 'Create Purchase Order'} subtitle="Raise the PO from approved Purchase Intents. Stock changes only when goods are received (GRN)." />
       <ErrorBox msg={err} />
       <Card title="Header" className="mb-4">
-        <div className="grid gap-3 sm:grid-cols-3">
-          {!editId && <div><label className="label">PO type</label><select className="input" value={type} onChange={(e) => { setType(e.target.value); setLines([]); }}><option value="domestic">Domestic</option><option value="import">Import</option></select></div>}
+        <div className="grid gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+          {!editId && <div><label className="label" htmlFor="po-cat">Purchase category</label><select id="po-cat" className="input" value={type} onChange={(e) => { setType(e.target.value); setLines([]); }}><option value="domestic">Domestic</option><option value="import">Import</option></select></div>}
+          <div><label className="label">Type of purchase</label><select className="input" value={hdr['Type Of Purchase']} onChange={(e) => setH('Type Of Purchase', e.target.value)}><option value="">Select…</option>{PURCHASE_TYPES.map((x) => <option key={x}>{x}</option>)}</select></div>
           <div><label className="label">Date</label><input type="date" className="input" value={hdr.Date} onChange={(e) => setH('Date', e.target.value)} /></div>
-          {type === 'domestic' && <div><label className="label">Type of purchase</label><Combobox field="Type Of Purchase" value={hdr['Type Of Purchase']} onChange={(v) => setH('Type Of Purchase', v)} /></div>}
-          {type === 'domestic' && <div><label className="label">Voucher prefix</label><input className="input" value={hdr['Voucher Prefix']} onChange={(e) => setH('Voucher Prefix', e.target.value)} /></div>}
           <div><label className="label">Vendor <span className="text-red-600">*</span></label><Combobox field="Vendor Account" value={hdr['Vendor Account']} onChange={(v) => setH('Vendor Account', v)} /></div>
-          <div><label className="label">Location{type === 'domestic' && ' / Destination'}</label><Combobox field="Location" value={hdr.Location} onChange={(v) => setH('Location', v)} />{type === 'domestic' && <p className="mt-0.5 text-xs text-slate-500">Destination always equals Location on a Domestic PO.</p>}</div>
-          {type === 'domestic' && <div><label className="label">Destination</label><input className="input bg-slate-50" readOnly value={hdr.Location} /></div>}
+          {canChoose && <div><label className="label">Warehouse / Location</label><select className="input" value={hdr.Location} onChange={(e) => setH('Location', e.target.value)}>{!hdr.Location && <option value="">Select…</option>}{[...new Set([hdr.Location, ...whList].filter(Boolean))].map((w) => <option key={w}>{w}</option>)}</select></div>}
+          <div><label className="label">Voucher prefix</label><input className="input" value={hdr['Voucher Prefix']} onChange={(e) => setH('Voucher Prefix', e.target.value)} /></div>
           <div><label className="label">Supplier reference</label><input className="input" value={hdr['Supplier Ref No']} onChange={(e) => setH('Supplier Ref No', e.target.value)} /></div>
           {type === 'domestic' ? (<>
+            <div><label className="label">Currency</label><input className="input bg-slate-50" readOnly value={`${BASE_CURRENCY[0]} – ${BASE_CURRENCY[1]}`} /></div>
             <div><label className="label">IGST?</label><select className="input" value={hdr['Is IGST']} onChange={(e) => setH('Is IGST', e.target.value)}><option>No</option><option>Yes</option></select></div>
             <div><label className="label">Place of supply</label><Combobox field="Place of Supply" value={hdr['Place of Supply']} onChange={(v) => setH('Place of Supply', v)} /></div>
-            <div className="sm:col-span-2"><label className="label">Payment terms</label><textarea className="input min-h-[3rem]" value={hdr['Payment Terms']} onChange={(e) => setH('Payment Terms', e.target.value)} /></div>
-            <div className="sm:col-span-3"><label className="label">Terms of delivery</label><textarea className="input min-h-[3rem]" value={hdr['Terms of Delivery']} onChange={(e) => setH('Terms of Delivery', e.target.value)} /></div>
+            <div className="sm:col-span-2"><label className="label">Payment terms</label><textarea rows={1} className="input h-9 min-h-0 resize-y py-1.5" value={hdr['Payment Terms']} onChange={(e) => setH('Payment Terms', e.target.value)} /></div>
+            <div className="sm:col-span-2"><label className="label">Terms of delivery</label><textarea rows={1} className="input h-9 min-h-0 resize-y py-1.5" value={hdr['Terms of Delivery']} onChange={(e) => setH('Terms of Delivery', e.target.value)} /></div>
           </>) : (<>
-            <div><label className="label">Currency</label><input className="input" value={hdr.Currency} onChange={(e) => setH('Currency', e.target.value)} /></div>
-            <div><label className="label">Exchange rate <span className="text-red-600">*</span></label><input className="input" type="number" min="0" step="any" value={hdr['Exchange Rate']} onChange={(e) => setH('Exchange Rate', e.target.value)} /></div>
-            <div className="sm:col-span-3"><label className="label">Terms of delivery</label><input className="input" value={hdr['Terms Of Delivery'] || ''} onChange={(e) => setH('Terms Of Delivery', e.target.value)} /></div>
+            <div><label className="label">Currency <span className="text-red-600">*</span></label><select className="input" value={hdr.Currency} onChange={(e) => setH('Currency', e.target.value)}><option value="">Select…</option>{CURRENCIES.map(([c, n]) => <option key={c} value={c}>{c} – {n}</option>)}</select></div>
+            <div><label className="label">Exchange rate (INR per {hdr.Currency || 'unit'}) <span className="text-red-600">*</span></label><input className="input" type="number" min="0" step="any" value={hdr['Exchange Rate']} onChange={(e) => setH('Exchange Rate', e.target.value)} /></div>
+            <div className="sm:col-span-2"><label className="label">Terms of delivery</label><textarea rows={1} className="input h-9 min-h-0 resize-y py-1.5" value={hdr['Terms Of Delivery'] || ''} onChange={(e) => setH('Terms Of Delivery', e.target.value)} /></div>
           </>)}
-          <div className="sm:col-span-3"><label className="label">Notes</label><textarea className="input min-h-[3rem]" value={hdr['Narration-Notes']} onChange={(e) => setH('Narration-Notes', e.target.value)} /></div>
+          <div className="sm:col-span-2 lg:col-span-4"><label className="label">Notes</label><textarea rows={1} className="input h-9 min-h-0 resize-y py-1.5" value={hdr['Narration-Notes']} onChange={(e) => setH('Narration-Notes', e.target.value)} /></div>
         </div>
       </Card>
       <Card title="Items" className="mb-4">
@@ -393,7 +399,8 @@ export function PoForm() {
         <dl className="mt-4 ml-auto grid max-w-xs grid-cols-2 gap-1 text-sm">
           <dt className="text-slate-500">Subtotal</dt><dd className="text-right tabular-nums">{inr(c.subtotal)}</dd>
           {type === 'domestic' && <><dt className="text-slate-500">{/^yes$/i.test(hdr['Is IGST']) ? 'IGST' : 'CGST + SGST'}</dt><dd className="text-right tabular-nums">{inr(c.tax)}</dd></>}
-          <dt className="font-semibold">Grand total</dt><dd className="text-right font-semibold tabular-nums">{inr(c.grand)}</dd>
+          {type === 'import' && num(hdr['Exchange Rate']) > 0 && <><dt className="text-slate-500">Total in {hdr.Currency || 'foreign currency'}</dt><dd className="text-right tabular-nums">{n2(c.grand / num(hdr['Exchange Rate']))}</dd></>}
+          <dt className="font-semibold">Grand total (INR){type === 'import' ? ' equivalent' : ''}</dt><dd className="text-right font-semibold tabular-nums">{inr(c.grand)}</dd>
         </dl>
       </Card>
       {needOverride && canOverride && (
@@ -401,9 +408,9 @@ export function PoForm() {
           <input className="input" placeholder="Reason (recorded in history)" value={override} onChange={(e) => setOverride(e.target.value)} /></Card>
       )}
       <div className="flex flex-wrap justify-end gap-2">
-        <button className="btn" disabled={busy} onClick={() => nav(-1)}>Cancel</button>
-        <button className="btn" disabled={busy} onClick={() => save(false)}>Save draft</button>
-        <button className="btn btn-primary" disabled={busy} onClick={() => save(true)}>{busy ? 'Saving…' : 'Submit for authorization'}</button>
+        <button className="btn" disabled={busy} onClick={() => nav(editId ? `/purchasing/po/${encodeURIComponent(editId)}` : '/purchasing/po')}>Cancel</button>
+        <button className="btn" disabled={busy} onClick={() => save(false)}>Save as Draft</button>
+        <button className="btn btn-primary" disabled={busy} onClick={() => save(true)}>{busy ? 'Saving…' : 'Create PO'}</button>
       </div>
       {picker && <IntentPicker onClose={() => setPicker(false)} onAdd={(rows) => { addFromIntents(rows); setPicker(false); }} />}
     </>
@@ -446,13 +453,13 @@ export function PoRegister() {
     { name: 'Source Purchase Intent', label: 'Intent', sortable: false }, { name: 'Item Summary', sortable: false }, { name: 'Total Quantity', label: 'Qty', type: 'number', sortable: false },
     ...(view === 'pending-auth' || view === 'all' ? [{ name: 'Created By', sortable: false }, { name: 'Submitted At', label: 'Submitted', sortable: false, render: (v) => (v ? String(v).slice(0, 16).replace('T', ' ') : '—') }] : []),
     ...(view !== 'pending-auth' ? [{ name: 'Received Quantity', label: 'Received', type: 'number', sortable: false }, { name: 'Balance Quantity', label: 'Balance', type: 'number', sortable: false }, { name: 'GRN Status', sortable: false }] : []),
-    { name: 'Grand Total', label: 'Value', type: 'number', render: (v) => inr(v) }, { name: 'Status' },
+    { name: 'Grand Total', label: 'Value', type: 'number', render: (v) => inr(v) }, { name: 'Status', render: (v) => <StatusBadge value={poLabel(v)} /> },
   ];
   return (
     <>
       <PageHeader title={PO_VIEWS[view]} actions={t?.actions.includes('create') && <Link className="btn btn-primary" to="/purchasing/po/new">+ Create PO</Link>} />
       <FilterBar onReset={() => setSp({ view }, { replace: true })}>
-        {view === 'all' && <FilterItem label="Status"><select className="input" value={f.status} onChange={(e) => setF({ status: e.target.value })}><option value="">All</option>{PO_STATUSES.map((s) => <option key={s}>{s}</option>)}</select></FilterItem>}
+        {view === 'all' && <FilterItem label="Status"><select className="input" value={f.status} onChange={(e) => setF({ status: e.target.value })}><option value="">All</option>{PO_STATUSES.map((s) => <option key={s} value={s}>{poLabel(s)}</option>)}</select></FilterItem>}
         <FilterItem label="From"><input type="date" className="input" value={f.from} onChange={(e) => setF({ from: e.target.value })} /></FilterItem>
         <FilterItem label="To"><input type="date" className="input" value={f.to} onChange={(e) => setF({ to: e.target.value })} /></FilterItem>
         <FilterItem label="Vendor"><input className="input" value={f.vendor} onChange={(e) => setF({ vendor: e.target.value })} /></FilterItem>
@@ -490,7 +497,7 @@ export function PoDetail() {
   };
   return (
     <>
-      <PageHeader back={<Back to="/purchasing/po?view=all">Purchase Orders</Back>} title={`Purchase Order ${id}`} subtitle={<span className="inline-flex items-center gap-2"><StatusBadge value={status.Status} /><span className="text-slate-500">{poType === 'import' ? 'Import' : 'Domestic'}{data.grnStatus ? ` · ${data.grnStatus}` : ''}</span></span>}
+      <PageHeader back={<Back to="/purchasing/po?view=all">Purchase Orders</Back>} title={`Purchase Order ${id}`} subtitle={<span className="inline-flex items-center gap-2"><StatusBadge value={poLabel(status.Status)} /><span className="text-slate-500">{poType === 'import' ? 'Import' : 'Domestic'}{data.grnStatus ? ` · ${data.grnStatus}` : ''}</span></span>}
         actions={<>
           {can.edit && <Link className="btn" to={`/purchasing/po/new?edit=${encodeURIComponent(id)}`}>Edit</Link>}
           {can.submit && <button className="btn btn-primary" onClick={() => run('submit').catch((e) => toast.error(e.message))}>Submit for authorization</button>}

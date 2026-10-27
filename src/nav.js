@@ -29,9 +29,9 @@ export function buildNav(meta) {
     it(has(pi, 'view'), '/purchase-intent?status=Pending Review', 'Pending Purchase Indents'),
     it(has(pi, 'view'), '/purchase-intent?status=Approved', 'Approved Indents'),
     it(has(po, 'create'), '/purchasing/po/new', 'Create Domestic PO'),
-    it(has(po, 'view'), '/purchasing/po?view=pending-auth', 'Pending PO Authorization'),
+    it(has(po, 'view'), '/purchasing/po?view=pending-auth', 'PO Pending Authorization'),
     it(has(po, 'view'), '/purchasing/po?view=pending', 'Pending Purchase Orders'),
-    it(has(po, 'view'), '/purchasing/po?view=approved', 'Approved Purchase Orders'),
+    it(has(po, 'view'), '/purchasing/po?view=approved', 'PO Authorized'),
     it(has(po, 'view'), '/purchasing/po?view=all', 'All Purchase Orders'),
   ]);
 

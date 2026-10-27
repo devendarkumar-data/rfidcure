@@ -8,6 +8,7 @@ import { can } from '../shared/permissions.js';
 import { assertWarehouses, inScope, maskLines, maskRow, parseLines } from './access.js';
 import { audit } from './audit.js';
 import { getSettings } from './auth.js';
+import { CURRENCIES } from '../shared/po-options.js';
 import { itemCatalog, nextDocNo, stripInternal, validateHeader, validateLines, warehouseList } from './crud.js';
 import { loadStock } from './stock.js';
 import { COMPANY } from '../shared/company.js';
@@ -407,11 +408,21 @@ export async function savePo(ctx, body, id, idem) {
     if (ctx.user.scope.mode === 'all-readonly') throw forbidden('Your account is read-only');
     const hdr = { ...(body?.header || {}) }; delete hdr['Submit For Approval']; delete hdr[t.idCol];
     const def = await defaultLocation(ctx.store);
+    // Warehouse: users tied to one warehouse always raise POs for it (the field is hidden for them); others may only pick warehouses they are assigned to.
+    const mine = ctx.user.scope.mode === 'assigned' ? ctx.user.scope.warehouses : null;
+    if (mine) {
+      if (!mine.length) throw forbidden('No warehouse is assigned to your account. Ask an administrator to assign one.');
+      const asked = sstr(hdr.Location).toUpperCase();
+      if (!asked) hdr.Location = mine[0];
+      else if (!mine.includes(asked)) throw forbidden(mine.length === 1 ? `You can only raise Purchase Orders for your assigned warehouse (${mine[0]})` : `You are not assigned to warehouse ${asked}`);
+    }
     if (poType === 'domestic') { hdr.Location = sstr(hdr.Location) || def; hdr.Destination = hdr.Location; } // Destination is not user-editable on a Domestic PO
+    else { hdr.Location = sstr(hdr.Location) || def; hdr.Destination = sstr(hdr.Destination) || hdr.Location; }
+    if (poType === 'domestic') { delete hdr.Currency; delete hdr['Exchange Rate']; } // Domestic POs are always in INR
     const header = await validateHeader(ctx, t, hdr);
     const date = header.Date || today();
     need(sstr(header['Vendor Account']), 'Vendor is required');
-    if (poType === 'import') { need(toNum(header['Exchange Rate']) > 0, 'Exchange Rate is required for an Import PO'); }
+    if (poType === 'import') { need(CURRENCIES.some(([c]) => c === sstr(header.Currency)), 'Currency is required for an Import PO'); need(toNum(header['Exchange Rate']) > 0, 'Exchange Rate is required for an Import PO'); }
     const stock = await loadStock(ctx.store, { fresh: true });
     const catalog = await itemCatalog(ctx.store, stock);
     let lines = await validateLines(ctx, t, cleanLines(body?.lines), catalog, { strictItems: true });
@@ -579,8 +590,13 @@ export async function getPo(ctx, id) {
 }
 
 export async function poDefaults(ctx) {
-  const loc = await defaultLocation(ctx.store);
-  return { location: loc, destination: loc, note: 'Domestic PO: Location defaults to this warehouse and Destination always equals Location. Set Configuration.Location to change it.', warehouses: await warehouseList(ctx.store) };
+  const def = await defaultLocation(ctx.store);
+  const all = await warehouseList(ctx.store);
+  const mine = ctx.user.scope.mode === 'assigned' ? ctx.user.scope.warehouses : null;
+  const warehouses = mine ? all.filter((w) => mine.includes(w.toUpperCase())) : all;
+  const location = mine ? (mine[0] || '') : def;
+  // Only users who may pick between several warehouses see the field; a one-warehouse user is pre-filled and cannot change it.
+  return { location, destination: location, canChooseWarehouse: mine ? mine.length > 1 : true, warehouses, note: 'Warehouse defaults to the signed-in user\'s assigned warehouse. Domestic PO: Destination always equals Location.' };
 }
 
 // Per-item helper data for the PO line grid: last PO rate, reorder level, brand, stock at a warehouse.

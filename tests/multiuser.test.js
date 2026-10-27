@@ -94,7 +94,7 @@ test('master import: validate, all-or-nothing, skip existing, export xlsx', asyn
 test('PO lines carry the extended spec fields and item-info works', async (t) => {
   const app = await makeApp(); t.after(() => app.close());
   const sa = await app.as('sa');
-  const r = await sa('POST', '/api/wf/pos', { header: { Date: '2026-10-27', 'Type Of Purchase': 'Local', 'Voucher Prefix': 'PO', 'Vendor Account': 'BOMBAY ORTHO INDUSTRIES', Location: 'MWH', Destination: 'MWH' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Warehouse: 'MWH', 'Reorder Level': 5, 'Nos. of Pcs/Box': 10, Quantity: 2, Rate: 100, 'SP Rate': 120, 'Price Type': 'Price Book', 'Price Book Rate': 110, 'Special Rate': 95, 'Last PO Rate': 90, Brand: 'X', 'Item Group': 'G', Division: 'D', 'GST %': 12 }], submit: false });
+  const r = await sa('POST', '/api/wf/pos', { header: { Date: '2026-10-27', 'Type Of Purchase': 'Spine', 'Voucher Prefix': 'PO', 'Vendor Account': 'BOMBAY ORTHO INDUSTRIES', Location: 'MWH', Destination: 'MWH' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Warehouse: 'MWH', 'Reorder Level': 5, 'Nos. of Pcs/Box': 10, Quantity: 2, Rate: 100, 'SP Rate': 120, 'Price Type': 'Price Book', 'Price Book Rate': 110, 'Special Rate': 95, 'Last PO Rate': 90, Brand: 'X', 'Item Group': 'G', Division: 'D', 'GST %': 12 }], submit: false });
   assert.equal(r.status, 201, r.text);
   const g = await sa('GET', `/api/wf/pos/get?id=${encodeURIComponent(r.json.id)}`);
   assert.equal(g.json.lines[0]['Price Type'], 'Price Book'); assert.equal(g.json.lines[0].Division, 'D');
@@ -164,4 +164,26 @@ test('"All" group sees every warehouse; admin can view one warehouse at a time',
   const one = [...whs][0];
   const filtered = await sa('GET', '/api/stock/balances', undefined, { 'x-view-warehouse': one });
   assert.ok((filtered.json.rows || filtered.json.balances || []).every((x) => (x.warehouse || x.Warehouse) === one));
+});
+
+test('PO: warehouse locked to the assigned one, Type of Purchase list, import needs currency + rate', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa'); const wm = await app.as('wm');
+  await sa('PUT', '/api/admin/access', { tab: 'Purchase Order — Domestic', role: 'warehouse_manager', level: 'Edit' });
+  await sa('PUT', '/api/admin/access', { tab: 'Purchase Order — Import', role: 'warehouse_manager', level: 'Edit' });
+  const d = await wm('GET', '/api/wf/pos/defaults'); assert.equal(d.json.location, 'MWH'); assert.equal(d.json.canChooseWarehouse, false);
+  const line = [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10, 'GST %': 12 }];
+  const base = { 'Vendor Account': 'BOMBAY ORTHO INDUSTRIES', Date: '2026-10-27', 'Type Of Purchase': 'Spine' };
+  const other = await wm('POST', '/api/wf/pos', { header: { ...base, Location: 'DWH' }, lines: line, submit: true });
+  assert.equal(other.status, 403, other.text);
+  const mine = await wm('POST', '/api/wf/pos', { header: { ...base }, lines: line, submit: true });
+  assert.equal(mine.status, 201, mine.text); assert.equal(mine.json.header.Location, 'MWH'); assert.equal(mine.json.status.Status, 'Pending Authorization');
+  const badType = await sa('POST', '/api/wf/pos', { header: { ...base, 'Type Of Purchase': 'Other' }, lines: line, submit: false });
+  assert.equal(badType.status, 400, badType.text);
+  const noCur = await sa('POST', '/api/wf/pos', { poType: 'import', header: { ...base, Location: 'MWH' }, lines: line.map((l) => ({ ...l, 'GST %': undefined })), submit: false });
+  assert.ok([400, 422].includes(noCur.status), noCur.text);
+  const imp = await sa('POST', '/api/wf/pos', { poType: 'import', header: { ...base, Location: 'MWH', Currency: 'USD', 'Exchange Rate': 83 }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10 }], submit: false });
+  assert.equal(imp.status, 201, imp.text); assert.equal(imp.json.status.Status, 'Draft'); assert.equal(imp.json.totals.grandTotal, 830);
+  const dom = await sa('POST', '/api/wf/pos', { header: { ...base, Location: 'MWH', Currency: 'USD', 'Exchange Rate': 83 }, lines: line, submit: false });
+  assert.equal(dom.status, 201); assert.ok(!dom.json.header.Currency && !dom.json.header['Exchange Rate'], 'domestic ignores currency / rate');
 });
