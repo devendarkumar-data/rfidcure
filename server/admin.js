@@ -14,7 +14,7 @@ const ID_RE = /^[A-Za-z0-9._+@ -]{2,60}$/;
 
 function pub(row, cred) {
   return { 'User ID': sstr(row['User ID']), 'User Name': sstr(row['User Name']), Role: sstr(row.Role), Branch: sstr(row.Branch), Status: sstr(row.Status), 'Last Login': sstr(row['Last Login']),
-    Phone: sstr(row.Phone), Email: sstr(row.Email) || sstr(cred?.Email), Groups: sstr(row.Groups), 'Password Status': sstr(row.Password) ? 'Set (in sheet)' : cred?.['Password Hash'] ? 'Set' : 'Not set', 'Must Change Password': sstr(cred?.['Must Change Password']), Locked: !!(cred && Date.parse(cred['Locked Until'] || '') > Date.now()) };
+    Phone: sstr(row.Phone), Email: sstr(row.Email) || sstr(cred?.Email), Groups: sstr(row.Groups), 'Password Status': sstr(row.Password) ? 'Pending first login' : cred?.['Password Hash'] ? 'Set' : 'Not set', 'Must Change Password': sstr(cred?.['Must Change Password']), Locked: !!(cred && Date.parse(cred['Locked Until'] || '') > Date.now()) };
 }
 // An Admin must never be able to create, change or lock out a Super Admin (privilege escalation).
 function assertMayTouch(ctx, targetRoleLabel, newRoleLabel) {
@@ -99,7 +99,6 @@ export async function resetPassword(ctx, id) {
     const patch = { 'Password Hash': await hashPassword(pw), 'Must Change Password': 'Yes', 'Failed Attempts': 0, 'Locked Until': '', 'Password Updated': new Date().toISOString() };
     if (cred) await ctx.store.updateRow('Credentials', cred.__row, patch);
     else await ctx.store.append('Credentials', [{ 'User ID': row['User ID'], Email: '', ...patch }]);
-    if (sstr(row.Password)) await ctx.store.updateRow('Users', row.__row, { Password: pw });
     await audit(ctx.store, { user: ctx.user, module: 'Users', doc: row['User ID'], action: 'Reset Password' });
     await activity(ctx.store, { user: ctx.user, event: 'Password Reset', module: 'M01', doc: row['User ID'], action: 'Reset Password' });
     return { id: row['User ID'], temporaryPassword: pw };

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { idemKey } from '../api.js';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { api, idemKey } from '../api.js';
 import Field from '../components/Field.jsx';
 import LinesEditor from '../components/LinesEditor.jsx';
 import { useToast } from '../components/Toast.jsx';
@@ -22,7 +22,30 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
   const [errors, setErrors] = useState({}); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
 
   const fields = useMemo(() => table.fields.filter((f) => !(mode === 'create' && (f.type === 'auto' && !table.idCol)) ), [table, mode]);
-  const set = (n, v) => { setValues((s) => ({ ...s, [n]: v })); if (errors[n]) setErrors((e) => ({ ...e, [n]: undefined })); };
+  const isOut = table.slug === 'imprest-out-new' && mode === 'create';
+  const [defWh, setDefWh] = useState('');
+  const custTimer = useRef(null);
+  useEffect(() => { // the user's own warehouse (or the one being viewed) becomes the default on every line
+    if (!isOut) return;
+    api.get('/api/lookup', { field: 'Warehouse', scopeOnly: '1' }).then((r) => {
+      const o = r.options || []; if (o.length !== 1) return;
+      setDefWh(o[0].value); setLines((ls) => ls.map((l) => (l.Warehouse ? l : { ...l, Warehouse: o[0].value })));
+    }).catch(() => {});
+  }, [isOut]);
+  const set = (n, v) => {
+    setValues((s) => ({ ...s, [n]: v })); if (errors[n]) setErrors((e) => ({ ...e, [n]: undefined }));
+    if (isOut && n === 'Customer Account') { // shipping block + bill code come from the customer account
+      clearTimeout(custTimer.current);
+      custTimer.current = setTimeout(() => {
+        api.get('/api/lookup/customer', { name: v }).then((c) => {
+          if (!c.found) return;
+          const put = {}; const take = (k, x) => { if (x) put[k] = x; };
+          take('Ship to Name', c.name); take('Ship to Address', c.address); take('Ship to City', c.city); take('Ship to State', c.state); take('Ship to Pin code', c.pincode); take('Bill Code', c.code);
+          setValues((s) => ({ ...s, ...put }));
+        }).catch(() => {});
+      }, 350);
+    }
+  };
   const getWarehouse = (l) => l.Warehouse || (table.slug === 'imprest-in-new' ? values['To Warehouse'] : (values.Warehouse || values['From Warehouse'] || ''));
 
   const submit = async (e) => {
@@ -59,7 +82,8 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
         <div className="mt-5">
           <h3 className="mb-2 text-sm font-semibold">Line items</h3>
           <LinesEditor lineFields={table.lineFields} itemField={table.itemField} lines={lines} onChange={setLines} readOnly={readOnly}
-            batchMode={table.posts && !INWARD.has(table.slug) ? 'pick' : 'enter'} getWarehouse={getWarehouse} />
+            batchMode={table.posts && !INWARD.has(table.slug) ? 'pick' : 'enter'} getWarehouse={getWarehouse}
+            autoBatch={isOut} scopeWarehouse={isOut} lineDefaults={isOut && defWh ? { Warehouse: defWh } : null} />
           {table.posts && table.slug !== 'actual-stock' && <p className="mt-2 text-xs text-slate-500">Saving posts to the stock ledger and cannot be edited afterwards. Leave Batch on “Auto” to issue the earliest-expiry stock first.</p>}
         </div>
       )}

@@ -228,6 +228,8 @@ export default [
    "Dispatch Address",
    "Dispatch Pincode",
    "Dispatch State",
+   "Supplier",
+   "Bill Code",
    "Lines"
   ]
  },
@@ -843,7 +845,11 @@ export default [
    "Master Id",
    "Hospital Name",
    "Code",
-   "Account Type"
+   "Account Type",
+   "Address",
+   "City",
+   "State",
+   "Pincode"
   ]
  },
  {

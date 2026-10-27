@@ -72,7 +72,7 @@ export function coerce(f, v, where) {
 }
 
 async function refCheck(ctx, f, value, where) {
-  if (isBlank(value) || !f.ref || f.ref.special === 'item') return;
+  if (isBlank(value) || !f.ref || ['item', 'company', 'bhead'].includes(f.ref.special)) return;
   const cache = (ctx.cache ||= new Map());
   const ck = f.ref.master ? `m:${f.ref.master}:${f.ref.col}` : `s:${f.ref.special}`;
   if (!cache.has(ck)) cache.set(ck, f.ref.master ? await masterValues(ctx.store, f.ref) : (await warehouseList(ctx.store)));
@@ -396,7 +396,7 @@ export async function saveSettingsRecord(ctx, table, body) {
 }
 
 // ---- lookups for dropdowns ---------------------------------------------------------------------------------------
-export async function lookup(ctx, field, q, limit = 30) {
+export async function lookup(ctx, field, q, limit = 30, scopeOnly = false) {
   const ref = REFS[field];
   if (!ref) throw bad('Unknown lookup');
   if (fieldAccess(ctx.user.role, field) === 'n') throw forbidden();
@@ -408,10 +408,32 @@ export async function lookup(ctx, field, q, limit = 30) {
     return { options: out };
   }
   if (ref.special === 'warehouse') {
-    const list = await warehouseList(ctx.store);
+    let list = await warehouseList(ctx.store);
+    if (scopeOnly) list = list.filter((w) => inScope(ctx, w)); // only the user's own / currently viewed warehouse(s)
     return { options: list.map((w) => ({ value: w, label: w, inScope: inScope(ctx, w) })) };
+  }
+  if (ref.special === 'company') {
+    const cfg = (await ctx.store.read('Configuration')).rows[0] || {};
+    const names = [...new Set([sstr(cfg['Company Name']), ...(await masterValues(ctx.store, { master: 'account-master', col: 'Name' }))].filter(Boolean))].sort();
+    return { options: names.filter((v) => !needle || v.toLowerCase().includes(needle)).map((v) => ({ value: v, label: v })) };
+  }
+  if (ref.special === 'bhead') { // Sales Executive Master rows typed "Business Head"; if none are typed, every salesperson is offered
+    const { rows } = await ctx.store.read('Sales Executive Master');
+    const heads = rows.filter((r) => /business\s*head/i.test(sstr(r.Type)) && sstr(r['Salesperson Name']));
+    const names = [...new Set((heads.length ? heads : rows).map((r) => sstr(r['Salesperson Name'])).filter(Boolean))].sort();
+    return { options: names.filter((v) => !needle || v.toLowerCase().includes(needle)).map((v) => ({ value: v, label: v })) };
   }
   const vals = [...new Set(await masterValues(ctx.store, ref))].sort();
   return { options: vals.filter((v) => !needle || v.toLowerCase().includes(needle)).slice(0, 200).map((v) => ({ value: v, label: v })) };
 }
 
+
+// Details of a customer / hospital used to pre-fill the Imprest Out shipping block (name, address, city, state, pin, bill code).
+export async function customerDetails(ctx, name) {
+  if (fieldAccess(ctx.user.role, 'Customer Account') === 'n') throw forbidden();
+  const { rows } = await ctx.store.read('Customer  Hospital Master');
+  const key = sstr(name).toLowerCase();
+  const r = rows.find((x) => sstr(x['Hospital Name']).toLowerCase() === key);
+  if (!r) return { found: false };
+  return { found: true, name: sstr(r['Hospital Name']), code: sstr(r.Code), address: sstr(r.Address), city: sstr(r.City), state: sstr(r.State), pincode: sstr(r.Pincode) };
+}

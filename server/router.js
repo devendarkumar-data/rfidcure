@@ -84,7 +84,7 @@ function tableMeta(ctx, t) {
   return {
     slug: t.slug, title: t.tab, module: t.module, kind: t.kind, stage: t.stage, idCol: t.idCol, actions: allowed, posts: !!t.post,
     required: t.required, hasLines: t.hasLines && t.lineFields.length > 0, itemField: t.itemField, sort: t.sort,
-    fields: t.fields.map((f) => fieldMeta(ctx, f)).filter((f) => !f.hidden),
+    fields: t.fields.filter((f) => !(t.hide || []).includes(f.name)).map((f) => fieldMeta(ctx, f)).filter((f) => !f.hidden),
     lineFields: t.lineFields.map((f) => fieldMeta(ctx, f)).filter((f) => !f.hidden),
   };
 }
@@ -235,7 +235,8 @@ export default async function handler(req, res) {
       }
       throw notFound('Unknown endpoint');
     }
-    if (path === 'lookup' && req.method === 'GET') return ok(await crud.lookup(ctx, q.field, q.q));
+    if (path === 'lookup' && req.method === 'GET') return ok(await crud.lookup(ctx, q.field, q.q, 30, q.scopeOnly === '1'));
+    if (path === 'lookup/customer' && req.method === 'GET') return ok(await crud.customerDetails(ctx, q.name));
     if (path === 'stock/balances' && req.method === 'GET') {
       const r = await reports.stockBalances(ctx, q);
       if (q.export) { await audit(store, { user: ctx.user, module: 'Stock', action: 'Export', remarks: `${r.total} rows` }); const cols = Object.keys(r.rows[0] || { Warehouse: 1 }); return send(res, 200, toCsv(cols, r.rows), { ...outHeaders, 'Content-Disposition': 'attachment; filename="stock.csv"' }); }

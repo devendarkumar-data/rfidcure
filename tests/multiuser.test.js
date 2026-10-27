@@ -34,12 +34,12 @@ test('rewritten request (?route=) resolves multi-segment paths', async (t) => {
   const h = await app.anon('GET', '/api/handler?route=health'); assert.equal(h.status, 200);
 });
 
-test('password typed in the Users tab keeps working, is hashed in Credentials, and the cell is NOT cleared', async (t) => {
+test('password typed in the Users tab works once, is hashed, and the cell is cleared', async (t) => {
   const app = await makeApp(); t.after(() => app.close());
   await app.store.append('Users', [{ 'User ID': 'CR1001', 'User Name': 'Devendar', Password: 'Tech@1234', Role: 'Admin', Branch: 'All Branch', Status: 'Active', 'Last Login': '' }]);
   const bad = await app.anon('POST', '/api/auth/login', { userId: 'CR1001', password: 'wrong' }); assert.equal(bad.status, 401);
   const ok = await app.anon('POST', '/api/auth/login', { userId: 'CR1001', password: 'Tech@1234' }); assert.equal(ok.status, 200, ok.text);
-  const users = await app.store.read('Users'); assert.equal(users.rows.find((r) => r['User ID'] === 'CR1001').Password, 'Tech@1234', 'sheet password kept');
+  const users = await app.store.read('Users'); assert.equal(users.rows.find((r) => r['User ID'] === 'CR1001').Password, '');
   const creds = await app.store.read('Credentials'); assert.match(creds.rows.find((r) => r['User ID'] === 'CR1001')['Password Hash'], /^\$2/);
   const again = await app.anon('POST', '/api/auth/login', { userId: 'CR1001', password: 'Tech@1234' }); assert.equal(again.status, 200);
   // admin reset by typing a new password in the sheet
@@ -116,7 +116,7 @@ test('Users tab in Groups/Phone/Email/Password layout: login by e-mail, role fro
   const crm = await app.anon('POST', '/api/auth/login', { userId: 'anshu.colormagix@gmail.com', password: 'Anshu$4321$' });
   assert.equal(crm.status, 403); assert.match(crm.text, /no valid role/);
   const row = (await app.store.read('Users')).rows.find((r) => r.Email === 'pc@colormagix.com');
-  assert.equal(row.Password, 'Tech@12345x', 'sheet password kept after login'); assert.equal(row.Role, 'Admin');
+  assert.equal(row.Password, '', 'sheet password cleared after first login'); assert.equal(row.Role, 'Admin');
 });
 
 test('sign in with User Name (case-insensitive), no e-mail needed; names must be unique', async (t) => {
@@ -268,4 +268,23 @@ test('GRN can be raised against a PO that is still Pending Authorization; approv
   const ap = await ad('POST', `/api/wf/pos/action?id=${encodeURIComponent(id)}`, { action: 'approve' });
   assert.equal(ap.status, 200, ap.text); assert.equal(ap.json.status.Status, 'Completed', 'fully received PO completes on authorization');
   const list = await sa('GET', '/api/t/grn-mrn'); assert.ok(list.json.rows[0]['Supplier Ref No'] === id && list.json.rows[0]['Vendor Account']);
+});
+
+test('Imprest Out form: hidden fields, customer details, company / business head / supplier lookups, scoped warehouse', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  await app.store.append('Customer  Hospital Master', [{ 'Master Id': 'C-1', 'Hospital Name': 'MAX HOSPITAL', Code: 'MX01', Address: '1 Ring Road', City: 'Delhi', State: 'Delhi', Pincode: '110001' }]);
+  await app.store.append('Sales Executive Master', [{ 'Master Id': 'S-1', 'Salesperson Name': 'Asha', Type: 'Business Head' }, { 'Master Id': 'S-2', 'Salesperson Name': 'Ravi', Type: 'Executive' }]);
+  const meta = (await sa('GET', '/api/meta')).json.modules.flatMap((m) => m.tables).find((x) => x.slug === 'imprest-out-new');
+  const names = meta.fields.map((f) => f.name);
+  for (const gone of ['Ref. Doc', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State']) assert.ok(!names.includes(gone), `${gone} hidden`);
+  for (const need of ['Supplier', 'Bill Code', 'Companies', 'Business Head', 'Ship to Name', 'Ship to Address']) assert.ok(names.includes(need), `${need} present`);
+  assert.ok(meta.lineFields.some((f) => f.name === 'Delivery Date'));
+  const c = (await sa('GET', '/api/lookup/customer?name=max hospital')).json;
+  assert.deepEqual([c.found, c.code, c.address, c.city, c.pincode], [true, 'MX01', '1 Ring Road', 'Delhi', '110001']);
+  assert.equal((await sa('GET', '/api/lookup/customer?name=Nobody')).json.found, false);
+  assert.deepEqual((await sa('GET', '/api/lookup?field=Business Head')).json.options.map((o) => o.value), ['Asha']);
+  assert.ok((await sa('GET', '/api/lookup?field=Companies')).json.options.length >= 0);
+  const wh = (await sa('GET', '/api/lookup?field=Warehouse&scopeOnly=1')).json.options;
+  assert.ok(wh.length >= 1 && wh.every((o) => o.inScope));
 });
