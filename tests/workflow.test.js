@@ -8,7 +8,7 @@ const stockOf = async (c, wh, code) => (await c('GET', `/api/stock/balances?page
 test('Purchase Intent -> PO authorization -> GRN workflow', async (t) => {
   const app = await makeApp(); t.after(app.close);
   // dedicated users for the new roles
-  for (const [id, name, role, branch] of [['pm', 'Purchase Mgr', 'Purchase Manager', ''], ['pm2', 'Purchase Mgr 2', 'Purchase Manager', ''], ['op', 'Operator', 'Warehouse Operator', 'MWH'], ['op2', 'Operator Delhi', 'Warehouse Operator', 'DWH']]) {
+  for (const [id, name, role, branch] of [['pm', 'Purchase Mgr', 'Purchase Manager', ''], ['pm2', 'Approver Two', 'Approver', ''], ['op', 'Operator', 'Warehouse Operator', 'MWH'], ['op2', 'Operator Delhi', 'Warehouse Operator', 'DWH']]) {
     await app.store.append('Users', [{ 'User ID': id, 'User Name': name, Role: role, Branch: branch, Status: 'Active' }]);
     await app.store.append('Credentials', [{ 'User ID': id, Email: '', 'Password Hash': (await app.store.read('Credentials')).rows[0]['Password Hash'], 'Must Change Password': 'No', 'Failed Attempts': 0, 'Locked Until': '', 'Password Updated': '2026-01-01T00:00:00.000Z' }]);
   }
@@ -33,8 +33,8 @@ test('Purchase Intent -> PO authorization -> GRN workflow', async (t) => {
   });
   await t.test('return for correction needs remarks; operator edits and resubmits', async () => {
     const q = `?id=${encodeURIComponent(ctx.intent)}`;
-    assert.equal((await pm('POST', '/api/wf/intents/action' + q, { action: 'return' })).status, 400);
-    const r = await pm('POST', '/api/wf/intents/action' + q, { action: 'return', remarks: 'Reduce quantity' });
+    assert.equal((await pm2('POST', '/api/wf/intents/action' + q, { action: 'return' })).status, 400);
+    const r = await pm2('POST', '/api/wf/intents/action' + q, { action: 'return', remarks: 'Reduce quantity' });
     assert.equal(r.json.status.Status, 'Returned for Correction');
     const got = await op('GET', '/api/wf/intents/get' + q); assert.equal(got.json.can.edit, true);
     const lines = got.json.lines.map((l) => ({ ...l, Quantity: l['Item Code'] === 'A1' ? 10 : l.Quantity }));
@@ -44,9 +44,9 @@ test('Purchase Intent -> PO authorization -> GRN workflow', async (t) => {
   });
   await t.test('manager approves with a reduced approved quantity', async () => {
     const q = `?id=${encodeURIComponent(ctx.intent)}`;
-    assert.equal((await pm('POST', '/api/wf/intents/action' + q, { action: 'approve', lines: [{ lineNo: 1, approvedQty: 11 }] })).status, 400);
-    const r = await pm('POST', '/api/wf/intents/action' + q, { action: 'approve', lines: [{ lineNo: 1, approvedQty: 8 }, { lineNo: 2, approvedQty: 5 }] });
-    assert.equal(r.status, 200, r.text); assert.equal(r.json.status.Status, 'Approved'); assert.equal(r.json.status['Reviewed By'], 'pm');
+    assert.equal((await pm2('POST', '/api/wf/intents/action' + q, { action: 'approve', lines: [{ lineNo: 1, approvedQty: 11 }] })).status, 400);
+    const r = await pm2('POST', '/api/wf/intents/action' + q, { action: 'approve', lines: [{ lineNo: 1, approvedQty: 8 }, { lineNo: 2, approvedQty: 5 }] });
+    assert.equal(r.status, 200, r.text); assert.equal(r.json.status.Status, 'Approved'); assert.equal(r.json.status['Reviewed By'], 'pm2');
     assert.equal(r.json.lines[0]['Remaining Qty'], 8);
   });
 

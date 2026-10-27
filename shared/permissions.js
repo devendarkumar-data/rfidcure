@@ -24,8 +24,9 @@ export const ROLE_STAGE_ACTIONS = {
   admin: { intent: WA, po: WA, grn: WA, transfer: WA, imprest: WA, consumption: WA, dispatch: WA, requisition: WA, reports: WA, admin: ALL }, // Billing: "-"
   warehouse_manager: { intent: W, grn: WA, transfer: WA, imprest: WA, consumption: WA, dispatch: WA, requisition: WA, reports: R },        // PO: "-", Billing: "-"
   purchase: { intent: R, po: W, grn: W, requisition: R, reports: R },
-  // Added for the Purchase Intent / PO authorization workflow (not in the original matrix image - please confirm):
-  purchase_manager: { intent: WA, po: WA, grn: R, requisition: R, reports: R },
+  // Purchase Indents and POs are approved / rejected / authorised ONLY by Super Admin, Admin and Approver. Everyone else who raises them has W (no 'approve').
+// Added for the Purchase Intent / PO authorization workflow (not in the original matrix image - please confirm):
+  purchase_manager: { intent: W, po: W, grn: R, requisition: R, reports: R },
   warehouse_operator: { intent: W, grn: ['view', 'create'], requisition: W, reports: R },
   // Central stock operations at the Mother Warehouse: raises indents, receives goods, approves and dispatches requisitions.
   mother_warehouse_operator: { intent: W, grn: ['view', 'create'], transfer: W, imprest: W, consumption: W, requisition: WA, reports: R },
@@ -35,7 +36,7 @@ export const ROLE_STAGE_ACTIONS = {
   finance: { billing: W, reports: R },
   auditor: { reports: R },
   // 'All': every warehouse, view + edit on all operational and master tabs. User/security administration stays with Admin / Super Admin.
-  all: { intent: ALL, po: ALL, grn: ALL, transfer: ALL, imprest: ALL, consumption: ALL, dispatch: ALL, billing: ALL, requisition: ALL, reports: ALL, admin: WA },
+  all: { intent: [...W, 'delete'], po: [...W, 'delete'], grn: ALL, transfer: ALL, imprest: ALL, consumption: ALL, dispatch: ALL, billing: ALL, requisition: ALL, reports: ALL, admin: WA },
   data_entry: { grn: ['view', 'create'] },                                                                   // Reports: "-"
 };
 

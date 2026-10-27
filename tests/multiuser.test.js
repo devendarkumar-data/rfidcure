@@ -201,3 +201,20 @@ test('only Mother Warehouse (MWH) users can raise Purchase Indents', async (t) =
   const ok = await wm('POST', '/api/wf/intents', { header: { Date: '2026-10-27' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Quantity: 1 }], submit: false });
   assert.equal(ok.status, 201, ok.text); assert.equal(ok.json.header['Requesting Warehouse'], 'MWH');
 });
+
+test('only Approver, Admin and Super Admin approve/reject Indents and POs', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const wm = await app.as('wm'); const ap = await app.as('ap'); const ad = await app.as('ad');
+  const sa = await app.as('sa');
+  await sa('PUT', '/api/admin/access', { tab: 'Purchase Order — Domestic', role: 'warehouse_manager', level: 'Edit' });
+  const intent = await wm('POST', '/api/wf/intents', { header: { Date: '2026-10-27' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Quantity: 2 }], submit: true });
+  assert.equal(intent.status, 201, intent.text);
+  const id = encodeURIComponent(intent.json.id);
+  assert.equal((await wm('POST', `/api/wf/intents/action?id=${id}`, { action: 'approve' })).status, 403);
+  const rows = (await wm('GET', '/api/wf/intents')).json.rows; assert.ok(rows.every((r) => !r.actions.approve));
+  assert.equal((await ap('POST', `/api/wf/intents/action?id=${id}`, { action: 'approve' })).status, 200);
+  const po = await wm('POST', '/api/wf/pos', { header: { Date: '2026-10-27', 'Vendor Account': 'BOMBAY ORTHO INDUSTRIES' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10, 'GST %': 12 }], submit: true });
+  assert.equal(po.status, 201, po.text); const pid = encodeURIComponent(po.json.id);
+  assert.equal((await wm('POST', `/api/wf/pos/action?id=${pid}`, { action: 'approve' })).status, 403, 'creator role cannot authorise');
+  assert.equal((await ad('POST', `/api/wf/pos/action?id=${pid}`, { action: 'approve' })).status, 200, 'Admin can authorise');
+});
