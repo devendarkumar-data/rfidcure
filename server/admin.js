@@ -9,7 +9,7 @@ import { bad, conflict, forbidden, notFound, sstr, withLock } from './util.js';
 
 const adminOnly = (ctx, action) => { if (!can(ctx.user.role, 'admin', action)) throw forbidden('Only administrators can manage users'); if (ctx.user.scope.mode === 'all-readonly') throw forbidden(); };
 export const tempPassword = () => `Cs-${randomBytes(6).toString('base64url').replace(/[-_]/g, 'x')}9`;
-const ID_RE = /^[A-Za-z0-9._-]{3,40}$/;
+const ID_RE = /^[A-Za-z0-9._+@-]{3,60}$/;
 
 function pub(row, cred) {
   return { 'User ID': sstr(row['User ID']), 'User Name': sstr(row['User Name']), Role: sstr(row.Role), Branch: sstr(row.Branch), Status: sstr(row.Status), 'Last Login': sstr(row['Last Login']),
@@ -47,7 +47,7 @@ async function validateUser(ctx, b, { creating }) {
 export async function createUser(ctx, b) {
   adminOnly(ctx, 'create');
   return withLock('users', async () => {
-    const id = sstr(b['User ID']); if (!ID_RE.test(id)) throw bad('User ID must be 3-40 letters, numbers, dot, dash or underscore');
+    const id = sstr(b['User ID']); if (!ID_RE.test(id)) throw bad('User ID (e-mail) must be 3-60 letters, numbers or . _ + - @');
     const v = await validateUser(ctx, b, { creating: true });
     assertMayTouch(ctx, '', v.Role);
     const { rows } = await ctx.store.read('Users', { fresh: true });

@@ -101,3 +101,20 @@ test('PO lines carry the extended spec fields and item-info works', async (t) =>
   const info = await sa('GET', '/api/wf/pos/item-info?code=A1&warehouse=MWH');
   assert.equal(info.status, 200, info.text); assert.equal(info.json.lastRate, 100);
 });
+
+test('Users tab in Groups/Phone/Email/Password layout: login by e-mail, role from Groups', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  await app.store.replaceAll('Users', [
+    { Groups: 'All,Create,Admin', 'User Name': 'Devendar', Phone: '9810622865', Email: 'pc@colormagix.com', Password: 'Tech@12345x' },
+    { Groups: 'Sales', 'User Name': 'Raj Singh', Phone: '9310993988', Email: 'raj.colormagix@gmail.com', Password: 'Raj@431$xyz', Branch: 'DWH' },
+    { Groups: 'CRM,Create', 'User Name': 'Anshu', Email: 'anshu.colormagix@gmail.com', Password: 'Anshu$4321$' },
+  ]);
+  const ok = await app.anon('POST', '/api/auth/login', { userId: 'pc@colormagix.com', password: 'Tech@12345x' });
+  assert.equal(ok.status, 200, ok.text);
+  const raj = await app.anon('POST', '/api/auth/login', { userId: 'RAJ.colormagix@gmail.com', password: 'Raj@431$xyz' });
+  assert.equal(raj.status, 200, raj.text);
+  const crm = await app.anon('POST', '/api/auth/login', { userId: 'anshu.colormagix@gmail.com', password: 'Anshu$4321$' });
+  assert.equal(crm.status, 403); assert.match(crm.text, /no valid role/);
+  const row = (await app.store.read('Users')).rows.find((r) => r.Email === 'pc@colormagix.com');
+  assert.equal(row.Password, '', 'sheet password cleared after first login'); assert.equal(row.Role, 'Admin');
+});

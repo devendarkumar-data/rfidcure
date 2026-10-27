@@ -153,3 +153,10 @@ To add a user by hand, fill a row and type a password in the **Password** column
 ## Purchase Order line fields
 Domestic PO lines carry the full spec set (Items, Description, Warehouse, Units, Closing Stock, Reorder Level, Nos. of Pcs/Box, Quantity, Rate, SP Rate, Price Type, Price Book Rate, Special Rate, Last PO Rate, Brand, Item Group, Division, discount, GST %). They are stored as JSON in the PO's `Lines` cell, so the sheet needs no extra columns. Closing Stock, Reorder Level (Item Master Min Stock Level), Brand and Last PO Rate autofill when an item is picked.
 Purchase Requisition register rows have inline Approve (full requested quantity) and Reject buttons for users allowed to approve.
+
+## Users tab layout (current)
+Columns: `Groups | User Name | Phone | Email | Password | Branch | Status | Last Login` (Branch, Status, Last Login are optional trailing columns; a sheet that has only the first five is extended automatically).
+- Sign-in ID is the **Email**.
+- **Role** is read from `Groups`: comma-separated entries, the first valid role name wins (Admin, Super Admin, Sales or Sales Team, Finance, Auditor, Purchase Manager, Approver, Warehouse Manager, ...). Entries such as All, Create, CRM, Production or Fabrication are not roles and are ignored; a row with no valid role cannot sign in.
+- Blank Branch = All Branch; blank Status = Active. Roles limited to their own warehouse (Sales, Warehouse roles, Purchase Team, Data Entry) need a Branch such as MWH, DWH or CWH to see any stock.
+- The plain-text Password is accepted once, hashed, and the cell is cleared.

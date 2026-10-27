@@ -4,6 +4,7 @@ import { sheets as sheetsApi } from '@googleapis/sheets';
 import { JWT } from 'google-auth-library';
 import { ALLOWED_TABS, HEADERS_BY_TAB } from '../../shared/registry.js';
 import { HttpError, conflict, sleep } from '../util.js';
+import { expectToSheet, patchToSheet, userFromSheet, userToSheet } from '../../shared/users-layout.js';
 
 const colName = (n) => { let s = ''; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
 const CELL_LIMIT = 49000;
@@ -71,13 +72,14 @@ export class SheetsStore {
     const rows = [];
     for (let i = 1; i < vals.length; i++) {
       const v = vals[i]; if (!v || v.every((x) => x === '' || x === null)) continue;
-      const o = { __row: i + 1 }; want.forEach((h, j) => { o[h] = v[j] ?? ''; }); rows.push(o);
+      let o = { __row: i + 1 }; want.forEach((h, j) => { o[h] = v[j] ?? ''; }); if (tab === 'Users') o = userFromSheet(o); rows.push(o);
     }
     const data = { headers: [...want], rows };
     this.cache.set(tab, { t: Date.now(), data });
     return data;
   }
   _ser(tab, o) {
+    if (tab === 'Users') o = userToSheet(o);
     return HEADERS_BY_TAB[tab].map((h) => {
       let v = o[h]; if (v === undefined || v === null) return '';
       if (typeof v === 'boolean') return v ? 'Yes' : 'No';
@@ -102,6 +104,7 @@ export class SheetsStore {
   }
   async updateRow(tab, rowNum, patch, expect) {
     await this.ensure(tab);
+    if (tab === 'Users') { patch = patchToSheet(patch); expect = expectToSheet(expect); }
     const cur = await this._verify(tab, rowNum, expect);
     const merged = { ...cur, ...patch };
     const last = colName(HEADERS_BY_TAB[tab].length);
@@ -127,7 +130,7 @@ export class SheetsStore {
   }
   async deleteRow(tab, rowNum, expect) {
     await this.ensure(tab);
-    await this._verify(tab, rowNum, expect);
+    await this._verify(tab, rowNum, tab === 'Users' ? expectToSheet(expect) : expect);
     const meta = await this._meta();
     await this._retry(() => this.api.spreadsheets.batchUpdate({ spreadsheetId: this.id, requestBody: { requests: [{ deleteDimension: { range: { sheetId: meta[tab], dimension: 'ROWS', startIndex: rowNum - 1, endIndex: rowNum } } }] } }));
     this.cache.delete(tab);

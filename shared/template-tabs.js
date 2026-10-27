@@ -42,10 +42,11 @@ export default [
   "moduleName": "Login & User Management",
   "type": "List",
   "headers": [
-   "User ID",
+   "Groups",
    "User Name",
+   "Phone",
+   "Email",
    "Password",
-   "Role",
    "Branch",
    "Status",
    "Last Login"
