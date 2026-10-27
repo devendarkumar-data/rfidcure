@@ -240,7 +240,10 @@ test('GRN Operator and Entry Operator permissions', async (t) => {
   assert.equal((await g('GET', '/api/admin/users')).status, 403);
   assert.equal((await g('GET', '/api/stock/balances')).status, 200, 'opening stock / inventory visible');
   // Entry Operator: no GRN create, can view GRN; Imprest and Consumption add; consumption deducts stock
-  assert.equal((await e('GET', '/api/t/grn-mrn')).status, 200);
+  assert.equal((await e('GET', '/api/t/grn-mrn')).status, 403, 'Entry Operator: GRN hidden');
+  for (const tb of ['rfid-generation', 'master-mapping', 'item-master', 'vendor-master', 'configuration']) { assert.equal((await e('GET', `/api/t/${tb}`)).status, 403, `entry op ${tb}`); assert.equal((await g('GET', `/api/t/${tb}`)).status, 403, `grn op ${tb}`); }
+  assert.equal((await g('GET', '/api/t/purchase-indent')).status, 403, 'GRN person: no purchasing');
+  assert.equal((await e('GET', '/api/wf/pos?view=pending-auth')).status, 403, 'Entry Operator: no PO');
   assert.equal((await e('POST', '/api/t/grn-mrn', grn('MWH', [{ 'Item Code': 'A1', Quantity: 1, Rate: 1, Batch: 'EO', 'Expiry Date': '2031-01-01' }]))).status, 403);
   const before = (await sa('GET', '/api/stock/balances?pageSize=200&warehouse=MWH')).json.rows.filter((r) => r['Item Code'] === 'A1').reduce((s, r) => s + r.Quantity, 0);
   const c = await e('POST', '/api/t/material-consumption', { header: { Warehouse: 'MWH' }, lines: [{ 'Item Code': 'A1', Quantity: 3, Batch: 'B-LATE' }] });

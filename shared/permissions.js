@@ -122,7 +122,18 @@ export const ACCESS_TAB = 'Access Control';
 export const STAGE_REP = { intent: 'Purchase Indent', po: 'Purchase Order — Domestic', grn: 'GRN  MRN', transfer: 'Stock Transfer', imprest: 'Imprest Out — New', consumption: 'Material Consumption', requisition: 'Purchase Requisition', admin: 'Users' };
 // Built-in defaults: the 'All' group does not manage users or security unless the matrix says so.
 const SENSITIVE = ['Users', ACCESS_TAB, 'Security', 'Backup', 'Configuration', 'Audit Logs'];
-const DEFAULT_NONE = { all: new Set(SENSITIVE), grn_operator: new Set([...SENSITIVE, 'Login Sessions', 'Activity Log']), entry_operator: new Set([...SENSITIVE, 'Login Sessions', 'Activity Log']) };
+const RFID_TABS = ['RFID Generation', 'RFID Mapping', 'RFID Scanning', 'RFID Printing', 'RFID Replacement', 'RFID Deactivation'];
+const TALLY_TABS = ['Master Mapping', 'Voucher Posting', 'GST Mapping', 'Reconciliation'];
+const ADMIN_TABS = [...SENSITIVE, 'Login Sessions', 'Activity Log'];
+const MASTER_TABS = ['Account Master', 'Warehouse Master', 'Warehouse Location Master', 'Country Master', 'State Master', 'City Master', 'Branch Master', 'Receiving Branch Master', 'Division Master', 'Purchase Type Master', 'Doctor Master', 'Surgeon Master', 'Sales Executive Master', 'Customer  Hospital Master', 'Vendor Master', 'Item Master', 'Unit Master', 'Unit Conversion Master', 'Brand Master', 'Item Group Master', 'Item Category Master', 'Item Category Type Master', 'Item Category Item Master', 'Barcode Definition Master', 'Sales Purchase Book Master', 'Buyer Purchase Book Master', 'Batch Stock Master'];
+const PURCHASING_TABS = ['Purchase Indent', 'Purchase Indent Pending'];
+const PO_TABS = ['Purchase Order — Domestic', 'Purchase Order — Import'];
+// GRN person: GRN/MRN + view of pending / authorized POs only. Data entry (Entry Operator): Imprest Out / In and Consumption only.
+const DEFAULT_NONE = {
+  all: new Set(SENSITIVE),
+  grn_operator: new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS, ...MASTER_TABS, ...PURCHASING_TABS]),
+  entry_operator: new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS, ...MASTER_TABS, ...PURCHASING_TABS, ...PO_TABS, 'GRN  MRN', 'Stock Transfer', 'Branch Receipt', 'Actual Stock', 'Material Requisition', 'Material Issue', 'Dealer Indent', 'Indent Register', 'E-Way Bill Outward', 'E-Way Bill Inward', 'Purchase Requisition']),
+};
 let MATRIX = {};
 export const setAccessMatrix = (m) => { MATRIX = m || {}; };
 export const explicitLevel = (role, tab) => MATRIX[role]?.[tab] || null;
