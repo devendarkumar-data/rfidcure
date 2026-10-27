@@ -12,7 +12,7 @@ import { CURRENCIES } from '../shared/po-options.js';
 import { itemCatalog, nextDocNo, stripInternal, validateHeader, validateLines, warehouseList } from './crud.js';
 import { loadStock } from './stock.js';
 import { COMPANY } from '../shared/company.js';
-import { HttpError, bad, conflict, forbidden, istParts, normDate, notFound, round2, sstr, today, toNum, unprocessable, withLock } from './util.js';
+import { HttpError, motherWarehouse, bad, conflict, forbidden, istParts, normDate, notFound, round2, sstr, today, toNum, unprocessable, withLock } from './util.js';
 
 export const INTENT = 'Purchase Intent';
 export const PO = 'Purchase Order';
@@ -155,9 +155,11 @@ async function refreshPoReceipt(ctx, poNo) {
 }
 
 // ---- Purchase Intent --------------------------------------------------------------------------------------------------
+// Only Mother Warehouse users (or users with all-warehouse access) may raise Purchase Indents.
+export const mayRaiseIntent = (ctx) => ctx.user.scope.mode === 'all' || (ctx.user.scope.mode === 'assigned' && ctx.user.scope.warehouses.includes(motherWarehouse()));
 function intentCan(ctx, row, st) {
   const t = intentTable(); const s = st.Status; const mine = sameUser(st['Created By'], ctx.user.id);
-  const has = (a) => can(ctx.user.role, t.stage, a) && ctx.user.scope.mode !== 'all-readonly';
+  const has = (a) => can(ctx.user.role, t.stage, a) && ctx.user.scope.mode !== 'all-readonly' && (!['create', 'edit'].includes(a) || mayRaiseIntent(ctx));
   const ownerOrAdmin = mine || isAdmin(ctx);
   const review = has('approve') && s === IS.PENDING && (!mine || isSuper(ctx));
   return {
@@ -180,9 +182,12 @@ export async function saveIntent(ctx, body, id, idem) {
   const t = intentTable();
   if (!can(ctx.user.role, t.stage, id ? 'edit' : 'create')) throw forbidden('Your role cannot raise Purchase Intents');
   if (ctx.user.scope.mode === 'all-readonly') throw forbidden('Your account is read-only');
+  if (!mayRaiseIntent(ctx)) throw forbidden(`Only ${motherWarehouse()} (Mother Warehouse) users can raise Purchase Indents`);
   return withLock('stock', async () => {
     if (!id) { const prev = await findIdemDoc(ctx, t.tab, idem); if (prev) return { ...(await getIntent(ctx, prev)), duplicate: true }; }
     const hdr = { ...(body?.header || {}) }; delete hdr.Status; delete hdr['Submit For Approval']; delete hdr[t.idCol];
+    if (sstr(hdr['Requesting Warehouse']) && sstr(hdr['Requesting Warehouse']).toUpperCase() !== motherWarehouse()) throw forbidden(`Purchase Indents are raised for the Mother Warehouse (${motherWarehouse()}) only`);
+    hdr['Requesting Warehouse'] = motherWarehouse(); // indents to purchase are always raised for the Mother Warehouse
     const header = await validateHeader(ctx, t, hdr);
     assertWarehouses(ctx, [header['Requesting Warehouse']], 'warehouse');
     const stock = await loadStock(ctx.store, { fresh: true });

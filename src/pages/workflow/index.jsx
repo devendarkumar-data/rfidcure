@@ -115,7 +115,7 @@ const intentCols = [
 export function IntentForm() {
   const nav = useNavigate(); const toast = useToast(); const [sp] = useSearchParams(); const editId = sp.get('edit');
   const [key] = useState(() => idemKey());
-  const [hdr, setHdr] = useState({ Date: todayIST(), 'Requesting Warehouse': '', 'Narration-Notes': '' });
+  const [hdr, setHdr] = useState({ Date: todayIST(), 'Requesting Warehouse': 'MWH', 'Narration-Notes': '' });
   const [lines, setLines] = useState([]); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [ready, setReady] = useState(!editId);
   const shortId = sp.get('short');
   useEffect(() => {
@@ -134,7 +134,6 @@ export function IntentForm() {
   const { user } = useAuth();
   const myWh = user?.scope?.mode === 'assigned' ? (user.scope.warehouses || []) : [];
   useEffect(() => { // default to the warehouse of the signed-in person
-    if (!editId && !shortId && myWh.length) setHdr((h) => (h['Requesting Warehouse'] ? h : { ...h, 'Requesting Warehouse': myWh[0] }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const wh = hdr['Requesting Warehouse']; const codesKey = lines.map((l) => l['Item Code']).filter(Boolean).join(',');
   const [levels, setLevels] = useState({});
@@ -168,7 +167,7 @@ export function IntentForm() {
       <Card title="Header" className="mb-4">
         <div className="grid gap-3 sm:grid-cols-3">
           <div><label className="label">Date</label><input type="date" className="input" value={hdr.Date} onChange={(e) => setHdr({ ...hdr, Date: e.target.value })} /></div>
-          <div><label className="label">Requesting Warehouse <span className="text-red-600">*</span></label><Combobox field="Requesting Warehouse" allowFree={false} value={hdr['Requesting Warehouse']} onChange={(v) => setHdr({ ...hdr, 'Requesting Warehouse': v })} /></div>
+          <div><label className="label">Requesting Warehouse <span className="text-red-600">*</span></label><input className="input bg-slate-50" readOnly value={hdr['Requesting Warehouse'] || 'MWH'} /><p className="mt-0.5 text-xs text-slate-500">Purchase Indents are raised by the Mother Warehouse only.</p></div>
           <div className="sm:col-span-3"><label className="label">Notes</label><textarea className="input min-h-[3.5rem]" value={hdr['Narration-Notes']} maxLength={1000} onChange={(e) => setHdr({ ...hdr, 'Narration-Notes': e.target.value })} /></div>
         </div>
       </Card>
@@ -471,8 +470,8 @@ export function PoRegister() {
         rowActions={(r) => (
           <div className="flex justify-end gap-1">
             <Link className="btn btn-sm" to={`/purchasing/po/${encodeURIComponent(r['Document No.'])}`}>{r.actions.approve ? 'Authorize' : 'View'}</Link>
-            {r.actions.approve && <button className="btn btn-sm btn-primary" title="Authorize the PO as raised" onClick={(e) => { e.stopPropagation(); act(r['Document No.'], 'approve').catch(() => {}); }}>Approve</button>}
-            {r.actions.reject && <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); setDlg(<RemarksDialog title={`Reject PO ${r['Document No.']}`} required danger confirmLabel="Reject" onConfirm={(rm) => act(r['Document No.'], 'reject', rm).then(() => setDlg(null)).catch(() => {})} onCancel={() => setDlg(null)} />); }}>Reject</button>}
+            {r.Status === 'Pending Authorization' && <button className="btn btn-sm btn-primary" disabled={!r.actions.approve} title={r.actions.approve ? 'Authorize the PO as raised' : 'Only another authorised user can approve this PO'} onClick={(e) => { e.stopPropagation(); act(r['Document No.'], 'approve').catch(() => {}); }}>Approve</button>}
+            {r.Status === 'Pending Authorization' && <button className="btn btn-sm" disabled={!r.actions.reject} title={r.actions.reject ? '' : 'Only another authorised user can reject this PO'} onClick={(e) => { e.stopPropagation(); setDlg(<RemarksDialog title={`Reject PO ${r['Document No.']}`} required danger confirmLabel="Reject" onConfirm={(rm) => act(r['Document No.'], 'reject', rm).then(() => setDlg(null)).catch(() => {})} onCancel={() => setDlg(null)} />); }}>Reject</button>}
             {r.actions.receive && <Link className="btn btn-sm btn-primary" to={`/grn/new?po=${encodeURIComponent(r['Document No.'])}`}>Receive</Link>}
           </div>
         )} />

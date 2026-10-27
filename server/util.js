@@ -64,3 +64,6 @@ export function constantTimeEq(a, b) {
   for (let i = 0; i < Math.max(a.length, b.length); i++) d |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
   return d === 0;
 }
+
+// The Mother Warehouse is the only warehouse that raises Purchase Indents (to purchase from vendors).
+export const motherWarehouse = () => String(process.env.MOTHER_WAREHOUSE || 'MWH').toUpperCase();

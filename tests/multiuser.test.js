@@ -187,3 +187,17 @@ test('PO: warehouse locked to the assigned one, Type of Purchase list, import ne
   const dom = await sa('POST', '/api/wf/pos', { header: { ...base, Location: 'MWH', Currency: 'USD', 'Exchange Rate': 83 }, lines: line, submit: false });
   assert.equal(dom.status, 201); assert.ok(!dom.json.header.Currency && !dom.json.header['Exchange Rate'], 'domestic ignores currency / rate');
 });
+
+test('only Mother Warehouse (MWH) users can raise Purchase Indents', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  await app.store.append('Users', [{ 'User ID': 'dwhop', 'User Name': 'dwhop', Role: 'Warehouse Operator', Branch: 'DWH', Status: 'Active', Password: 'Dwh@Operator2026' }]);
+  const dwh = await app.as('dwhop', 'Dwh@Operator2026');
+  const meta = await dwh('GET', '/api/meta');
+  const pi = meta.json.modules.flatMap((m) => m.tables).find((x) => x.slug === 'purchase-indent');
+  assert.ok(!pi || !pi.actions.includes('create'), 'no create action for a DWH user');
+  const r = await dwh('POST', '/api/wf/intents', { header: { Date: '2026-10-27' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Quantity: 1 }], submit: false });
+  assert.equal(r.status, 403, r.text);
+  const wm = await app.as('wm');
+  const ok = await wm('POST', '/api/wf/intents', { header: { Date: '2026-10-27' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Quantity: 1 }], submit: false });
+  assert.equal(ok.status, 201, ok.text); assert.equal(ok.json.header['Requesting Warehouse'], 'MWH');
+});

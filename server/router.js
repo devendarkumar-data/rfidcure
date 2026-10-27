@@ -2,6 +2,7 @@
 import { MODULE_NAMES, TABLES, TABLE_BY_SLUG, REFS } from '../shared/registry.js';
 import { actionsFor, actionsForTab, ROLE_LABELS } from '../shared/permissions.js';
 import * as accessMatrix from './access-matrix.js';
+import { mayRaiseIntent } from './workflow.js';
 import { fieldAccess, STAGE_LABELS } from '../shared/permissions.js';
 import { config } from './config.js';
 import { getStore } from './store/index.js';
@@ -79,6 +80,7 @@ function tableMeta(ctx, t) {
   else if (t.kind === 'log') allowed = allowed.filter((a) => ['view', 'create', 'export'].includes(a));
   else if (t.kind === 'settings') allowed = allowed.filter((a) => ['view', 'edit'].includes(a));
   else allowed = allowed.filter((a) => ['view', 'export'].includes(a));
+  if (t.slug === 'purchase-indent' && !mayRaiseIntent(ctx)) allowed = allowed.filter((a) => !['create', 'edit'].includes(a)); // only MWH raises indents
   return {
     slug: t.slug, title: t.tab, module: t.module, kind: t.kind, stage: t.stage, idCol: t.idCol, actions: allowed, posts: !!t.post,
     required: t.required, hasLines: t.hasLines && t.lineFields.length > 0, itemField: t.itemField, sort: t.sort,
