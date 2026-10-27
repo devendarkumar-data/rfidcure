@@ -1,0 +1,69 @@
+import { useEffect, useRef, useState } from 'react';
+import { api } from '../api.js';
+import Combobox from './Combobox.jsx';
+import ItemPicker from './ItemPicker.jsx';
+
+const num = (v) => (v === '' || v === null || v === undefined ? 0 : Number(v) || 0);
+
+function BatchSelect({ value, onChange, warehouse, code, disabled }) {
+  const [list, setList] = useState(null); const [err, setErr] = useState('');
+  useEffect(() => {
+    if (!warehouse || !code) { setList(null); return undefined; }
+    let live = true;
+    api.get('/api/stock/batches', { warehouse, code }).then((r) => { if (live) { setList(r.batches || []); setErr(''); } }).catch((e) => { if (live) { setList([]); setErr(e.message); } });
+    return () => { live = false; };
+  }, [warehouse, code]);
+  if (!warehouse) return <input className="input" disabled placeholder="Choose warehouse first" />;
+  return (
+    <div>
+      <select className="input" value={value ?? ''} disabled={disabled || !code} onChange={(e) => onChange(e.target.value)} aria-label="Batch">
+        <option value="">Auto — earliest expiry first (FEFO)</option>
+        {(list || []).map((b) => <option key={b.batch} value={b.batch}>{b.batch} · exp {b.expiry || 'n/a'}{b.expired ? ' (EXPIRED)' : ''} · qty {b.qty}</option>)}
+      </select>
+      {err && <p className="mt-0.5 text-xs text-red-600">{err}</p>}
+    </div>
+  );
+}
+
+// Generic line-item grid driven by table.lineFields. batchMode: 'pick' (existing batches, outward docs) | 'enter' (free text, inward docs).
+export default function LinesEditor({ lineFields, itemField, lines, onChange, getWarehouse, batchMode = 'enter', readOnly = false, errors = {} }) {
+  const cols = lineFields.filter((f) => f.name !== 'Item Code' && f.type !== 'calc' || (f.type === 'calc' && ['Gross', 'System Qty'].includes(f.name)));
+  const idRef = useRef(1);
+  const set = (i, patch) => onChange(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
+  const add = () => onChange([...lines, { _k: idRef.current++ }]);
+  const del = (i) => onChange(lines.filter((_, j) => j !== i));
+  useEffect(() => { if (!lines.length && !readOnly) onChange([{ _k: idRef.current++ }]); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const cell = (f, l, i) => {
+    const v = l[f.name] ?? '';
+    if (f.name === itemField) return <div className="min-w-[14rem]"><ItemPicker value={v ? `${l['Item Code'] || ''} — ${v}`.replace(/^ — /, '') : ''} disabled={readOnly || f.readonly} onChange={({ code, name }) => set(i, { 'Item Code': code, [itemField]: name })} /></div>;
+    if (f.name === 'Gross') return <span className="tabular-nums">{(num(l.Quantity) * num(l.Rate)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>;
+    if (f.type === 'calc') return <span className="tabular-nums text-slate-500">{v}</span>;
+    if (f.name === 'Batch' && batchMode === 'pick') return <div className="min-w-[14rem]"><BatchSelect value={v} warehouse={getWarehouse?.(l)} code={l['Item Code']} disabled={readOnly || f.readonly} onChange={(b) => set(i, { Batch: b })} /></div>;
+    if (f.options || f.yesNo) return <select className="input min-w-[7rem]" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { [f.name]: e.target.value })} aria-label={f.name}><option value="">—</option>{(f.options || ['Yes', 'No']).map((o) => <option key={o}>{o}</option>)}</select>;
+    if (f.lookup) return <div className="min-w-[10rem]"><Combobox field={f.lookup} value={v} disabled={readOnly || f.readonly} onChange={(x) => set(i, { [f.name]: x, ...(f.name === 'Warehouse' ? { Batch: '' } : {}) })} /></div>;
+    if (f.type === 'number') return <input className="input min-w-[6rem] text-right" type="number" min="0" step="any" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { [f.name]: e.target.value })} aria-label={f.name} />;
+    if (f.type === 'date') return <input className="input min-w-[9rem]" type="date" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { [f.name]: e.target.value })} aria-label={f.name} />;
+    return <input className="input min-w-[7rem]" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { [f.name]: e.target.value })} aria-label={f.name} />;
+  };
+
+  return (
+    <div>
+      <div className="overflow-x-auto rounded-md border border-slate-200">
+        <table className="min-w-full divide-y divide-slate-200">
+          <thead><tr><th className="th w-8">#</th>{cols.map((f) => <th key={f.name} className="th">{f.name}</th>)}{!readOnly && <th className="th w-10" />}</tr></thead>
+          <tbody className="divide-y divide-slate-100">
+            {lines.map((l, i) => (
+              <tr key={l._k ?? i} className={errors[i] ? 'bg-red-50' : ''}>
+                <td className="td text-slate-400">{i + 1}</td>
+                {cols.map((f) => <td key={f.name} className="td align-top">{cell(f, l, i)}</td>)}
+                {!readOnly && <td className="td align-top"><button type="button" className="btn btn-sm" onClick={() => del(i)} aria-label={`Remove line ${i + 1}`} disabled={lines.length === 1}>✕</button></td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {!readOnly && <button type="button" className="btn btn-sm mt-2" onClick={add}>+ Add line</button>}
+    </div>
+  );
+}
