@@ -52,7 +52,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
   return (
     <form onSubmit={submit} noValidate aria-label={table.title}>
       {err && <div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className={`grid gap-x-3 gap-y-2 ${fields.length > 8 ? "grid-cols-2 lg:grid-cols-4 [&_.input]:py-1 [&_.input]:text-sm [&_label]:text-xs" : "sm:grid-cols-2"}`}>
         {fields.map((f) => <Field key={f.name} field={f} value={values[f.name]} onChange={(v) => set(f.name, v)} disabled={readOnly} required={table.required.includes(f.name)} error={errors[f.name]} />)}
       </div>
       {table.hasLines && (
