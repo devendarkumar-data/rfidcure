@@ -59,3 +59,10 @@ test('Users header: any column order, missing optional columns are added, extras
   const s2 = new SheetsStore({ sheetId: 'x', client: f.api, ttlMs: 0 }); await s2.ensure('Users');
   assert.deepEqual(f.tabs.get('Users')[0], ['Groups', 'User Name', 'Phone', 'Email', 'Password', 'Branch', 'Status', 'Last Login', 'Warehouse']);
 });
+
+test('header cells with stray spaces / non-breaking spaces still match', async () => {
+  const f = fakeClient(); f.tabs.set('Users', [[' Groups', 'User Name ', 'Phone', 'Email', 'Password', 'Branch', 'Status', 'Last Login', 'Warehouse ']]);
+  const s = new SheetsStore({ sheetId: 'x', client: f.api, ttlMs: 0 }); await s.ensure('Users');
+  f.tabs.set('Credentials', [HEADERS_BY_TAB.Credentials.map((h) => h + ' ')]);
+  await s.ensure('Credentials');
+});

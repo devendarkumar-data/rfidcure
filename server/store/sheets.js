@@ -8,6 +8,7 @@ import { USERS_CORE, expectToSheet, patchToSheet, userFromSheet, userToSheet } f
 
 const colName = (n) => { let s = ''; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
 const CELL_LIMIT = 49000;
+const norm = (x) => String(x).replace(/[\s\u00a0\u200b\ufeff]+/g, ' ').trim();
 
 export class SheetsStore {
   constructor({ sheetId, clientEmail, privateKey, client, ttlMs = 2500 }) {
@@ -51,7 +52,7 @@ export class SheetsStore {
       await this._meta(true);
     }
     const r = await this._retry(() => this.api.spreadsheets.values.get({ spreadsheetId: this.id, range: `'${tab}'!1:1`, valueRenderOption: 'UNFORMATTED_VALUE' }));
-    const head = (r.data.values?.[0] || []).map((x) => String(x));
+    const head = (r.data.values?.[0] || []).map(norm);
     const want = HEADERS_BY_TAB[tab];
     if (tab === 'Users' && head.length && USERS_CORE.every((h) => head.includes(h))) {
       const missing = want.filter((h) => !head.includes(h));
@@ -124,7 +125,7 @@ export class SheetsStore {
     for (const tab of ALLOWED_TABS) {
       if (!(tab in meta)) { out.push({ tab, status: 'missing' }); continue; }
       const r = await this._retry(() => this.api.spreadsheets.values.get({ spreadsheetId: this.id, range: `'${tab}'!1:1`, valueRenderOption: 'UNFORMATTED_VALUE' }));
-      const head = (r.data.values?.[0] || []).map(String); const want = HEADERS_BY_TAB[tab];
+      const head = (r.data.values?.[0] || []).map(norm); const want = HEADERS_BY_TAB[tab];
       out.push({ tab, status: !head.length ? 'empty' : (head.join('\u0001') === want.join('\u0001') || (tab === 'Users' && USERS_CORE.every((h) => head.includes(h)))) ? 'ok' : 'mismatch', expected: want, found: head });
     }
     return out;
