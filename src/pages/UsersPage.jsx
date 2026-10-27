@@ -28,9 +28,9 @@ function UserForm({ initial, roles, warehouses, onSave, onCancel }) {
     <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2" aria-label="User">
       {err && <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-2">{err}</div>}
       <div><label className="label" htmlFor="u-role">Groups (role) *</label><select id="u-role" className="input" value={v.Role} onChange={(e) => set('Role', e.target.value)}>{roles.map((r) => <option key={r}>{r}</option>)}</select></div>
-      <div><label className="label" htmlFor="u-name">User Name *</label><input id="u-name" className="input" value={v['User Name']} onChange={(e) => set('User Name', e.target.value)} required maxLength={80} /></div>
+      <div><label className="label" htmlFor="u-name">User Name (sign-in ID) *</label><input id="u-name" className="input" value={v['User Name']} disabled={editing} onChange={(e) => set('User Name', e.target.value)} required maxLength={60} /></div>
       <div><label className="label" htmlFor="u-phone">Phone</label><input id="u-phone" className="input" inputMode="tel" value={v.Phone} onChange={(e) => set('Phone', e.target.value)} maxLength={20} /></div>
-      <div><label className="label" htmlFor="u-email">Email (sign-in ID) *</label><input id="u-email" type="email" className="input" value={v.Email} disabled={editing} required onChange={(e) => set('Email', e.target.value)} /></div>
+      <div><label className="label" htmlFor="u-email">Email (optional)</label><input id="u-email" type="email" className="input" value={v.Email} disabled={editing} onChange={(e) => set('Email', e.target.value)} /></div>
       {!editing && <div><label className="label" htmlFor="u-pw">Password</label><input id="u-pw" className="input" value={v.Password} onChange={(e) => set('Password', e.target.value)} placeholder="Leave blank to generate one" autoComplete="off" /></div>}
       <div><label className="label" htmlFor="u-status">Status</label><select id="u-status" className="input" value={v.Status} onChange={(e) => set('Status', e.target.value)}><option>Active</option><option>Inactive</option></select></div>
       <fieldset className="sm:col-span-2">
@@ -75,7 +75,7 @@ export default function UsersPage() {
       <PageHeader title="User Management" subtitle="Create users, assign roles and warehouses, deactivate leavers and reset passwords." actions={<button className="btn btn-primary" onClick={() => setDlg({ type: 'new' })}><Icon name="plus" className="h-4 w-4" /> New user</button>} />
       <LocalTable rows={rows} onEdit={(r) => setDlg({ type: 'edit', row: r })} onReset={(r) => setDlg({ type: 'reset', row: r })} />
       {dlg?.type === 'new' && <Modal title="New user" onClose={() => setDlg(null)}><UserForm roles={roles} warehouses={info.warehouses} onCancel={() => setDlg(null)}
-        onSave={async (v) => { const r = await api.post('/api/admin/users', { ...v, 'User ID': v.Email }); toast.success(`User ${r.id} created`); setDlg({ type: 'secret', title: 'User created', id: r.id, password: r.temporaryPassword }); reload(); }} /></Modal>}
+        onSave={async (v) => { const r = await api.post('/api/admin/users', { ...v, 'User ID': v.Email || v['User Name'] }); toast.success(`User ${r.id} created`); setDlg({ type: 'secret', title: 'User created', id: r.id, password: r.temporaryPassword }); reload(); }} /></Modal>}
       {dlg?.type === 'edit' && <Modal title={`Edit ${dlg.row['User Name']}`} onClose={() => setDlg(null)}><UserForm initial={dlg.row} roles={roles.includes(dlg.row.Role) ? roles : [dlg.row.Role, ...roles]} warehouses={info.warehouses} onCancel={() => setDlg(null)}
         onSave={async (v) => { await api.put(`/api/admin/users?id=${encodeURIComponent(dlg.row['User ID'])}`, v); toast.success('User updated'); setDlg(null); reload(); }} /></Modal>}
       {dlg?.type === 'reset' && <ConfirmDialog title="Reset password" confirmLabel="Reset password" message={`Reset the password for ${dlg.row['User ID']}? Their current password stops working immediately and all their sessions are signed out.`} onCancel={() => setDlg(null)}
@@ -111,7 +111,7 @@ function LocalTable({ rows, onEdit, onReset }) {
           <tbody className="divide-y divide-slate-100">
             {list.map((r) => (
               <tr key={r['User ID']} className="hover:bg-slate-50">
-                <td className="td font-medium">{r.Role || <span className="text-red-600">no valid role</span>}</td><td className="td">{r['User Name']}</td><td className="td">{r.Phone}</td><td className="td">{r.Email || r['User ID']}</td><td className="td text-xs text-slate-500">{r['Password Status']}</td>
+                <td className="td font-medium">{r.Role || <span className="text-red-600">no valid role</span>}</td><td className="td">{r['User Name']}</td><td className="td">{r.Phone}</td><td className="td">{r.Email}</td><td className="td text-xs text-slate-500">{r['Password Status']}</td>
                 <td className="td">{r.Branch || <span className="text-slate-400">all / n.a.</span>}</td>
                 <td className="td"><StatusBadge value={r.Locked ? 'Locked' : r.Status} /></td>
                 <td className="td whitespace-nowrap">{r['Last Login'] || <span className="text-slate-300">never</span>}</td>

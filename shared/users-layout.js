@@ -19,7 +19,7 @@ export function roleFromGroups(groups) {
 export function userFromSheet(r) {
   return {
     ...r,
-    'User ID': String(r.Email ?? '').trim(), Role: roleFromGroups(r.Groups),
+    'User ID': String(r.Email ?? '').trim() || String(r['User Name'] ?? '').trim(), Role: roleFromGroups(r.Groups),
     Branch: String(r.Warehouse ?? '').trim() || String(r.Branch ?? '').trim() || 'All Branch', Status: String(r.Status ?? '').trim() || 'Active',
   };
 }
@@ -27,7 +27,7 @@ export function userFromSheet(r) {
 // canonical -> sheet columns (full record, for append)
 export function userToSheet(o) {
   return {
-    Groups: o.Groups ?? o.Role ?? '', 'User Name': o['User Name'] ?? '', Phone: o.Phone ?? '', Email: o.Email || o['User ID'] || '',
+    Groups: o.Groups ?? o.Role ?? '', 'User Name': o['User Name'] ?? '', Phone: o.Phone ?? '', Email: o.Email ?? (o['User ID'] && o['User ID'] !== o['User Name'] ? o['User ID'] : ''),
     Password: o.Password ?? '', Branch: o.Branch === 'All Branch' ? '' : (o.Branch ?? ''), Warehouse: o.Branch === 'All Branch' ? '' : (o.Branch ?? o.Warehouse ?? ''), Status: o.Status ?? '', 'Last Login': o['Last Login'] ?? '',
   };
 }

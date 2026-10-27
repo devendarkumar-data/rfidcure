@@ -156,7 +156,7 @@ Purchase Requisition register rows have inline Approve (full requested quantity)
 
 ## Users tab layout (current)
 Columns: `Groups | User Name | Phone | Email | Password` are required; `Branch | Status | Last Login | Warehouse` are optional and are added to the header if missing. Column order does not matter and extra columns are kept. A Warehouse value takes precedence over Branch.
-- Sign-in ID is the **Email**.
+- Sign-in ID is the **User Name** (case-insensitive, must be unique); the Email is also accepted if filled in.
 - **Role** is read from `Groups`: comma-separated entries, the first valid role name wins (Admin, Super Admin, Sales or Sales Team, Finance, Auditor, Purchase Manager, Approver, Warehouse Manager, ...). Entries such as All, Create, CRM, Production or Fabrication are not roles and are ignored; a row with no valid role cannot sign in.
 - Blank Branch = All Branch; blank Status = Active. Roles limited to their own warehouse (Sales, Warehouse roles, Purchase Team, Data Entry) need a Branch such as MWH, DWH or CWH to see any stock.
 - The plain-text Password is accepted once, hashed, and the cell is cleared.

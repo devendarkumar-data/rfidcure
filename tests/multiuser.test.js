@@ -118,3 +118,19 @@ test('Users tab in Groups/Phone/Email/Password layout: login by e-mail, role fro
   const row = (await app.store.read('Users')).rows.find((r) => r.Email === 'pc@colormagix.com');
   assert.equal(row.Password, '', 'sheet password cleared after first login'); assert.equal(row.Role, 'Admin');
 });
+
+test('sign in with User Name (case-insensitive), no e-mail needed; names must be unique', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  await app.store.append('Users', [
+    { Groups: 'Admin', 'User Name': 'Devendar', Email: 'd@x.com', Password: 'Tech@12345x' },
+    { Groups: 'Sales', 'User Name': 'Nirmal Bafna', Password: 'Nirmal@2026x', Branch: 'DWH' },
+  ]);
+  assert.equal((await app.anon('POST', '/api/auth/login', { userId: 'devendar', password: 'Tech@12345x' })).status, 200);
+  assert.equal((await app.anon('POST', '/api/auth/login', { userId: 'nirmal  bafna', password: 'Nirmal@2026x' })).status, 200);
+  const dup = await sa('POST', '/api/admin/users', { 'User Name': 'devendar', Role: 'Admin', Status: 'Active' });
+  assert.equal(dup.status, 409, dup.text);
+  const ok = await sa('POST', '/api/admin/users', { 'User Name': 'Anil Kumar', Role: 'Admin', Status: 'Active', Password: 'Anil@Strong2026' });
+  assert.equal(ok.status, 201, ok.text);
+  assert.equal((await app.anon('POST', '/api/auth/login', { userId: 'anil kumar', password: 'Anil@Strong2026' })).status, 200);
+});

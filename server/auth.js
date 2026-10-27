@@ -62,7 +62,10 @@ export function userView(row) {
 }
 export async function findUser(store, id) {
   const { rows } = await store.read('Users');
-  const row = rows.find((r) => sstr(r['User ID']).toLowerCase() === sstr(id).toLowerCase());
+  const k = sstr(id).toLowerCase().replace(/\s+/g, ' ');
+  const eq = (v) => sstr(v).toLowerCase().replace(/\s+/g, ' ') === k;
+  // sign in with the User Name (or the Email / internal id): exact id first, then user name, then e-mail
+  const row = rows.find((r) => eq(r['User ID'])) || rows.find((r) => eq(r['User Name'])) || rows.find((r) => sstr(r.Email) && eq(r.Email));
   return row ? { row, user: userView(row) } : null;
 }
 async function findCred(store, id, fresh) {

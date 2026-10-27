@@ -10,7 +10,7 @@ import { bad, conflict, forbidden, notFound, sstr, withLock } from './util.js';
 
 const adminOnly = (ctx, action) => { if (!can(ctx.user.role, 'admin', action)) throw forbidden('Only administrators can manage users'); if (ctx.user.scope.mode === 'all-readonly') throw forbidden(); };
 export const tempPassword = () => `Cs-${randomBytes(6).toString('base64url').replace(/[-_]/g, 'x')}9`;
-const ID_RE = /^[A-Za-z0-9._+@-]{3,60}$/;
+const ID_RE = /^[A-Za-z0-9._+@ -]{2,60}$/;
 
 function pub(row, cred) {
   return { 'User ID': sstr(row['User ID']), 'User Name': sstr(row['User Name']), Role: sstr(row.Role), Branch: sstr(row.Branch), Status: sstr(row.Status), 'Last Login': sstr(row['Last Login']),
@@ -48,14 +48,15 @@ async function validateUser(ctx, b, { creating }) {
 export async function createUser(ctx, b) {
   adminOnly(ctx, 'create');
   return withLock('users', async () => {
-    const id = sstr(b['User ID'] || b.Email); if (!ID_RE.test(id)) throw bad('User ID (e-mail) must be 3-60 letters, numbers or . _ + - @');
+    const id = sstr(b['User ID'] || b.Email || b['User Name']); if (!ID_RE.test(id)) throw bad('User Name must be 2-60 letters, numbers, spaces or . _ + - @');
     const v = await validateUser(ctx, b, { creating: true });
     assertMayTouch(ctx, '', v.Role);
     const { rows } = await ctx.store.read('Users', { fresh: true });
-    if (rows.some((r) => sstr(r['User ID']).toLowerCase() === id.toLowerCase())) throw conflict('User ID already exists');
+    const nm = (x) => sstr(x).toLowerCase().replace(/\s+/g, ' ');
+    if (rows.some((r) => nm(r['User ID']) === nm(id) || nm(r['User Name']) === nm(v['User Name']) || nm(r['User ID']) === nm(v['User Name']))) throw conflict('A user with this User Name already exists - user names are the sign-in ID and must be unique');
     const pw = sstr(b.Password) || tempPassword();
     checkPasswordPolicy(pw, await getSettings(ctx.store, 'Security'), id);
-    await ctx.store.append('Users', [{ 'User ID': id, 'User Name': v['User Name'], Phone: v.Phone, Email: v.Email || id, Role: v.Role, Branch: v.Branch, Status: v.Status, 'Last Login': '' }]);
+    await ctx.store.append('Users', [{ 'User ID': id, 'User Name': v['User Name'], Phone: v.Phone, Email: v.Email, Role: v.Role, Branch: v.Branch, Status: v.Status, 'Last Login': '' }]);
     await ctx.store.append('Credentials', [{ 'User ID': id, Email: v.Email, 'Password Hash': await hashPassword(pw), 'Must Change Password': 'Yes', 'Failed Attempts': 0, 'Locked Until': '', 'Password Updated': new Date().toISOString() }]);
     await audit(ctx.store, { user: ctx.user, module: 'Users', doc: id, action: 'Create', next: { ...v } });
     return { id, temporaryPassword: pw };
@@ -75,7 +76,7 @@ export async function updateUser(ctx, id, b) {
       const others = rows.filter((r) => roleKey(r.Role) === 'super_admin' && /^active$/i.test(sstr(r.Status)) && r !== row);
       if (!others.length) throw conflict('At least one active Super Admin must remain');
     }
-    await ctx.store.updateRow('Users', row.__row, { 'User Name': v['User Name'], Phone: v.Phone, Role: v.Role, Branch: v.Branch, Status: v.Status }, { col: 'User ID', val: row['User ID'] });
+    await ctx.store.updateRow('Users', row.__row, { Phone: v.Phone, Role: v.Role, Branch: v.Branch, Status: v.Status }, { col: 'User ID', val: row['User ID'] });
     if (false) {
       const c = (await ctx.store.read('Credentials', { fresh: true })).rows.find((r) => sstr(r['User ID']).toLowerCase() === sstr(id).toLowerCase());
       if (c) await ctx.store.updateRow('Credentials', c.__row, { Email: v.Email });
