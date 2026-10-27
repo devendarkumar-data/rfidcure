@@ -134,3 +134,7 @@ The template is unchanged. The app adds three worksheets, created by `npm run in
 - Warehouse scope is enforced on the server for every read and write; simultaneous postings to the same batch are serialized (no negative stock, no duplicates).
 - Lists, dashboard, reports and stock pages refresh automatically every 20 s while the tab is visible (`src/useTick.js`).
 - Google Sheets is fine for ~10–30 concurrent users; for more, swap the store for Postgres (`server/store`).
+
+## Users tab layout and sheet passwords
+The **Users** tab columns are: `User ID, User Name, Password, Role, Branch, Status, Last Login`.
+To add a user by hand, fill a row and type a password in the **Password** column. At that user's first sign-in the password is verified, stored as a bcrypt hash in **Credentials**, and the cell in the Users tab is **cleared**. Typing a new password in the cell later acts as a password reset (same one-time pickup). Branch `All Branch` means all warehouses (for Super Admin / Admin / Finance / Auditor).

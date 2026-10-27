@@ -33,3 +33,18 @@ test('rewritten request (?route=) resolves multi-segment paths', async (t) => {
   assert.equal(r.status, 200, r.text);
   const h = await app.anon('GET', '/api/handler?route=health'); assert.equal(h.status, 200);
 });
+
+test('password typed in the Users tab works once, is hashed, and the cell is cleared', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  await app.store.append('Users', [{ 'User ID': 'CR1001', 'User Name': 'Devendar', Password: 'Tech@1234', Role: 'Admin', Branch: 'All Branch', Status: 'Active', 'Last Login': '' }]);
+  const bad = await app.anon('POST', '/api/auth/login', { userId: 'CR1001', password: 'wrong' }); assert.equal(bad.status, 401);
+  const ok = await app.anon('POST', '/api/auth/login', { userId: 'CR1001', password: 'Tech@1234' }); assert.equal(ok.status, 200, ok.text);
+  const users = await app.store.read('Users'); assert.equal(users.rows.find((r) => r['User ID'] === 'CR1001').Password, '');
+  const creds = await app.store.read('Credentials'); assert.match(creds.rows.find((r) => r['User ID'] === 'CR1001')['Password Hash'], /^\$2/);
+  const again = await app.anon('POST', '/api/auth/login', { userId: 'CR1001', password: 'Tech@1234' }); assert.equal(again.status, 200);
+  // admin reset by typing a new password in the sheet
+  const row = (await app.store.read('Users')).rows.find((r) => r['User ID'] === 'CR1001');
+  await app.store.updateRow('Users', row.__row, { Password: 'NewPass@5678' });
+  assert.equal((await app.anon('POST', '/api/auth/login', { userId: 'CR1001', password: 'NewPass@5678' })).status, 200);
+  assert.equal((await app.anon('POST', '/api/auth/login', { userId: 'CR1001', password: 'Tech@1234' })).status, 401);
+});

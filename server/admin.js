@@ -34,7 +34,7 @@ async function validateUser(ctx, b, { creating }) {
   const canonical = ROLE_LABELS[roleKey(roleLabel)];
   const name = sstr(b['User Name']); if (!name || name.length > 80) throw bad('User Name is required (max 80 characters)');
   const status = sstr(b.Status || 'Active'); if (!/^(active|inactive)$/i.test(status)) throw bad('Status must be Active or Inactive');
-  const branch = parseWarehouses(b.Branch).join(', ');
+  const branch = /^\s*all(\s+branch(es)?)?\s*$/i.test(sstr(b.Branch)) ? '' : parseWarehouses(b.Branch).join(', ');
   const key = roleKey(canonical);
   const wl = (await warehouseList(ctx.store)).map((x) => x.toUpperCase());
   const bad_ = parseWarehouses(branch).filter((w) => wl.length && !wl.includes(w));

@@ -44,6 +44,7 @@ export default [
   "headers": [
    "User ID",
    "User Name",
+   "Password",
    "Role",
    "Branch",
    "Status",

@@ -5,7 +5,9 @@ import { HttpError, istParts, toNum, sstr } from './util.js';
 import { roleKey, ROLE_SCOPE } from '../shared/permissions.js';
 import { activity } from './audit.js';
 
+import { timingSafeEqual } from 'node:crypto';
 const BCRYPT_COST = 10;
+const safeEq = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && timingSafeEqual(x, y); };
 export const hashPassword = (pw) => bcrypt.hash(pw, BCRYPT_COST);
 const DUMMY = bcrypt.hashSync('not-a-real-password', BCRYPT_COST);
 
@@ -82,7 +84,18 @@ export async function login(store, { userId, password }, ip) {
   if (typeof userId !== 'string' || typeof password !== 'string' || !userId || !password) throw fail;
   const sec = await getSettings(store, 'Security');
   const found = await findUser(store, userId);
-  const cred = found ? await findCred(store, found.user.id, true) : null;
+  let cred = found ? await findCred(store, found.user.id, true) : null;
+  // A plain-text "Password" typed in the Users tab (new user, or an admin reset) is accepted ONCE: it is
+  // verified, stored as a bcrypt hash in Credentials, and the cell in the Users tab is cleared.
+  const sheetPw = found ? sstr(found.row.Password) : '';
+  if (found && sheetPw && safeEq(password, sheetPw)) {
+    let must = 'No'; try { checkPasswordPolicy(password, sec, found.user.id); } catch { must = 'Yes'; }
+    const rec = { 'Password Hash': await hashPassword(password), 'Must Change Password': must, 'Failed Attempts': 0, 'Locked Until': '', 'Password Updated': new Date().toISOString() };
+    if (cred) await store.updateRow('Credentials', cred.__row, rec); else await store.append('Credentials', [{ 'User ID': found.user.id, Email: '', ...rec }]);
+    await store.updateRow('Users', found.row.__row, { Password: '' });
+    await activity(store, { user: found.user, event: 'Password Set', module: 'M01', action: 'Login', remarks: 'From Users tab; cell cleared' });
+    cred = await findCred(store, found.user.id, true);
+  }
   const ok = await bcrypt.compare(password, cred?.['Password Hash'] || DUMMY); // always compare: no user-enumeration timing
   if (!found || !cred) throw fail;
   const lockMax = toNum(sec['Lock After Failed Attempts']) || 5;
