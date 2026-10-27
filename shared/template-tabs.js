@@ -49,7 +49,8 @@ export default [
    "Password",
    "Branch",
    "Status",
-   "Last Login"
+   "Last Login",
+   "Warehouse"
   ]
  },
  {

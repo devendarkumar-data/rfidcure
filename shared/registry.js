@@ -209,6 +209,6 @@ export const TAB = {
   audit: 'Audit Logs', config: 'Configuration', security: 'Security', warehouseMaster: 'Warehouse Master', itemMaster: 'Item Master',
 };
 
-export const USERS_HEADERS = TABLE_BY_TAB.Users?.headers || ['Groups', 'User Name', 'Phone', 'Email', 'Password', 'Branch', 'Status', 'Last Login'];
+export const USERS_HEADERS = TABLE_BY_TAB.Users?.headers || ['Groups', 'User Name', 'Phone', 'Email', 'Password', 'Branch', 'Status', 'Last Login', 'Warehouse'];
 export const ALLOWED_TABS = new Set([...TABLES.map((t) => t.tab), CREDENTIALS_TAB, DOC_STATUS_TAB, DOC_HISTORY_TAB]);
 export const HEADERS_BY_TAB = { ...Object.fromEntries(TABLES.map((t) => [t.tab, t.headers])), [CREDENTIALS_TAB]: CREDENTIALS_HEADERS, [DOC_STATUS_TAB]: DOC_STATUS_HEADERS, [DOC_HISTORY_TAB]: DOC_HISTORY_HEADERS };

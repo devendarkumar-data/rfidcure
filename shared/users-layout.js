@@ -6,7 +6,7 @@
 //   Branch  = Branch cell, blank means "All Branch";  Status = Status cell, blank means Active
 import { roleKey, ROLE_LABELS } from './permissions.js';
 
-export const USERS_SHEET_HEADERS = ['Groups', 'User Name', 'Phone', 'Email', 'Password', 'Branch', 'Status', 'Last Login'];
+export const USERS_SHEET_HEADERS = ['Groups', 'User Name', 'Phone', 'Email', 'Password', 'Branch', 'Status', 'Last Login', 'Warehouse'];
 const ORDER = ['super_admin', 'admin', 'purchase_manager', 'approver', 'warehouse_manager', 'purchase', 'warehouse_operator', 'mother_warehouse_operator', 'sales', 'finance', 'auditor', 'data_entry'];
 
 export function roleFromGroups(groups) {
@@ -20,7 +20,7 @@ export function userFromSheet(r) {
   return {
     ...r,
     'User ID': String(r.Email ?? '').trim(), Role: roleFromGroups(r.Groups),
-    Branch: String(r.Branch ?? '').trim() || 'All Branch', Status: String(r.Status ?? '').trim() || 'Active',
+    Branch: String(r.Warehouse ?? '').trim() || String(r.Branch ?? '').trim() || 'All Branch', Status: String(r.Status ?? '').trim() || 'Active',
   };
 }
 
@@ -28,7 +28,7 @@ export function userFromSheet(r) {
 export function userToSheet(o) {
   return {
     Groups: o.Groups ?? o.Role ?? '', 'User Name': o['User Name'] ?? '', Phone: o.Phone ?? '', Email: o.Email || o['User ID'] || '',
-    Password: o.Password ?? '', Branch: o.Branch === 'All Branch' ? '' : (o.Branch ?? ''), Status: o.Status ?? '', 'Last Login': o['Last Login'] ?? '',
+    Password: o.Password ?? '', Branch: o.Branch === 'All Branch' ? '' : (o.Branch ?? ''), Warehouse: o.Branch === 'All Branch' ? '' : (o.Branch ?? o.Warehouse ?? ''), Status: o.Status ?? '', 'Last Login': o['Last Login'] ?? '',
   };
 }
 
@@ -37,7 +37,7 @@ export function patchToSheet(p) {
   const out = {};
   for (const [k, v] of Object.entries(p || {})) {
     if (k === 'Role') out.Groups = v; else if (k === 'User ID') out.Email = v;
-    else if (k === 'Branch') out.Branch = v === 'All Branch' ? '' : v;
+    else if (k === 'Branch') { out.Branch = v === 'All Branch' ? '' : v; out.Warehouse = out.Branch; }
     else out[k] = v;
   }
   return out;
@@ -59,3 +59,7 @@ export const ROLE_INFO = [
   ['Auditor', 'Reports view only', 'All, read only'],
   ['Data Entry Operator', 'Data entry screens you grant, no approvals', 'Own warehouse only'],
 ].map(([role, access, warehouse]) => ({ role, access, warehouse }));
+
+// Core columns the Users sheet must have; optional ones are added to the header when missing. Order does not matter
+// and extra columns the sheet owner added are preserved.
+export const USERS_CORE = ['Groups', 'User Name', 'Phone', 'Email', 'Password'];

@@ -46,3 +46,16 @@ test('SheetsStore against a fake Sheets API', async () => {
   await s.append('Users', [{ 'User ID': 'z', 'User Name': 'big', Role: 'Admin', Branch: '', Status: 'Active', 'Last Login': '' }]);
   await assert.rejects(s.append('Audit Logs', [{ Remarks: 'x'.repeat(50001) }]), /too large/);
 });
+
+test('Users header: any column order, missing optional columns are added, extras kept', async () => {
+  const f = fakeClient();
+  f.tabs.set('Users', [['Groups', 'User Name', 'Phone', 'Email', 'Password', 'Branch', 'Status', 'Warehouse', 'Last Login', 'Notes'], ['Admin', 'D', '1', 'd@x.com', '', '', 'Active', 'MWH', '', 'keep']]);
+  const s = new SheetsStore({ sheetId: 'x', client: f.api, ttlMs: 0 });
+  const r = await s.read('Users');
+  assert.equal(r.rows[0]['User ID'], 'd@x.com'); assert.equal(r.rows[0].Role, 'Admin'); assert.equal(r.rows[0].Branch, 'MWH');
+  await s.updateRow('Users', 2, { Password: '', 'Last Login': 'now' }, { col: 'User ID', val: 'd@x.com' });
+  assert.deepEqual(f.tabs.get('Users')[1], ['Admin', 'D', '1', 'd@x.com', '', '', 'Active', 'MWH', 'now', 'keep']);
+  f.tabs.set('Users', [['Groups', 'User Name', 'Phone', 'Email', 'Password']]);
+  const s2 = new SheetsStore({ sheetId: 'x', client: f.api, ttlMs: 0 }); await s2.ensure('Users');
+  assert.deepEqual(f.tabs.get('Users')[0], ['Groups', 'User Name', 'Phone', 'Email', 'Password', 'Branch', 'Status', 'Last Login', 'Warehouse']);
+});
