@@ -10,6 +10,7 @@ import { audit } from './audit.js';
 import { getSettings } from './auth.js';
 import { itemCatalog, nextDocNo, stripInternal, validateHeader, validateLines, warehouseList } from './crud.js';
 import { loadStock } from './stock.js';
+import { COMPANY } from '../shared/company.js';
 import { HttpError, bad, conflict, forbidden, istParts, normDate, notFound, round2, sstr, today, toNum, unprocessable, withLock } from './util.js';
 
 export const INTENT = 'Purchase Intent';
@@ -550,6 +551,18 @@ export async function listPos(ctx, q = {}) {
   return paginate(list, q);
 }
 
+// Supplier block of the printed PO: Vendor Master row matched by Vendor Name or Sup ID.
+async function vendorOf(store, account) {
+  const a = sstr(account).toLowerCase();
+  const { rows } = await store.read('Vendor Master');
+  const v = rows.find((r) => sstr(r['Vendor Name']).toLowerCase() === a || sstr(r['Sup ID']).toLowerCase() === a);
+  return { name: sstr(v?.['Vendor Name']) || sstr(account), code: sstr(v?.['Sup ID']), address: sstr(v?.Address), city: sstr(v?.City), pincode: sstr(v?.Pincode), state: sstr(v?.State), gstin: sstr(v?.GSTIN), drugLic: sstr(v?.['Drug Lic']), contact: sstr(v?.['Supp Contact']) };
+}
+async function companyOf(store) {
+  const cfg = (await store.read('Configuration')).rows[0] || {};
+  return { ...COMPANY, name: sstr(cfg['Company Name']) || COMPANY.name };
+}
+
 export async function getPo(ctx, id) {
   if (!can(ctx.user.role, 'po', 'view')) throw forbidden();
   const x = (await allPos(ctx, { fresh: true })).find((p) => p.r[p.t.idCol] === id);
@@ -560,7 +573,7 @@ export async function getPo(ctx, id) {
   const { __row, ...st } = x.s; void __row;
   const calc = calcPoLines(x.t.poType, x.r, x.lines);
   return {
-    id, poType: x.t.poType, header: maskRow(ctx, x.r), lines: maskLines(ctx, lines), status: st, totals: { subtotal: calc.subtotal, taxTotal: calc.taxTotal, grandTotal: calc.grandTotal },
+    id, poType: x.t.poType, header: maskRow(ctx, x.r), vendor: await vendorOf(ctx.store, x.r['Vendor Account']), company: await companyOf(ctx.store), lines: maskLines(ctx, lines), status: st, totals: { subtotal: calc.subtotal, taxTotal: calc.taxTotal, grandTotal: calc.grandTotal },
     grns: x.grns, grnStatus: poGrnStatus(x), history: await historyOf(ctx, PO, id), can: poCan(ctx, x.s), defaultLocation: await defaultLocation(ctx.store),
   };
 }

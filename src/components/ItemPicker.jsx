@@ -4,6 +4,6 @@ import Combobox from './Combobox.jsx';
 export default function ItemPicker({ value, onChange, disabled, placeholder }) {
   return (
     <Combobox field="Items" value={value} disabled={disabled} allowFree={false} placeholder={placeholder || 'Search item code or name…'}
-      onChange={() => {}} onPick={(o) => onChange({ code: o.value, name: o.name })} />
+      onChange={() => {}} onPick={(o) => onChange({ code: o.value, name: o.name, unit: o.unit || '' })} />
   );
 }

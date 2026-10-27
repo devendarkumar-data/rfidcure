@@ -1,3 +1,4 @@
+import MultiSelect from '../components/MultiSelect.jsx';
 import { useTick } from '../useTick.js';
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -144,12 +145,12 @@ export default function OpeningStock() {
           {info?.canImport && <button className="btn btn-primary" onClick={() => setImp(true)}>Import</button>}
         </>} />
       <FilterBar onReset={() => setSp({}, { replace: true })}>
-        <FilterItem label="Warehouse"><select className="input" value={f.warehouse} onChange={(e) => setF({ warehouse: e.target.value })}><option value="">All permitted</option>{whs.map((w) => <option key={w.value}>{w.value}</option>)}</select></FilterItem>
+        <MultiSelect label="Warehouse" allLabel="All permitted" options={whs.map((w) => w.value)} value={(f.warehouse ? f.warehouse.split('|') : [])} onChange={(v) => setF({ warehouse: v.join('|') })} />
         <FilterItem label="Item" grow><input className="input" placeholder="code or name" value={f.item} onChange={(e) => setF({ item: e.target.value })} /></FilterItem>
         <FilterItem label="Batch"><input className="input" value={f.batch} onChange={(e) => setF({ batch: e.target.value })} /></FilterItem>
-        <FilterItem label="Category"><select className="input" value={f.category} onChange={(e) => setF({ category: e.target.value })}><option value="">All</option>{facets.categories.map((c) => <option key={c}>{c}</option>)}</select></FilterItem>
-        <FilterItem label="Brand"><select className="input" value={f.brand} onChange={(e) => setF({ brand: e.target.value })}><option value="">All</option>{facets.brands.map((c) => <option key={c}>{c}</option>)}</select></FilterItem>
-        <FilterItem label="Expiry status"><select className="input" value={f.expiryStatus} onChange={(e) => setF({ expiryStatus: e.target.value })}><option value="">All</option><option>Expired</option><option>Expiring</option><option>Valid</option><option>No expiry</option></select></FilterItem>
+        <MultiSelect label="Category" options={facets.categories} value={(f.category ? f.category.split('|') : [])} onChange={(v) => setF({ category: v.join('|') })} />
+        <MultiSelect label="Brand" options={facets.brands} value={(f.brand ? f.brand.split('|') : [])} onChange={(v) => setF({ brand: v.join('|') })} />
+        <MultiSelect label="Expiry status" options={['Expired', 'Expiry soon', 'Valid', 'No expiry']} value={(f.expiryStatus ? f.expiryStatus.split('|') : [])} onChange={(v) => setF({ expiryStatus: v.join('|') })} />
         <FilterItem label="Expiry from"><input type="date" className="input" value={f.expiryFrom} onChange={(e) => setF({ expiryFrom: e.target.value })} /></FilterItem>
         <FilterItem label="Expiry to"><input type="date" className="input" value={f.expiryTo} onChange={(e) => setF({ expiryTo: e.target.value })} /></FilterItem>
         <FilterItem label="Stock as on date"><input type="date" className="input" value={f.asOn} onChange={(e) => setF({ asOn: e.target.value })} /></FilterItem>

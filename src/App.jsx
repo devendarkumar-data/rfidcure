@@ -14,7 +14,8 @@ import StockBatches from './pages/StockBatches.jsx';
 import StockSummary from './pages/StockSummary.jsx';
 import TablePage from './pages/TablePage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
-import { GrnDetail, GrnForm, GrnRegister, IntentDetail, IntentForm, IntentRegister, PoDetail, PoForm, PoPrint, PoRegister } from './pages/workflow/index.jsx';
+import { GrnDetail, GrnForm, GrnRegister, IntentDetail, IntentForm, IntentRegister, PoDetail, PoForm, PoRegister } from './pages/workflow/index.jsx';
+import PoPrint from './pages/workflow/PoPrint.jsx';
 
 function Protected() {
   const { user, loading } = useAuth();

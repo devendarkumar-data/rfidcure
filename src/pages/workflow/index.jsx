@@ -43,7 +43,7 @@ export function Grid({ cols, lines, onChange, readOnly = false, minLines = 1, er
   const cell = (c, l, i) => {
     const v = l[c.k] ?? '';
     if (readOnly || c.type === 'ro') return c.type === 'number' || c.num ? <span className="tabular-nums">{n2(v)}</span> : <span>{String(v) || <span className="text-slate-300">—</span>}</span>;
-    if (c.type === 'item') return <div className="min-w-[15rem]"><ItemPicker value={l['Item Code'] ? `${l['Item Code']} — ${l.Items || ''}` : ''} disabled={!!l['Intent No']} onChange={({ code, name }) => set(i, { 'Item Code': code, Items: name, Description: l.Description || name })} /></div>;
+    if (c.type === 'item') return <div className="min-w-[15rem]"><ItemPicker value={l['Item Code'] ? `${l['Item Code']} — ${l.Items || ''}` : ''} disabled={!!l['Intent No']} onChange={({ code, name, unit }) => set(i, { 'Item Code': code, Items: name, Description: name, Units: unit || 'NOS' })} /></div>;
     if (c.type === 'select') return <select className="input min-w-[7rem]" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label}>{c.options.map((o) => <option key={o}>{o}</option>)}</select>;
     if (c.type === 'number') return <input className="input min-w-[6rem] text-right" type="number" min="0" step="any" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label} />;
     if (c.type === 'date') return <input className="input min-w-[9rem]" type="date" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label} />;
@@ -129,8 +129,22 @@ export function IntentForm() {
     if (!editId) return;
     api.get('/api/wf/intents/get', { id: editId }).then((r) => { setHdr({ Date: r.header.Date, 'Requesting Warehouse': r.header['Requesting Warehouse'], 'Narration-Notes': r.header['Narration-Notes'] || '' }); setLines(r.lines.map((l, i) => ({ ...l, _k: `e${i}` }))); setReady(true); }).catch((e) => { setErr(e.message); setReady(true); });
   }, [editId]);
+  const { user } = useAuth();
+  const myWh = user?.scope?.mode === 'assigned' ? (user.scope.warehouses || []) : [];
+  useEffect(() => { // default to the warehouse of the signed-in person
+    if (!editId && !shortId && myWh.length) setHdr((h) => (h['Requesting Warehouse'] ? h : { ...h, 'Requesting Warehouse': myWh[0] }));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const wh = hdr['Requesting Warehouse']; const codesKey = lines.map((l) => l['Item Code']).filter(Boolean).join(',');
+  const [levels, setLevels] = useState({});
+  useEffect(() => {
+    if (!wh || !codesKey) { setLevels({}); return undefined; }
+    let live = true;
+    api.get('/api/stock/levels', { codes: codesKey, warehouses: wh }).then((r) => { if (live) setLevels(r.levels || {}); }).catch(() => { if (live) setLevels({}); });
+    return () => { live = false; };
+  }, [wh, codesKey]);
   if (!ready) return <Spinner />;
-  const cols = intentCols;
+  const cols = intentCols.map((c) => (c.k === 'Current Stock' ? { ...c, label: `Current stock${wh ? ` at ${wh}` : ''}` } : c));
+  const shown = lines.map((l) => (l['Item Code'] && wh ? { ...l, 'Current Stock': levels[l['Item Code']]?.[wh.toUpperCase()] ?? 0 } : l));
   const save = async (submit) => {
     setErr('');
     if (!hdr['Requesting Warehouse']) return setErr('Select the requesting warehouse');
@@ -156,7 +170,7 @@ export function IntentForm() {
           <div className="sm:col-span-3"><label className="label">Notes</label><textarea className="input min-h-[3.5rem]" value={hdr['Narration-Notes']} maxLength={1000} onChange={(e) => setHdr({ ...hdr, 'Narration-Notes': e.target.value })} /></div>
         </div>
       </Card>
-      <Card title="Items" className="mb-4"><Grid cols={cols} lines={lines} onChange={setLines} /><p className="mt-2 text-xs text-slate-500">Current stock is shown from the live stock ledger for the chosen warehouse once the intent is saved.</p></Card>
+      <Card title="Items" className="mb-4"><Grid cols={cols} lines={shown} onChange={setLines} /><p className="mt-2 text-xs text-slate-500">Unit comes from the item (UOM column in Item Master; NOS if not set). Current stock is live from the stock ledger for the requesting warehouse{myWh.length ? ` (you are assigned to ${myWh.join(', ')})` : ''}.</p></Card>
       <div className="flex flex-wrap justify-end gap-2">
         <button className="btn" disabled={busy} onClick={() => nav(-1)}>Cancel</button>
         <button className="btn" disabled={busy} onClick={() => save(false)}>Save draft</button>
@@ -237,7 +251,7 @@ export function IntentDetail() {
         <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-100">
           <thead><tr>{['#', 'Item', 'Units', 'Current Stock', 'Required', 'Required By', 'Priority', 'Reason', 'Approved', 'Ordered', 'Remaining'].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-slate-100">{lines.map((l) => (
-            <tr key={l['Line No']}><td className="td">{l['Line No']}</td><td className="td"><div className="font-medium">{l.Items}</div><div className="text-xs text-slate-500">{l['Item Code']}</div></td><td className="td">{l.Units}</td>
+            <tr key={l['Line No']}><td className="td">{l['Line No']}</td><td className="td"><div className="font-medium">{l.Items}</div><div className="text-xs text-slate-500">{l['Item Code']}</div></td><td className="td">{l.Units || 'NOS'}</td>
               <td className="td text-right tabular-nums">{n2(l['Current Stock'])}</td><td className="td text-right tabular-nums">{n2(l.Quantity)}</td><td className="td">{l['Required By Date']}</td><td className="td"><StatusBadge value={l.Priority} /></td><td className="td">{l.Reason}</td>
               <td className="td text-right">{reviewing ? <input className="input w-24 text-right" type="number" min="0" max={l.Quantity} step="any" aria-label={`Approved qty line ${l['Line No']}`} value={appr[l['Line No']] ?? ''} onChange={(e) => setAppr({ ...appr, [l['Line No']]: e.target.value })} /> : <span className="tabular-nums">{n2(l['Approved Qty'])}</span>}</td>
               <td className="td text-right tabular-nums">{n2(l['Ordered Qty'])}</td><td className="td text-right tabular-nums">{n2(l['Remaining Qty'])}</td></tr>
@@ -497,33 +511,6 @@ export function PoDetail() {
       {dlg === 'cancel' && <RemarksDialog title="Cancel PO" required danger confirmLabel="Cancel PO" onConfirm={(r) => run('cancel', r)} onCancel={() => setDlg(null)} />}
       {dlg === 'close' && <RemarksDialog title="Close PO (short-close the balance)" required confirmLabel="Close PO" onConfirm={(r) => run('close', r)} onCancel={() => setDlg(null)} />}
     </>
-  );
-}
-
-// NOTE: the official PO print format was not supplied. This is a neutral placeholder layout - replace once the format is available.
-export function PoPrint() {
-  const { id } = useParams();
-  const { data, err } = useLoad(() => api.get('/api/wf/pos/get', { id }), [id]);
-  if (err) return <ErrorBox msg={err} />;
-  if (!data) return <Spinner />;
-  const { header, lines, totals, poType, status } = data;
-  return (
-    <div className="mx-auto max-w-4xl bg-white p-6 text-sm print:p-0">
-      <div className="mb-4 flex justify-between print:hidden"><Back to={`/purchasing/po/${encodeURIComponent(id)}`}>Back</Back><button className="btn btn-primary" onClick={() => window.print()}>Print</button></div>
-      <div className="mb-1 rounded-sm bg-amber-50 px-2 py-1 text-xs text-amber-800 print:hidden">Placeholder layout — the official Cure Surgical PO format has not been supplied yet.</div>
-      <h1 className="text-center text-xl font-bold">PURCHASE ORDER</h1>
-      <div className="mt-4 grid grid-cols-2 gap-4 border-y border-slate-300 py-3">
-        <div><div><b>PO No.:</b> {id}</div><div><b>Date:</b> {header.Date}</div><div><b>Type:</b> {poType === 'import' ? 'Import' : 'Domestic'}</div><div><b>Status:</b> {status.Status}</div></div>
-        <div><div><b>Vendor:</b> {header['Vendor Account']}</div><div><b>Deliver to:</b> {header.Destination || header.Location}</div><div><b>Supplier ref:</b> {header['Supplier Ref No']}</div>{header['Place of Supply'] && <div><b>Place of supply:</b> {header['Place of Supply']}</div>}</div>
-      </div>
-      <table className="mt-4 w-full border-collapse text-xs">
-        <thead><tr>{['#', 'Item', 'Code', 'Units', 'Qty', 'Rate', 'Disc.', poType === 'domestic' ? 'GST %' : 'PKG', 'Amount'].map((h) => <th key={h} className="border border-slate-400 bg-slate-100 px-1.5 py-1 text-left">{h}</th>)}</tr></thead>
-        <tbody>{lines.map((l) => <tr key={l['Line No']}><td className="border border-slate-400 px-1.5 py-1">{l['Line No']}</td><td className="border border-slate-400 px-1.5 py-1">{l.Description || l.Items}</td><td className="border border-slate-400 px-1.5 py-1">{l['Item Code']}</td><td className="border border-slate-400 px-1.5 py-1">{l.Units}</td><td className="border border-slate-400 px-1.5 py-1 text-right">{n2(l.Quantity)}</td><td className="border border-slate-400 px-1.5 py-1 text-right">{n2(l.Rate)}</td><td className="border border-slate-400 px-1.5 py-1 text-right">{n2(l['Other Discount'])}</td><td className="border border-slate-400 px-1.5 py-1 text-right">{n2(poType === 'domestic' ? l['GST %'] : l['PKG Charges'])}</td><td className="border border-slate-400 px-1.5 py-1 text-right">{n2(l['Line Total'])}</td></tr>)}</tbody>
-      </table>
-      <div className="ml-auto mt-3 w-64 text-right"><div>Subtotal: {inr(totals.subtotal)}</div>{poType === 'domestic' && <div>Tax: {inr(totals.taxTotal)}</div>}<div className="font-bold">Grand total: {inr(totals.grandTotal)}</div></div>
-      {(header['Payment Terms'] || header['Terms of Delivery'] || header['Terms Of Delivery']) && <div className="mt-4"><b>Terms:</b> {[header['Payment Terms'], header['Terms of Delivery'] || header['Terms Of Delivery']].filter(Boolean).join(' | ')}</div>}
-      <div className="mt-12 flex justify-between text-xs"><div>Prepared by: {status['Created By']}</div><div>Authorised by: {status['Reviewed By'] || '__________'}</div></div>
-    </div>
   );
 }
 

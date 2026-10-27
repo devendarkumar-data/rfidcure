@@ -53,6 +53,9 @@ export class SheetsStore {
     const want = HEADERS_BY_TAB[tab];
     if (!head.length) {
       await this._retry(() => this.api.spreadsheets.values.update({ spreadsheetId: this.id, range: `'${tab}'!A1`, valueInputOption: 'RAW', requestBody: { values: [want] } }));
+    } else if (head.length < want.length && head.every((h, i) => h === want[i])) {
+      // approved template was extended with optional trailing columns: add the new headers, data rows are untouched
+      await this._retry(() => this.api.spreadsheets.values.update({ spreadsheetId: this.id, range: `'${tab}'!A1`, valueInputOption: 'RAW', requestBody: { values: [want] } }));
     } else if (head.join('\u0001') !== want.join('\u0001')) {
       throw new HttpError(500, `Worksheet "${tab}" header row does not match the approved template. Expected: ${want.join(', ')}. Found: ${head.join(', ')}.`);
     }

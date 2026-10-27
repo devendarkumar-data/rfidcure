@@ -138,3 +138,10 @@ The template is unchanged. The app adds three worksheets, created by `npm run in
 ## Users tab layout and sheet passwords
 The **Users** tab columns are: `User ID, User Name, Password, Role, Branch, Status, Last Login`.
 To add a user by hand, fill a row and type a password in the **Password** column. At that user's first sign-in the password is verified, stored as a bcrypt hash in **Credentials**, and the cell in the Users tab is **cleared**. Typing a new password in the cell later acts as a password reset (same one-time pickup). Branch `All Branch` means all warehouses (for Super Admin / Admin / Finance / Auditor).
+
+## Purchase Order print and master data
+- **Print PO** (PO page → Print) follows the supplied Cure Surgical format (invoice-to block, supplier details, item table with CGST/SGST/IGST, totals, amount in words, terms, signatory). Print / Save as PDF from the browser.
+- Company details come from `shared/company.js` (name can be overridden by Configuration > Company Name).
+- **Vendor Master** gained optional columns `Address, City, Pincode, State, GSTIN, Drug Lic` (used on the PO). **Item Master** gained `UOM` (shown as Units on indents/POs; defaults to NOS). Existing sheets are upgraded automatically: the app appends the new header cells on first use and leaves all data untouched. Vendor Code on the PO is the vendor's `Sup ID`.
+- Opening Stock filters (Warehouse, Category, Brand, Expiry status = Expired / Expiry soon (≤ 90 days) / Valid / No expiry) are multi-select and combine.
+- Purchase Indent defaults the requesting warehouse to the signed-in person's warehouse, fills Units from the item, and shows live current stock at that warehouse.

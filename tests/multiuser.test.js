@@ -48,3 +48,26 @@ test('password typed in the Users tab works once, is hashed, and the cell is cle
   assert.equal((await app.anon('POST', '/api/auth/login', { userId: 'CR1001', password: 'NewPass@5678' })).status, 200);
   assert.equal((await app.anon('POST', '/api/auth/login', { userId: 'CR1001', password: 'Tech@1234' })).status, 401);
 });
+
+test('opening stock: multi-select filters combine (warehouse | expiry status)', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  const get = (qs) => sa('GET', `/api/stock/opening?pageSize=100&${qs}`);
+  const all = await get(''); const n = all.json.rows.length;
+  const exp = await get('expiryStatus=Expired'); assert.ok(exp.json.rows.length >= 1); assert.ok(exp.json.rows.every((r) => r['Expiry Status'] === 'Expired'));
+  const both = await get('expiryStatus=Expired|Valid'); assert.equal(both.json.rows.length, n);
+  const wh = await get('warehouse=MWH|CWH&expiryStatus=Valid');
+  assert.ok(wh.json.rows.length >= 1 && wh.json.rows.every((r) => ['MWH', 'CWH'].includes(r.Warehouse) && r['Expiry Status'] === 'Valid'));
+  assert.equal((await get('warehouse=DWH')).json.rows.every((r) => r.Warehouse === 'DWH'), true);
+});
+
+test('PO get returns supplier block and company for the print format', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  await app.store.append('Vendor Master', [{ 'Master Id': 'V1', 'Sup ID': 'VE00096', 'Vendor Name': 'BOMBAY ORTHO INDUSTRIES', Address: 'Kishan Gate', City: 'RAJKOT', Pincode: '360021', State: 'GUJARAT', GSTIN: '24AAHFB9279M1ZU' }]);
+  const sa = await app.as('sa');
+  const r = await sa('POST', '/api/wf/pos', { header: { Date: '2026-10-27', 'Vendor Account': 'BOMBAY ORTHO INDUSTRIES', Location: 'MWH', Destination: 'MWH' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 2, Rate: 100, 'GST %': 12 }], submit: false });
+  assert.equal(r.status, 201, r.text);
+  const g = await sa('GET', `/api/wf/pos/get?id=${encodeURIComponent(r.json.id)}`); assert.equal(g.status, 200, g.text);
+  assert.equal(g.json.vendor.code, 'VE00096'); assert.equal(g.json.vendor.gstin, '24AAHFB9279M1ZU'); assert.equal(g.json.vendor.pincode, '360021');
+  assert.match(g.json.company.name, /Cure/);
+});

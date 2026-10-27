@@ -854,7 +854,13 @@ export default [
    "Sup ID",
    "Vendor Name",
    "Supp Contact",
-   "Portal Login ID"
+   "Portal Login ID",
+   "Address",
+   "City",
+   "Pincode",
+   "State",
+   "GSTIN",
+   "Drug Lic"
   ]
  },
  {
@@ -871,7 +877,8 @@ export default [
    "Related Suppliers",
    "Min Stock Level",
    "MOQ",
-   "Preferred Vendor"
+   "Preferred Vendor",
+   "UOM"
   ]
  },
  {

@@ -72,8 +72,8 @@ export default function AppLayout() {
   );
 
   return (
-    <div className="flex h-full">
-      <aside className={`hidden shrink-0 flex-col bg-brand-800 transition-all lg:flex ${collapsed ? 'w-16' : 'w-64'}`}>
+    <div className="flex h-full print:block print:h-auto">
+      <aside className={`hidden print:hidden shrink-0 flex-col bg-brand-800 transition-all lg:flex ${collapsed ? 'w-16' : 'w-64'}`}>
         <div className="flex items-center justify-between">{collapsed ? brand(true) : brand(false)}</div>
         <NavList sections={sections} loc={loc} collapsed={collapsed} />
         <button className="m-2 rounded-md px-2 py-1.5 text-xs text-brand-100 hover:bg-white/10" onClick={toggle}>{collapsed ? '»' : '« Collapse'}</button>
@@ -89,8 +89,8 @@ export default function AppLayout() {
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-3 py-2 sm:px-5">
+      <div className="flex min-w-0 flex-1 flex-col print:block">
+        <header className="flex items-center gap-3 print:hidden border-b border-slate-200 bg-white px-3 py-2 sm:px-5">
           <button className="rounded p-1.5 text-slate-600 hover:bg-slate-100 lg:hidden" onClick={() => setDrawer(true)} aria-label="Open menu"><Icon name="menu" /></button>
           <span className="truncate text-sm font-semibold text-brand-800 lg:hidden">Cure Surgical ERP</span>
           <div className="relative ml-auto">
@@ -108,10 +108,10 @@ export default function AppLayout() {
             )}
           </div>
         </header>
-        <div className="hidden items-center justify-end gap-2 bg-slate-50 px-5 py-1 text-xs text-slate-500 sm:flex">
+        <div className="hidden print:!hidden items-center justify-end gap-2 bg-slate-50 px-5 py-1 text-xs text-slate-500 sm:flex">
           <span>Warehouse access:</span><span className="rounded bg-brand-50 px-2 py-0.5 text-brand-700">{scopeBadge(user)}</span>
         </div>
-        <main className="flex-1 overflow-y-auto p-3 sm:p-5"><Outlet /></main>
+        <main className="flex-1 overflow-y-auto p-3 sm:p-5 print:overflow-visible print:p-0"><Outlet /></main>
       </div>
     </div>
   );

@@ -29,24 +29,26 @@ export async function listOpening(ctx, q = {}) {
   const upTo = ledger.filter((r) => { const d = normDate(r.Date); return !d || d <= asOn; });
   const move = new Map();
   for (const e of computeBalances([], upTo).values()) move.set(e.key, e.qty);
-  const t = today(); const needle = sstr(q.q).toLowerCase(); const wh = sstr(q.warehouse).toUpperCase();
-  if (wh && !inScope(ctx, wh)) throw forbidden(`You are not assigned to warehouse ${wh}`);
+  const t = today(); const needle = sstr(q.q).toLowerCase(); const lst = (v) => sstr(v).split('|').map((x) => x.trim()).filter(Boolean);   // multi-select filters arrive as a|b|c
+  const whs = lst(q.warehouse).map((x) => x.toUpperCase());
+  for (const w of whs) if (!inScope(ctx, w)) throw forbidden(`You are not assigned to warehouse ${w}`);
+  const cats = lst(q.category).map((x) => x.toLowerCase()), brands = lst(q.brand).map((x) => x.toLowerCase()), stats = lst(q.expiryStatus).map((x) => x.toLowerCase());
   const lc = (v) => sstr(v).toLowerCase();
   let list = [];
   for (const r of opening) {
     if (isBlank(r.Warehouse) || isBlank(r['Item Code'])) continue;
     if (!inScope(ctx, r.Warehouse)) continue;
-    if (wh && sstr(r.Warehouse).toUpperCase() !== wh) continue;
+    if (whs.length && !whs.includes(sstr(r.Warehouse).toUpperCase())) continue;
     const exp = normDate(r['Expiry Date']);
     if (q.item && !`${r['Item Code']} ${r['Item Name']}`.toLowerCase().includes(lc(q.item))) continue;
     if (q.batch && !lc(r['Batch Number']).includes(lc(q.batch))) continue;
-    if (q.category && lc(r['Item Category Type Name']) !== lc(q.category)) continue;
-    if (q.brand && lc(r['Brand Name']) !== lc(q.brand)) continue;
+    if (cats.length && !cats.includes(lc(r['Item Category Type Name']))) continue;
+    if (brands.length && !brands.includes(lc(r['Brand Name']))) continue;
     if (q.expiryFrom && (!exp || exp < q.expiryFrom)) continue;
     if (q.expiryTo && (!exp || exp > q.expiryTo)) continue;
     const days = exp ? daysBetween(t, exp) : null;
-    const status = !exp ? 'No expiry' : days < 0 ? 'Expired' : days <= 90 ? 'Expiring' : 'Valid';
-    if (q.expiryStatus && status.toLowerCase() !== lc(q.expiryStatus)) continue;
+    const status = !exp ? 'No expiry' : days < 0 ? 'Expired' : days <= 90 ? 'Expiry soon' : 'Valid';
+    if (stats.length && !stats.includes(status.toLowerCase())) continue;
     const qty = toNum(r.Quantity);
     if (q.negative && qty >= 0) continue;
     if (needle && !`${r.Warehouse} ${r['Item Code']} ${r['Item Name']} ${r['Batch Number']} ${r['Brand Name']} ${r['Item Category Type Name']}`.toLowerCase().includes(needle)) continue;
