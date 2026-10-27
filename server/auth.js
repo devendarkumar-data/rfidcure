@@ -88,18 +88,19 @@ export async function login(store, { userId, password }, ip) {
   const sec = await getSettings(store, 'Security');
   const found = await findUser(store, userId);
   let cred = found ? await findCred(store, found.user.id, true) : null;
-  // A plain-text "Password" typed in the Users tab (new user, or an admin reset) is accepted ONCE: it is
-  // verified, stored as a bcrypt hash in Credentials, and the cell in the Users tab is cleared.
+  // A plain-text "Password" typed in the Users tab is the sheet-managed password: it is verified and mirrored as a
+  // bcrypt hash in Credentials. The cell is NOT cleared - the sheet keeps showing it, and changing the cell changes the login.
   const sheetPw = found ? sstr(found.row.Password) : '';
-  if (found && sheetPw && safeEq(password, sheetPw)) {
+  const alreadyHashed = !!(cred && cred['Password Hash'] && sheetPw && (await bcrypt.compare(password, cred['Password Hash'])));
+  if (found && sheetPw && !alreadyHashed && safeEq(password, sheetPw)) {
     let must = 'No'; try { checkPasswordPolicy(password, sec, found.user.id); } catch { must = 'Yes'; }
     const rec = { 'Password Hash': await hashPassword(password), 'Must Change Password': must, 'Failed Attempts': 0, 'Locked Until': '', 'Password Updated': new Date().toISOString() };
     if (cred) await store.updateRow('Credentials', cred.__row, rec); else await store.append('Credentials', [{ 'User ID': found.user.id, Email: '', ...rec }]);
-    await store.updateRow('Users', found.row.__row, { Password: '' });
-    await activity(store, { user: found.user, event: 'Password Set', module: 'M01', action: 'Login', remarks: 'From Users tab; cell cleared' });
+    await activity(store, { user: found.user, event: 'Password Set', module: 'M01', action: 'Login', remarks: 'From Users tab (cell kept)' });
     cred = await findCred(store, found.user.id, true);
   }
-  const ok = await bcrypt.compare(password, cred?.['Password Hash'] || DUMMY); // always compare: no user-enumeration timing
+  // When the Users sheet shows a password, the sheet is the source of truth: an older hash no longer works.
+  const ok = await bcrypt.compare(password, (sheetPw && !safeEq(password, sheetPw) ? null : cred?.['Password Hash']) || DUMMY); // always compare: no user-enumeration timing
   if (!found || !cred) throw fail;
   const lockMax = toNum(sec['Lock After Failed Attempts']) || 5;
   const lockedUntil = Date.parse(cred['Locked Until'] || '') || 0;
@@ -172,6 +173,7 @@ export async function changePassword(store, ctx, { oldPassword, newPassword }) {
   if (await bcrypt.compare(newPassword, cred['Password Hash'])) throw new HttpError(400, 'New password must be different from the current one');
   const stamp = new Date().toISOString();
   await store.updateRow('Credentials', cred.__row, { 'Password Hash': await hashPassword(newPassword), 'Must Change Password': 'No', 'Password Updated': stamp, 'Failed Attempts': 0, 'Locked Until': '' });
+  { const f = await findUser(store, ctx.user.id); if (f && sstr(f.row.Password)) await store.updateRow('Users', f.row.__row, { Password: newPassword }); } // keep the sheet in step when it shows a password
   await activity(store, { user: ctx.user, event: 'Password Changed', module: 'M01', action: 'Change Password' });
   const cfg = await getSettings(store, 'Configuration');
   const minutes = toNum(cfg['Session Timeout (min)']) || config().defaultSessionMinutes;
