@@ -82,7 +82,9 @@ export default function AppLayout() {
 
   const brand = (compact) => (
     <Link to="/" className="flex items-center gap-2 px-3 py-3">
-      <span className="text-lg font-semibold tracking-tight text-white">{compact ? 'C' : 'Cure ERP'}</span>
+      {compact
+        ? <img src="/logo.png" alt="Cure Surgicals" className="h-9 w-9 rounded bg-white object-cover object-left p-0.5" />
+        : <img src="/logo.png" alt="Cure Surgicals" className="h-12 w-auto rounded bg-white px-2 py-1" />}
     </Link>
   );
 

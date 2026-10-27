@@ -50,7 +50,7 @@ export default function PoPrint() {
       <style>{'@page { size: A4; margin: 8mm; } @media print { body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } } .po-doc, .po-doc * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }'}</style>
       <div className="mb-3 flex justify-between print:hidden"><Back to={`/purchasing/po/${encodeURIComponent(id)}`}>Back</Back><button className="btn btn-primary" onClick={() => window.print()}>Print / Save as PDF</button></div>
       <div className="po-doc" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-        <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 12, marginBottom: 4 }}>PURCHASE ORDER</div>
+        <div style={{ textAlign: 'center', marginBottom: 4 }}><img src="/logo.png" alt="Cure Surgicals" style={{ height: 44, display: 'inline-block', verticalAlign: 'middle', marginRight: 10 }} /><span style={{ fontWeight: 700, fontSize: 12, verticalAlign: 'middle' }}>PURCHASE ORDER</span></div>
         <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
           <tbody>
             <tr>
