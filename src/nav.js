@@ -1,5 +1,5 @@
 // The ONE place that defines the sidebar. Items only appear when the logged-in user's meta allows them.
-export const DEDICATED_SLUGS = ['purchase-indent', 'purchase-indent-pending', 'purchase-order-domestic', 'purchase-order-import', 'grn-mrn', 'opening-stock', 'stock-ledger', 'purchase-requisition', 'stock-transfer', 'imprest-out-new', 'material-consumption', 'item-master', 'vendor-master', 'warehouse-master', 'customer-hospital-master'];
+export const DEDICATED_SLUGS = ['purchase-indent', 'purchase-indent-pending', 'purchase-order-domestic', 'purchase-order-import', 'grn-mrn', 'opening-stock', 'stock-ledger', 'purchase-requisition', 'stock-transfer', 'imprest-out-new', 'imprest-out-register', 'imprest-out-pending', 'imprest-in-new', 'imprest-in-register', 'imprest-in-pending', 'material-consumption', 'item-master', 'vendor-master', 'warehouse-master', 'customer-hospital-master'];
 export const ADMIN_SLUGS = ['activity-log', 'login-sessions', 'audit-logs', 'configuration', 'security', 'backup'];
 
 const has = (t, a) => !!t && t.actions.includes(a);
@@ -44,7 +44,12 @@ export function buildNav(meta) {
     it(has(tables['stock-transfer'], 'view'), '/t/stock-transfer', 'Stock Transfer'),
     it(has(grn, 'create'), '/grn/new', 'Create GRN'),
     it(has(grn, 'view'), '/grn', 'GRN Register'),
-    it(has(tables['imprest-out-new'], 'view'), '/t/imprest-out-new', 'Hospital Delivery (Imprest Out)'),
+    it(has(tables['imprest-out-new'], 'create'), '/t/imprest-out-new?new=1', 'Imprest Out — New'),
+    it(has(tables['imprest-out-new'], 'view'), '/t/imprest-out-new', 'Imprest Out — Entries'),
+    it(has(tables['imprest-out-register'], 'view'), '/t/imprest-out-register', 'Imprest Out Register'),
+    it(has(tables['imprest-in-new'], 'create'), '/t/imprest-in-new?new=1', 'Imprest In — New'),
+    it(has(tables['imprest-in-new'], 'view'), '/t/imprest-in-new', 'Imprest In — Entries'),
+    it(has(tables['imprest-in-register'], 'view'), '/t/imprest-in-register', 'Imprest In Register'),
     it(has(tables['material-consumption'], 'view'), '/t/material-consumption', 'Consumption'),
   ]);
 

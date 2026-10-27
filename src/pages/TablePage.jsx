@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { api, download } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import Card from '../components/Card.jsx';
@@ -33,13 +33,14 @@ function SettingsForm({ table }) {
 
 export default function TablePage() {
   const { slug } = useParams();
+  const [sp, setSp] = useSearchParams();
   const { tables } = useAuth();
   const table = tables[slug];
   const toast = useToast();
   const [dlg, setDlg] = useState(null); // {type:'create'|'edit'|'view'|'delete', row, data}
   const [refresh, setRefresh] = useState(0);
   const [range, setRange] = useState({ from: '', to: '' });
-  useEffect(() => { setDlg(null); setRange({ from: '', to: '' }); }, [slug]);
+  useEffect(() => { setDlg(sp.get('new') ? { type: 'create' } : null); setRange({ from: '', to: '' }); }, [slug, sp]);
 
   const columns = useMemo(() => {
     if (!table) return [];
