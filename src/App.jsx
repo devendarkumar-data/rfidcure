@@ -15,6 +15,7 @@ import StockSummary from './pages/StockSummary.jsx';
 import TablePage from './pages/TablePage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
 import AccessControlPage from './pages/AccessControlPage.jsx';
+import EwayPending from './pages/EwayPending.jsx';
 import ImprestSettle from './pages/ImprestSettle.jsx';
 import ImprestPending from './pages/ImprestPending.jsx';
 import ImprestRegister from './pages/ImprestRegister.jsx';
@@ -83,6 +84,7 @@ export default function App() {
         <Route path="imprest/pending" element={<ImprestPending />} />
         <Route path="imprest/register/:type" element={<ImprestRegister />} />
         <Route path="consumption/:mode" element={<ConsumptionPage />} />
+        <Route path="eway/pending" element={<EwayPending />} />
         <Route path="imprest/settle/:ref" element={<ImprestSettle />} />
         <Route path="admin/access" element={<Need feature="access"><AccessControlPage /></Need>} />
         <Route path="admin/data-quality" element={<Need feature="dataQuality"><DataQuality /></Need>} />

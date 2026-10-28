@@ -121,8 +121,8 @@ export const SPECS = [
   { tab: 'Imprest In Register', kind: 'list', stage: 'imprest', wh: ['To Warehouse'] },
   { tab: 'Imprest In Pending', kind: 'list', stage: 'imprest', wh: ['To Warehouse'] },
 
-  { tab: 'E-Way Bill Outward', kind: 'doc', stage: 'admin', prefix: 'EWB', required: ['Date'], form: EWH, lines: EWL },
-  { tab: 'E-Way Bill Inward', kind: 'doc', stage: 'admin', prefix: 'EWI', required: ['Date'], form: EWH, lines: EWL },
+  { tab: 'E-Way Bill Outward', kind: 'doc', stage: 'eway', prefix: 'EWB', required: ['Date'], form: EWH, lines: EWL },
+  { tab: 'E-Way Bill Inward', kind: 'doc', stage: 'eway', prefix: 'EWI', required: ['Date'], form: EWH, lines: EWL },
 
   { tab: 'Material Requisition', kind: 'doc', stage: 'admin', prefix: 'MR', required: ['Date'], lines: 'Items:Dropdown|Units:Number|Rate:Number|Gross:Calculated|Discount:Number' },
   { tab: 'Material Issue', kind: 'doc', stage: 'admin', prefix: 'MI', post: 'issue', required: ['Date'], lines: 'Warehouse:Dropdown|Items:Dropdown|Units:Text|Quantity:Number|Batch:Text' },

@@ -411,3 +411,20 @@ test('Imprest flow: Imprest In holds only the quantity taken back; the remainder
   const q = (c) => mwh.filter((x) => x['Item Code'] === c).reduce((s, x) => s + x.Quantity, 0);
   assert.deepEqual([q('ST1'), q('ST2')], [80, 40], 'warehouse has the returned stock back');
 });
+
+test('E-Way Bill person: sees dispatches without an E-Way Bill, creates the bill, cannot create dispatches or use other modules', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const pw = 'Op@Strong2026x';
+  await app.store.append('Users', [{ 'User ID': 'ewb1', 'User Name': 'ewb1', Role: 'E-Way Bill Operator', Branch: 'MWH', Status: 'Active', Password: pw }]);
+  await app.store.append('Item Master', [{ 'Master Id': 'IM-E', 'Item Name': 'Eway Screw', Code: 'EW1', Brand: 'ACME', 'Item Category': 'Implants' }]);
+  await app.store.append('Opening Stock', [{ Warehouse: 'MWH', 'Item Code': 'EW1', 'Item Name': 'Eway Screw', 'Batch Number': 'E-1', Quantity: 20, 'Expiry Date': '2031-01-01', 'Stock Value': 1000 }]);
+  const sa = await app.as('sa'); const e = await app.as('ewb1', pw);
+  const out = await sa('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-28', 'Customer Account': 'EWAY HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'EW1', Quantity: 5, Batch: 'E-1' }] });
+  assert.equal(out.status, 201, out.text); const ref = out.json.id;
+  const p1 = (await e('GET', '/api/eway/pending')).json.rows; assert.equal(p1.length, 1); assert.equal(p1[0].doc, ref); assert.equal(p1[0].qty, 5);
+  const made = await e('POST', '/api/t/e-way-bill-outward', { header: { Date: '2026-10-28', 'Ref. Doc': ref, 'Supply Type': 'Outward', 'E-Way Bill No.': '331000000001', 'Vehicle No.': 'DL1AB1234' }, lines: [{ Item: 'EW1', HSN: '9021', Quantity: 5, 'Taxable Value': 1000 }] });
+  assert.equal(made.status, 201, made.text);
+  assert.equal((await e('GET', '/api/eway/pending')).json.rows.length, 0, 'covered dispatch leaves the queue');
+  assert.equal((await e('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-28', 'Customer Account': 'EWAY HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'EW1', Quantity: 1, Batch: 'E-1' }] })).status, 403, 'view-only on dispatches');
+  assert.equal((await e('GET', '/api/t/grn-mrn')).status, 403, 'no GRN access');
+});

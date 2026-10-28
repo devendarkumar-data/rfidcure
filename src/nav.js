@@ -1,5 +1,5 @@
 // The ONE place that defines the sidebar. Items only appear when the logged-in user's meta allows them.
-export const DEDICATED_SLUGS = ['purchase-indent', 'purchase-indent-pending', 'purchase-order-domestic', 'purchase-order-import', 'grn-mrn', 'opening-stock', 'stock-ledger', 'purchase-requisition', 'stock-transfer', 'imprest-out-new', 'imprest-out-register', 'imprest-out-pending', 'imprest-in-new', 'imprest-in-register', 'imprest-in-pending', 'material-consumption', 'item-master', 'vendor-master', 'warehouse-master', 'customer-hospital-master'];
+export const DEDICATED_SLUGS = ['purchase-indent', 'purchase-indent-pending', 'purchase-order-domestic', 'purchase-order-import', 'grn-mrn', 'opening-stock', 'stock-ledger', 'purchase-requisition', 'stock-transfer', 'e-way-bill-outward', 'e-way-bill-inward', 'imprest-out-new', 'imprest-out-register', 'imprest-out-pending', 'imprest-in-new', 'imprest-in-register', 'imprest-in-pending', 'material-consumption', 'item-master', 'vendor-master', 'warehouse-master', 'customer-hospital-master'];
 export const ADMIN_SLUGS = ['activity-log', 'login-sessions', 'audit-logs', 'configuration', 'security', 'backup'];
 
 const has = (t, a) => !!t && t.actions.includes(a);
@@ -55,6 +55,15 @@ export function buildNav(meta) {
     it(has(tables['imprest-in-new'], 'view'), '/imprest/register/in', 'Imprest In Register'),
     it(has(tables['material-consumption'], 'view'), '/consumption/pending', 'Consumption Pending'),
     it(has(tables['material-consumption'], 'view'), '/consumption/register', 'Consumption Register'),
+  ]);
+
+  const ewo = tables['e-way-bill-outward']; const ewi = tables['e-way-bill-inward'];
+  add('eway', 'E-Way Bill', 'folder', [
+    it(has(ewo, 'view'), '/eway/pending', 'Pending E-Way Bills'),
+    it(has(ewo, 'create'), '/t/e-way-bill-outward?new=1', 'Create E-Way Bill (Outward)'),
+    it(has(ewo, 'view'), '/t/e-way-bill-outward', 'E-Way Bill Register (Outward)'),
+    it(has(ewi, 'create'), '/t/e-way-bill-inward?new=1', 'Create E-Way Bill (Inward)'),
+    it(has(ewi, 'view'), '/t/e-way-bill-inward', 'E-Way Bill Register (Inward)'),
   ]);
 
   add('inventory', 'Inventory', 'box', [

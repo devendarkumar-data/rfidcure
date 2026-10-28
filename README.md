@@ -184,3 +184,8 @@ Users with all-warehouse access get a **View warehouse** switcher in the top bar
 - The remaining quantity (20) appears under **Consumption Pending → Awaiting consumption entry**, where the person enters the consumption **manually** (with Bill No/Date, or without and update the bill later). Every In / Consumption carries the `Imprest Ref` of the Out (trail: Out -> In -> Consumption). Status: Pending Return -> Pending Consumption -> Closed (no partial status).
 - **Imprest In Register**: items taken back. **Imprest Out Register**: items dispatched with their settlement status.
 - **Consumption Pending**: consumption whose bill is not updated yet (`Bill Status` = Pending Bill). **Update bill** (Bill No required, Bill Date) moves it to the **Consumption Register** (`Bill Status` = Billed).
+
+## E-Way Bill
+- New role **E-Way Bill Operator** (set Role = `E-Way Bill Operator` in the Users sheet; warehouse access = assigned Branch). Can create / edit E-Way Bills (outward and inward) and view dispatches; no access to GRN, purchasing, masters or admin. Super Admin, Admin and All also have the E-Way Bill stage.
+- **Pending E-Way Bills** lists Imprest Outs and Stock Transfers (in the user's warehouses) with no E-Way Bill. **Create E-Way Bill** opens the form with Ref. Doc filled in; once saved (Ref. Doc = the dispatch number) the dispatch leaves the list.
+- The E-Way Bill No. is typed from the GST portal. Automatic generation through the GST/NIC API needs GSP credentials and is not built.

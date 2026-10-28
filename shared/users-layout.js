@@ -7,7 +7,7 @@
 import { roleKey, ROLE_LABELS } from './permissions.js';
 
 export const USERS_SHEET_HEADERS = ['Groups', 'User Name', 'Phone', 'Email', 'Password', 'Branch', 'Status', 'Last Login', 'Warehouse'];
-const ORDER = ['super_admin', 'admin', 'all', 'purchase_manager', 'approver', 'warehouse_manager', 'purchase', 'warehouse_operator', 'mother_warehouse_operator', 'sales', 'finance', 'auditor', 'grn_operator', 'entry_operator', 'data_entry'];
+const ORDER = ['super_admin', 'admin', 'all', 'purchase_manager', 'approver', 'warehouse_manager', 'purchase', 'warehouse_operator', 'mother_warehouse_operator', 'sales', 'finance', 'auditor', 'grn_operator', 'entry_operator', 'eway_operator', 'data_entry'];
 
 export function roleFromGroups(groups) {
   const keys = String(groups ?? '').split(/[,;|/]+/).map((t) => roleKey(t)).filter(Boolean);
