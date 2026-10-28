@@ -242,7 +242,9 @@ export default async function handler(req, res) {
     if (path === 'imprest/register' && req.method === 'GET') return ok(await imprest.register(ctx, q.type === 'in' ? 'in' : 'out'));
     if (path === 'imprest/pending' && req.method === 'GET') return ok(await imprest.pending(ctx));
     if (path === 'imprest/trail' && req.method === 'GET') return ok(await imprest.trail(ctx, q.ref));
-    if (path === 'imprest/settle' && req.method === 'POST') return ok(await imprest.settle(ctx, await readBody(req), req.headers['idempotency-key']), 201);
+    if (path === 'imprest/return' && req.method === 'POST') return ok(await imprest.receive(ctx, await readBody(req), req.headers['idempotency-key']), 201);
+    if (path === 'imprest/consume' && req.method === 'POST') return ok(await imprest.consume(ctx, await readBody(req), req.headers['idempotency-key']), 201);
+    if (path === 'imprest/consumption-queue' && req.method === 'GET') return ok(await imprest.consumptionQueue(ctx));
     if (path === 'lookup/customer' && req.method === 'GET') return ok(await crud.customerDetails(ctx, q.name));
     if (path === 'stock/balances' && req.method === 'GET') {
       const r = await reports.stockBalances(ctx, q);

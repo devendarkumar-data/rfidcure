@@ -5,7 +5,7 @@ import Card from '../components/Card.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import Spinner from '../components/Spinner.jsx';
 
-const TONE = { Pending: 'bg-amber-50 text-amber-800', 'Partly settled': 'bg-blue-50 text-blue-800', Settled: 'bg-green-50 text-green-800' };
+const TONE = { 'Pending Return': 'bg-amber-50 text-amber-800', 'Pending Consumption': 'bg-blue-50 text-blue-800', Closed: 'bg-green-50 text-green-800' };
 
 // Imprest Out register (what was dispatched, with its settlement status) and Imprest In register (what was taken back) - one row per item.
 export default function ImprestRegister() {

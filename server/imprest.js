@@ -1,6 +1,5 @@
-// Imprest settlement: an Imprest Out stays "pending" until it is settled. Lines marked as consumed become a Consumption
-// (against a bill); everything else is returned as an Imprest In. Every In / Consumption carries the Imprest Ref of the Out it settles,
-// so each Imprest Out has a complete trail: Out -> In(s) -> Consumption(s).
+// Imprest flow: Out -> Imprest In (quantity taken back, entered on Imprest In Pending) -> Consumption (remainder, entered manually from Consumption Pending, with bill).
+// Every In / Consumption carries the Imprest Ref of its Out, so each Out has a complete trail. Statuses: Pending Return / Pending Consumption / Closed.
 import { TABLE_BY_SLUG } from '../shared/registry.js';
 import { assertCan, inScope, parseLines } from './access.js';
 import { audit } from './audit.js';
@@ -30,14 +29,24 @@ function position(out, ins, cons) {
   const lines = [...groups.values()].map((g) => ({ ...g, balance: rq(g.dispatched - g.returned - g.consumed) }));
   const total = (k) => rq(lines.reduce((s, g) => s + g[k], 0));
   const balance = total('balance');
-  return { ref, date: normDate(out.Date), hospital: sstr(out['To Warehouse']), customer: sstr(out['Customer Account']), deliveryDate: normDate(out['Delivery Date']), lines, dispatched: total('dispatched'), returned: total('returned'), consumed: total('consumed'), balance, status: balance <= 0 ? 'Settled' : (total('returned') + total('consumed') > 0 ? 'Partly settled' : 'Pending') };
+  const hasIn = ins.some((r) => sstr(r['Imprest Ref']) === ref) || /^yes$/i.test(sstr(out['Return Closed']));
+  return { ref, date: normDate(out.Date), hospital: sstr(out['To Warehouse']), customer: sstr(out['Customer Account']), deliveryDate: normDate(out['Delivery Date']), lines, dispatched: total('dispatched'), returned: total('returned'), consumed: total('consumed'), balance, hasIn, status: balance <= 0 ? 'Closed' : (hasIn ? 'Pending Consumption' : 'Pending Return') };
 }
 const mine = (ctx, p) => p.lines.some((l) => !l.warehouse || inScope(ctx, l.warehouse));
 
 export async function pending(ctx) {
   assertCan(ctx, TABLE_BY_SLUG[OUT], 'view');
   const { outs, ins, cons } = await load(ctx);
-  const rows = outs.filter((o) => sstr(o.DocNo)).map((o) => position(o, ins, cons)).filter((p) => p.balance > 0 && mine(ctx, p));
+  const rows = outs.filter((o) => sstr(o.DocNo)).map((o) => position(o, ins, cons)).filter((p) => p.balance > 0 && !p.hasIn && mine(ctx, p));
+  rows.sort((a, b) => String(a.date).localeCompare(String(b.date)) || a.ref.localeCompare(b.ref));
+  return { rows };
+}
+
+// Imprest Outs whose stock was taken back (Imprest In done) and whose remainder still has to be entered as consumption.
+export async function consumptionQueue(ctx) {
+  assertCan(ctx, TABLE_BY_SLUG[CONS], 'view');
+  const { outs, ins, cons } = await load(ctx);
+  const rows = outs.filter((o) => sstr(o.DocNo)).map((o) => position(o, ins, cons)).filter((p) => p.balance > 0 && p.hasIn && mine(ctx, p));
   rows.sort((a, b) => String(a.date).localeCompare(String(b.date)) || a.ref.localeCompare(b.ref));
   return { rows };
 }
@@ -58,39 +67,60 @@ export async function trail(ctx, ref) {
   return { position: p, events };
 }
 
-// body: { ref, date?, narration?, lines: [{ key, returned }] }  - the quantity TAKEN BACK per item/batch; the remainder is consumed (posted as a
-// Consumption that waits for its bill: it shows in Consumption Pending until Bill No / Bill Date are updated).
-export async function settle(ctx, body, idem) {
-  const ref = sstr(body?.ref); if (!ref) throw bad('Choose the Imprest Out to settle');
+// Imprest In: body { ref, date?, narration?, noReturn?, lines: [{ key, returned }] } - the quantity TAKEN BACK per item/batch.
+// The remainder is NOT posted here: it goes to Consumption Pending, where the person enters the consumption (and bill) manually.
+export async function receive(ctx, body, idem) {
+  const ref = sstr(body?.ref); if (!ref) throw bad('Choose the Imprest Out');
   const { outs, ins, cons } = await load(ctx);
   const out = outs.find((o) => sstr(o.DocNo) === ref); if (!out) throw notFound('Imprest Out not found');
   const p = position(out, ins, cons); if (!mine(ctx, p)) throw new HttpError(403, 'This imprest was not dispatched from your warehouse');
-  if (p.balance <= 0) throw unprocessable(`${ref} is already fully settled`);
+  if (p.balance <= 0) throw unprocessable(`${ref} is already closed`);
+  if (p.hasIn) throw unprocessable(`${ref} has already been taken back - enter the remaining quantity as consumption`);
   const want = new Map((Array.isArray(body.lines) ? body.lines : []).map((l) => [sstr(l.key), toNum(l.returned)]));
-  const back = [], used = [];
+  const back = [];
   for (const g of p.lines) {
     if (g.balance <= 0) continue;
-    const r = want.get(g.key) || 0;
+    const r = body.noReturn ? 0 : (want.get(g.key) || 0);
     if (r < 0 || !Number.isFinite(r)) throw bad(`${g.code}: returned quantity is not valid`);
-    if (r > g.balance + 1e-9) throw unprocessable(`${g.code} (batch ${g.batch}): returned ${r} is more than the ${g.balance} pending`);
-    const c = rq(g.balance - r);
-    if (c > 0) used.push({ 'Consumption Type': 'Against Bill', 'Item Code': g.code, Quantity: c, Batch: g.batch });
+    if (r > g.balance + 1e-9) throw unprocessable(`${g.code} (batch ${g.batch}): returned ${r} is more than the ${g.balance} dispatched`);
     if (r > 0) back.push({ Warehouse: g.warehouse, 'Item Code': g.code, Quantity: r, Batch: g.batch });
   }
-  const billNo = sstr(body.billNo);
-  const key = (sfx) => (idem ? `${String(idem).replace(/[^A-Za-z0-9-]/g, '').slice(0, 56)}-${sfx}` : undefined);
-  const date = normDate(body.date) || today(); const result = { ref, inDoc: null, consumptionDoc: null };
-  if (back.length) {
-    const r = await createRecord(ctx, TABLE_BY_SLUG[IN], { header: { Date: date, 'To Warehouse': p.hospital, 'Imprest Ref': ref, 'Narration / Notes': sstr(body.narration) || `Return against ${ref}` }, lines: back }, key('in'));
+  const date = normDate(body.date) || today(); const result = { ref, inDoc: null };
+  if (body.noReturn) {
+    const t = TABLE_BY_SLUG[OUT]; assertCan(ctx, t, 'view');
+    await ctx.store.updateRow(t.tab, out.__row, { 'Return Closed': 'Yes' }, { col: t.idCol, val: ref });
+    await audit(ctx.store, { user: ctx.user, module: t.tab, doc: ref, action: 'Update', next: { 'Return Closed': 'Yes (nothing returned)' } });
+  } else {
+    if (!back.length) throw unprocessable('Enter the quantity taken back, or tick "Nothing was returned"');
+    const key = idem ? `${String(idem).replace(/[^A-Za-z0-9-]/g, '').slice(0, 56)}-in` : undefined;
+    const r = await createRecord(ctx, TABLE_BY_SLUG[IN], { header: { Date: date, 'To Warehouse': p.hospital, 'Imprest Ref': ref, 'Narration / Notes': sstr(body.narration) || `Return against ${ref}` }, lines: back }, key);
     result.inDoc = r.id;
   }
-  if (used.length) {
-    try {
-      const r = await createRecord(ctx, TABLE_BY_SLUG[CONS], { header: { Warehouse: p.hospital, 'Imprest Ref': ref, 'Bill Status': billNo ? 'Billed' : 'Pending Bill', ...(billNo ? { 'Bill No': billNo } : {}), ...(sstr(body.billDate) ? { 'Bill Date': normDate(body.billDate) } : {}), 'Narration / Notes': sstr(body.narration) || `Consumed against ${ref}` }, lines: used }, key('cons'));
-      result.consumptionDoc = r.id;
-    } catch (e) { e.message = `${result.inDoc ? `Return ${result.inDoc} was posted, but the consumption failed: ` : ''}${e.message}`; throw e; }
+  return { ...result, summary: { returned: rq(back.reduce((s, l) => s + l.Quantity, 0)), toConsume: rq(p.balance - back.reduce((s, l) => s + l.Quantity, 0)) }, trail: await trail(ctx, ref) };
+}
+
+// Consumption entry: body { ref, billNo?, billDate?, narration?, lines: [{ key, consumed }] } - entered manually per item/batch.
+export async function consume(ctx, body, idem) {
+  const ref = sstr(body?.ref); if (!ref) throw bad('Choose the Imprest Out');
+  const { outs, ins, cons } = await load(ctx);
+  const out = outs.find((o) => sstr(o.DocNo) === ref); if (!out) throw notFound('Imprest Out not found');
+  const p = position(out, ins, cons); if (!mine(ctx, p)) throw new HttpError(403, 'This imprest was not dispatched from your warehouse');
+  if (!p.hasIn) throw unprocessable(`${ref}: record the Imprest In (quantity taken back) first`);
+  if (p.balance <= 0) throw unprocessable(`${ref} is already closed`);
+  const want = new Map((Array.isArray(body.lines) ? body.lines : []).map((l) => [sstr(l.key), toNum(l.consumed)]));
+  const used = [];
+  for (const g of p.lines) {
+    if (g.balance <= 0) continue;
+    const c = want.get(g.key) || 0;
+    if (c < 0 || !Number.isFinite(c)) throw bad(`${g.code}: consumed quantity is not valid`);
+    if (c > g.balance + 1e-9) throw unprocessable(`${g.code} (batch ${g.batch}): consumed ${c} is more than the ${g.balance} remaining`);
+    if (c > 0) used.push({ 'Consumption Type': 'Against Bill', 'Item Code': g.code, Quantity: c, Batch: g.batch });
   }
-  return { ...result, summary: { returned: rq(back.reduce((s, l) => s + l.Quantity, 0)), consumed: rq(used.reduce((s, l) => s + l.Quantity, 0)) }, trail: await trail(ctx, ref) };
+  if (!used.length) throw unprocessable('Enter the consumed quantity');
+  const billNo = sstr(body.billNo);
+  const key = idem ? `${String(idem).replace(/[^A-Za-z0-9-]/g, '').slice(0, 56)}-cons` : undefined;
+  const r = await createRecord(ctx, TABLE_BY_SLUG[CONS], { header: { Warehouse: p.hospital, 'Imprest Ref': ref, 'Bill Status': billNo ? 'Billed' : 'Pending Bill', ...(billNo ? { 'Bill No': billNo } : {}), ...(sstr(body.billDate) ? { 'Bill Date': normDate(body.billDate) } : {}), 'Narration / Notes': sstr(body.narration) || `Consumed against ${ref}` }, lines: used }, key);
+  return { ref, consumptionDoc: r.id, consumed: rq(used.reduce((s, l) => s + l.Quantity, 0)), trail: await trail(ctx, ref) };
 }
 
 // ---- Consumption pending (bill not yet updated) / register (billed) ------------------------------------------------

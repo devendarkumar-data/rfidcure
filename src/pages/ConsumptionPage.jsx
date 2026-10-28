@@ -14,7 +14,17 @@ export default function ConsumptionPage() {
   const { mode } = useParams(); const pending = mode === 'pending'; const toast = useToast();
   const [rows, setRows] = useState(null); const [err, setErr] = useState(''); const [q, setQ] = useState('');
   const [dlg, setDlg] = useState(null); const [bill, setBill] = useState({ billNo: '', billDate: todayIST() }); const [busy, setBusy] = useState(false); const [derr, setDerr] = useState('');
-  const load = () => api.get('/api/imprest/consumption', { status: pending ? 'pending' : 'billed' }).then((r) => setRows(r.rows)).catch((e) => setErr(e.message));
+  const [queue, setQueue] = useState([]); const [ent, setEnt] = useState(null); const [cons, setCons] = useState({}); const [ehdr, setEhdr] = useState({ billNo: '', billDate: todayIST(), narration: '' }); const [eerr, setEerr] = useState('');
+  const load = () => Promise.all([api.get('/api/imprest/consumption', { status: pending ? 'pending' : 'billed' }), pending ? api.get('/api/imprest/consumption-queue') : Promise.resolve({ rows: [] })]).then(([r, qd]) => { setRows(r.rows); setQueue(qd.rows); }).catch((e) => setErr(e.message));
+  const open = (p) => { setEnt(p); setEerr(''); setEhdr({ billNo: '', billDate: todayIST(), narration: '' }); setCons(Object.fromEntries(p.lines.filter((l) => l.balance > 0).map((l) => [l.key, String(l.balance)]))); };
+  const saveCons = async (e) => {
+    e.preventDefault(); setEerr('');
+    const lines = ent.lines.filter((l) => l.balance > 0).map((l) => ({ key: l.key, consumed: Number(cons[l.key]) || 0 }));
+    const over = ent.lines.find((l) => (Number(cons[l.key]) || 0) > l.balance);
+    if (over) { setEerr(`${over.code}: consumed cannot be more than the ${over.balance} remaining.`); return; }
+    setBusy(true);
+    try { const r = await api.post('/api/imprest/consume', { ref: ent.ref, billNo: ehdr.billNo, billDate: ehdr.billDate, narration: ehdr.narration, lines }); toast.success(`Consumption ${r.consumptionDoc} saved (${r.consumed})`); setEnt(null); load(); } catch (x) { setEerr(x.message); } finally { setBusy(false); }
+  };
   useEffect(() => { setRows(null); setErr(''); load(); }, [pending]); // eslint-disable-line react-hooks/exhaustive-deps
   const shown = useMemo(() => { const n = q.trim().toLowerCase(); return (rows || []).filter((r) => !n || `${r.no} ${r.ref} ${r.hospital} ${r.items.join(' ')} ${r.billNo}`.toLowerCase().includes(n)); }, [rows, q]);
   const save = async (e) => {
@@ -27,8 +37,21 @@ export default function ConsumptionPage() {
   if (!rows) return <Spinner />;
   return (
     <>
-      <PageHeader title={pending ? 'Consumption Pending' : 'Consumption Register'} subtitle={pending ? 'Consumption from imprest settlement whose bill has not been updated yet. Update the bill to move it to the Consumption Register.' : 'Consumption with its bill updated.'} />
-      <Card>
+      <PageHeader title={pending ? 'Consumption Pending' : 'Consumption Register'} subtitle={pending ? 'Enter the consumption for imprest that was taken back (remaining quantity), then update the bill to move it to the Consumption Register.' : 'Consumption with its bill updated.'} />
+      {pending && (
+        <Card title="Awaiting consumption entry" className="mb-4">
+          <div className="overflow-x-auto rounded-md border border-slate-200">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead><tr><th className="th">Imprest No.</th><th className="th">Date</th><th className="th">Hospital</th><th className="th text-right">Dispatched</th><th className="th text-right">Taken back</th><th className="th text-right">To consume</th><th className="th" /></tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {!queue.length && <tr><td className="td text-slate-500" colSpan={7}>No imprest is waiting for a consumption entry.</td></tr>}
+                {queue.map((p) => <tr key={p.ref}><td className="td font-medium">{p.ref}</td><td className="td">{p.date}</td><td className="td">{p.hospital}</td><td className="td text-right tabular-nums">{p.dispatched}</td><td className="td text-right tabular-nums">{p.returned}</td><td className="td text-right tabular-nums font-semibold">{p.balance}</td><td className="td text-right"><button className="btn btn-sm btn-primary" onClick={() => open(p)}>Enter consumption</button></td></tr>)}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+      <Card title={pending ? 'Awaiting bill' : undefined}>
         <div className="mb-3 max-w-xs"><input className="input" placeholder="Search document, hospital, item…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search" /></div>
         <div className="overflow-x-auto rounded-md border border-slate-200">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -47,6 +70,23 @@ export default function ConsumptionPage() {
           </table>
         </div>
       </Card>
+      {ent && (
+        <Modal title={`Enter consumption — ${ent.ref}`} onClose={() => setEnt(null)}>
+          <form onSubmit={saveCons} noValidate>
+            {eerr && <div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{eerr}</div>}
+            <p className="mb-2 text-sm text-slate-600">{ent.hospital}. Enter the quantity actually consumed per item.</p>
+            <table className="min-w-full divide-y divide-slate-200 text-sm"><thead><tr><th className="th">Item</th><th className="th">Batch</th><th className="th text-right">Remaining</th><th className="th text-right">Consumed qty</th></tr></thead>
+              <tbody className="divide-y divide-slate-100">{ent.lines.filter((l) => l.balance > 0).map((l) => <tr key={l.key}><td className="td">{l.code} — {l.name}</td><td className="td">{l.batch}</td><td className="td text-right tabular-nums">{l.balance}</td><td className="td text-right"><input className="input w-24 text-right" type="number" min="0" max={l.balance} step="any" value={cons[l.key] ?? ''} onChange={(e) => setCons((u) => ({ ...u, [l.key]: e.target.value }))} aria-label={`Consumed qty ${l.code}`} /></td></tr>)}</tbody></table>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div><label className="label" htmlFor="ce-no">Bill No (optional)</label><input id="ce-no" className="input" value={ehdr.billNo} onChange={(e) => setEhdr({ ...ehdr, billNo: e.target.value })} /></div>
+              <div><label className="label" htmlFor="ce-date">Bill Date</label><input id="ce-date" type="date" className="input" value={ehdr.billDate} onChange={(e) => setEhdr({ ...ehdr, billDate: e.target.value })} /></div>
+              <div><label className="label" htmlFor="ce-n">Narration</label><input id="ce-n" className="input" value={ehdr.narration} onChange={(e) => setEhdr({ ...ehdr, narration: e.target.value })} /></div>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">Without a Bill No the consumption stays under "Awaiting bill" until you update the bill.</p>
+            <div className="mt-4 flex justify-end gap-2"><button type="button" className="btn" onClick={() => setEnt(null)}>Cancel</button><button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save consumption'}</button></div>
+          </form>
+        </Modal>
+      )}
       {dlg && (
         <Modal title={`Update bill — ${dlg.no}`} onClose={() => setDlg(null)}>
           <form onSubmit={save} noValidate>
