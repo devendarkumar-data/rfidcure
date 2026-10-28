@@ -172,3 +172,9 @@ Users with all-warehouse access get a **View warehouse** switcher in the top bar
 - Choosing the **Customer Account** fills Ship to Name / Address / City / State / Pin code and Bill Code from **Customer  Hospital Master** (new optional columns Address, City, State, Pincode).
 - Lines: Warehouse defaults to the user's own (or the viewed) warehouse and only that warehouse is offered; choosing an item auto-selects the earliest-expiry batch and fills Batch, Expiry Date and Rate from stock; Delivery Date column added.
 - Passwords typed in the Users tab are kept in the sheet (never cleared).
+
+## Imprest Out / Imprest In / Consumption - how they relate
+- **Imprest Out** moves stock from your warehouse to a hospital (imprest) warehouse. Example: 100 sent out. Delivery Date is in the main form; lines show Warehouse, Item (stock record), Quantity, Batch, Expiry (rate is kept in the background).
+- **Imprest In** returns stock from the hospital: pick the hospital (only hospitals holding imprest stock sent from your warehouse are offered), then pick from the stock that hospital holds. Example: 80 returned; you cannot return more than the hospital holds.
+- **Consumption** is what the hospital used out of the remainder (100 - 80 = 20): pick the hospital, pick from its stock, choose "Against Bill" and give the Bill No / Bill Date. You cannot consume more than the hospital holds.
+- The balance at the hospital is always Out - In - Consumed, read from the stock ledger.

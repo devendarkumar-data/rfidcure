@@ -277,7 +277,9 @@ export async function createRecord(ctx, table, body, idemKey, hooks = {}) {
       const catalog = stock ? await itemCatalog(store, stock) : new Map();
       lines = await validateLines(ctx, table, body?.lines, catalog, { strictItems: !!table.post });
       id = await nextDocNo(store, table, date);
-      assertWarehouses(ctx, writeWarehouses(table.post, header, lines));
+      if (table.post === 'consumption') { if (!(await imprestLinked(ctx, header.Warehouse))) assertWarehouses(ctx, [header.Warehouse]); }
+      else if (table.post === 'imprest-in') { assertWarehouses(ctx, writeWarehouses(table.post, header, lines)); if (!(await imprestLinked(ctx, header['To Warehouse']))) throw forbidden(`Warehouse ${header['To Warehouse']} has no imprest stock sent from your warehouse`); }
+      else assertWarehouses(ctx, writeWarehouses(table.post, header, lines));
       if (table.wh.length && ctx.user.scope.mode === 'assigned' && !table.post && !table.wh.some((c) => inScope(ctx, header[c]))) {
         throw forbidden('You can only create documents for your assigned warehouses');
       }
@@ -396,6 +398,15 @@ export async function saveSettingsRecord(ctx, table, body) {
 }
 
 // ---- lookups for dropdowns ---------------------------------------------------------------------------------------
+// A hospital / imprest warehouse is "linked" to the user when it received an Imprest Out that was dispatched from one of the user's warehouses.
+export async function imprestLinked(ctx, wh, ledgerRows) {
+  if (inScope(ctx, wh)) return true;
+  const rows = ledgerRows || (await ctx.store.read('Stock Ledger')).rows;
+  const W = sstr(wh).toUpperCase();
+  const docs = new Set(rows.filter((r) => r.Type === 'Imprest Out' && sstr(r.Warehouse).toUpperCase() === W && toNum(r.Quantity) > 0).map((r) => r.Doc));
+  return rows.some((r) => r.Type === 'Imprest Out' && docs.has(r.Doc) && toNum(r.Quantity) < 0 && inScope(ctx, r.Warehouse));
+}
+
 export async function lookup(ctx, field, q, limit = 30, scopeOnly = false, extra = {}) {
   const ref = REFS[field];
   if (!ref) throw bad('Unknown lookup');
@@ -410,13 +421,21 @@ export async function lookup(ctx, field, q, limit = 30, scopeOnly = false, extra
   if (ref.special === 'warehouse') {
     let list = await warehouseList(ctx.store);
     if (scopeOnly) list = list.filter((w) => inScope(ctx, w)); // only the user's own / currently viewed warehouse(s)
+    if (extra.imprest === '1') { // hospitals / imprest warehouses that currently hold imprest stock sent out from the user's warehouse(s)
+      const { rows: led } = await ctx.store.read('Stock Ledger'); const { balances } = await loadStock(ctx.store);
+      const held = new Set([...balances.values()].filter((b) => b.qty > 0).map((b) => b.warehouse));
+      const got = new Set(led.filter((r) => r.Type === 'Imprest Out' && toNum(r.Quantity) > 0).map((r) => sstr(r.Warehouse).toUpperCase()));
+      const keep = [];
+      for (const w of list) if (got.has(w.toUpperCase()) && held.has(w.toUpperCase()) && (await imprestLinked(ctx, w, led))) keep.push(w);
+      list = keep;
+    }
     return { options: list.map((w) => ({ value: w, label: w, inScope: inScope(ctx, w) })) };
   }
   if (ref.special === 'stock') { // stock records (Opening Stock + ledger): item, batch, expiry, quantity, rate - by warehouse, or across all warehouses
     const creates = Object.values(ROLE_STAGE_ACTIONS[ctx.user.role] || {}).some((a) => a.includes('create'));
     if (!creates) throw forbidden();
     const all = extra.all === '1'; const wh = sstr(extra.warehouse).toUpperCase();
-    if (!all) { if (!wh) return { options: [] }; if (!inScope(ctx, wh)) throw forbidden(`You are not assigned to warehouse ${wh}`); }
+    if (!all) { if (!wh) return { options: [] }; if (!(await imprestLinked(ctx, wh))) throw forbidden(`You are not assigned to warehouse ${wh}`); }
     const { balances } = await loadStock(ctx.store);
     const merged = new Map();
     for (const e of balances.values()) {

@@ -82,6 +82,7 @@ export const POSTERS = {
 
   consumption({ header, lines, view, doc, date }) {
     const wh = need(header.Warehouse, 'Select the warehouse');
+    if (lines.some((l) => /against bill/i.test(sstr(l['Consumption Type']))) && !sstr(header['Bill No'])) throw unprocessable('Bill No is required for consumption against a bill');
     const out = [];
     lines.forEach((l, i) => {
       const label = `Line ${i + 1} (${l['Item Code']})`;
@@ -115,7 +116,7 @@ export function writeWarehouses(kind, header, lines) {
     case 'grn': case 'consumption': case 'actual': return [header.Warehouse];
     case 'transfer': return [header['From Warehouse']];
     case 'imprest-out': case 'issue': return lines.map((l) => l.Warehouse);
-    case 'imprest-in': return [header['To Warehouse']];
+    case 'imprest-in': return lines.map((l) => l.Warehouse); // receiving side; the imprest (hospital) side is checked by imprestLinked
     default: return [];
   }
 }

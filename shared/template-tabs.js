@@ -230,6 +230,7 @@ export default [
    "Dispatch State",
    "Supplier",
    "Bill Code",
+   "Delivery Date",
    "Lines"
   ]
  },
@@ -568,6 +569,8 @@ export default [
    "Narration / Notes",
    "Business Head",
    "Submit for Approval",
+   "Bill No",
+   "Bill Date",
    "Lines"
   ]
  },

@@ -83,9 +83,10 @@ function decorate(f, tableOpts = {}) {
 
 // ---- table specifications -------------------------------------------------------------------------
 const IMH = 'DocNo:Alphanumeric-Autogen|Date:Date|Customer Account:Dropdown|Surgery:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Location:Dropdown|Companies:Dropdown|Narration / Notes:Text|Business Head:Dropdown|OT Name:Text|Place of Supply:Dropdown|Is IGST:Dropdown|Ref. Doc:Text|Ref. Date:Date|Ship to Name:Text|Ship to Address:Long text|Ship to City:Dropdown|Ship to State:Dropdown|Ship to Pin code:Text|To Warehouse:Dropdown|Dispatch Name:Text|Dispatch City:Dropdown|Dispatch Address:Text|Dispatch Pincode:Text|Dispatch State:Dropdown';
-const IMH_OUT = 'DocNo:Alphanumeric-Autogen|Date:Date|Customer Account:Dropdown|Surgery:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Location:Dropdown|Companies:Dropdown|Narration / Notes:Text|Business Head:Dropdown|OT Name:Text|Place of Supply:Dropdown|Is IGST:Dropdown|Ref. Doc:Text|Ref. Date:Date|Ship to Name:Text|Ship to Address:Long text|Ship to City:Dropdown|Ship to State:Dropdown|Ship to Pin code:Text|To Warehouse:Dropdown|Dispatch Name:Text|Dispatch City:Dropdown|Dispatch Address:Text|Dispatch Pincode:Text|Dispatch State:Dropdown|Supplier:Dropdown|Bill Code:Text';
+const IMH_OUT = 'DocNo:Alphanumeric-Autogen|Date:Date|Customer Account:Dropdown|Surgery:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Location:Dropdown|Companies:Dropdown|Narration / Notes:Text|Business Head:Dropdown|OT Name:Text|Place of Supply:Dropdown|Is IGST:Dropdown|Ref. Doc:Text|Ref. Date:Date|Ship to Name:Text|Ship to Address:Long text|Ship to City:Dropdown|Ship to State:Dropdown|Ship to Pin code:Text|To Warehouse:Dropdown|Dispatch Name:Text|Dispatch City:Dropdown|Dispatch Address:Text|Dispatch Pincode:Text|Dispatch State:Dropdown|Supplier:Dropdown|Bill Code:Text|Delivery Date:Date';
 const IML = 'Consumption Type:Dropdown:Against Consumption,Against Bill|Warehouse:Dropdown|Item:Dropdown|Description:Autofill|Units:Autofill|Quantity:Number|Rate:Number|Gross:Calculated|Batch:Text|Expiry Date:Date';
-const IML_OUT = 'Consumption Type:Dropdown:Against Consumption,Against Bill|Warehouse:Dropdown|Item:Dropdown|Description:Autofill|Units:Autofill|Quantity:Number|Rate:Number|Gross:Calculated|Batch:Text|Expiry Date:Date|Delivery Date:Date';
+const IML_IN = 'Warehouse:Dropdown|Item:Dropdown|Description:Autofill|Units:Autofill|Quantity:Number|Rate:Number|Gross:Calculated|Batch:Text|Expiry Date:Date';
+const IML_OUT = 'Warehouse:Dropdown|Item:Dropdown|Description:Autofill|Units:Autofill|Quantity:Number|Rate:Number|Gross:Calculated|Batch:Text|Expiry Date:Date';
 const EWH = 'Document No.:Alphanumeric-Autogen|Date:Date|Ref. Doc:Text|Supply Type:Dropdown:Outward,Inward|Document Type:Dropdown:Tax Invoice,Delivery Challan|Transporter Name:Text|Transporter ID:Text|Transport Mode:Dropdown:Road,Rail,Air,Ship|Vehicle No.:Text|Distance (KM):Number|Ship to State:Dropdown|Dispatch State:Dropdown|E-Way Bill No.:Text|Valid Upto:Date';
 const EWL = 'Item:Dropdown|HSN:Text|Quantity:Number|Taxable Value:Number|CGST:Number|SGST:Number|IGST:Number';
 const RFID_LINES = null;
@@ -113,10 +114,10 @@ export const SPECS = [
     form: 'Update Stock:Checkbox|Raise Receipt:Checkbox|Attachment:Text',
     lines: 'Items:Dropdown|Description:Autofill|Quantity:Number|Rate:Number|Batch:Text|Expiry Date:Date|Gross:Calculated|Other Discount:Number|Taxable Value:Number|CGST:Number|IGST:Number|Brand:Dropdown|Item Category:Dropdown|Item Group:Dropdown|Division:Dropdown|Ordered Qty:Number|Received Qty:Number|Accepted Qty:Number|Rejected / Damaged Qty:Number|Excess Decision:Dropdown:Amend PO,Reject Excess,Arrange Return|Short Close:Dropdown:Keep Open,Close Balance (authorized)|PO Line:Number' },
 
-  { tab: 'Imprest Out — New', kind: 'doc', stage: 'imprest', prefix: 'IIO', post: 'imprest-out', wh: ['To Warehouse'], required: ['Date', 'To Warehouse'], form: IMH_OUT, lines: IML_OUT, hide: ['Ref. Doc', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State'] },
+  { tab: 'Imprest Out — New', kind: 'doc', stage: 'imprest', prefix: 'IIO', post: 'imprest-out', wh: ['To Warehouse'], required: ['Date', 'To Warehouse'], form: IMH_OUT, lines: IML_OUT, hideLines: ['Rate', 'Gross'], hide: ['Ref. Doc', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State'] },
   { tab: 'Imprest Out Register', kind: 'list', stage: 'imprest', wh: ['To Warehouse'] },
   { tab: 'Imprest Out Pending', kind: 'list', stage: 'imprest', wh: ['To Warehouse'] },
-  { tab: 'Imprest In — New', kind: 'doc', stage: 'imprest', prefix: 'IIN', post: 'imprest-in', wh: ['To Warehouse'], required: ['Date', 'To Warehouse'], form: IMH, lines: IML },
+  { tab: 'Imprest In — New', kind: 'doc', stage: 'imprest', prefix: 'IIN', post: 'imprest-in', wh: ['To Warehouse'], required: ['Date', 'To Warehouse'], form: IMH, lines: IML_IN, hideLines: ['Rate', 'Gross'], hide: ['Ref. Doc', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State'] },
   { tab: 'Imprest In Register', kind: 'list', stage: 'imprest', wh: ['To Warehouse'] },
   { tab: 'Imprest In Pending', kind: 'list', stage: 'imprest', wh: ['To Warehouse'] },
 
@@ -143,8 +144,8 @@ export const SPECS = [
   { tab: 'RFID Deactivation', kind: 'log', stage: 'admin', required: ['RFID Tag'], form: 'Reason:Dropdown:Consumed,Expired,Damaged' },
 
   { tab: 'Material Consumption', kind: 'doc', stage: 'consumption', prefix: 'MC', post: 'consumption', wh: ['Warehouse'], required: ['Warehouse'],
-    form: 'Document No:Alphanumeric-Autogen|Customer Account:Dropdown|Location:Dropdown|Warehouse:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Narration / Notes:Text|Business Head:Text|Submit for Approval:Dropdown',
-    lines: 'Consumption Type:Text|Item:Dropdown|Description:Autofill|Units:Text|Quantity:Number|Batch:Text|Expiry Date:Date|Rate:Number|Gross:Calculated' },
+    form: 'Document No:Alphanumeric-Autogen|Customer Account:Dropdown|Location:Dropdown|Warehouse:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Narration / Notes:Text|Business Head:Text|Submit for Approval:Dropdown|Bill No:Text|Bill Date:Date',
+    lines: 'Consumption Type:Dropdown:Against Bill,Against Consumption|Item:Dropdown|Description:Autofill|Units:Text|Quantity:Number|Batch:Text|Expiry Date:Date|Rate:Number|Gross:Calculated' },
 
   { tab: 'Master Mapping', kind: 'log', stage: 'admin', required: ['ERP Master'] },
   { tab: 'Voucher Posting', kind: 'list', stage: 'admin' },
@@ -193,7 +194,7 @@ function buildTable(t) {
     required: spec.master || spec.kind === 'master'
       ? [headers[1]].concat(t.tab === 'Item Master' ? ['Code'] : [])
       : spec.required || [],
-    lineFields, itemField, hide: spec.hide || [], hasLines: headers.includes('Lines'), sort: spec.sort || null,
+    lineFields, itemField, hide: spec.hide || [], hideLines: spec.hideLines || [], hasLines: headers.includes('Lines'), sort: spec.sort || null,
     writable: spec.kind === 'doc' || spec.kind === 'master' || spec.kind === 'log' || spec.kind === 'settings' || !!spec.writable,
     uniqueCol: spec.kind === 'master' ? (headers.includes('Code') ? 'Code' : headers[1]) : null,
   };

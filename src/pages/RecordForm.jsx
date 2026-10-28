@@ -6,6 +6,7 @@ import { useToast } from '../components/Toast.jsx';
 
 const todayIST = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 const empty = (v) => v === '' || v === null || v === undefined;
+const IMPREST_WH = { imprest: '1' }; // hospital / imprest warehouses that hold stock sent from the user's warehouse
 const INWARD = new Set(['grn-mrn']); // posting tables whose Batch is typed in, not picked
 
 // Header fields + (optional) line items for any table. mode: create | edit | view
@@ -24,16 +25,19 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
   const fields = useMemo(() => table.fields.filter((f) => !(mode === 'create' && (f.type === 'auto' && !table.idCol)) ), [table, mode]);
   const isOut = table.slug === 'imprest-out-new' && mode === 'create';
   const isIn = table.slug === 'imprest-in-new' && mode === 'create';
+  const isCons = table.slug === 'material-consumption' && mode === 'create';
+  const stockMode = isOut ? 'out' : isIn ? 'in' : isCons ? 'consume' : false;
   const [defWh, setDefWh] = useState('');
   const custTimer = useRef(null);
   useEffect(() => { // the user's own warehouse (or the one being viewed) becomes the default on every line
-    if (!isOut) return;
+    if (!isOut && !isIn) return;
     api.get('/api/lookup', { field: 'Warehouse', scopeOnly: '1' }).then((r) => {
       const o = r.options || []; if (o.length !== 1) return;
       setDefWh(o[0].value); setLines((ls) => ls.map((l) => (l.Warehouse ? l : { ...l, Warehouse: o[0].value })));
     }).catch(() => {});
-  }, [isOut]);
+  }, [isOut, isIn]);
   const set = (n, v) => {
+    if ((isIn && n === 'To Warehouse') || (isCons && n === 'Warehouse')) setLines((ls) => ls.map((l) => ({ _k: l._k, ...(l.Warehouse ? { Warehouse: l.Warehouse } : {}), ...(l['Consumption Type'] ? { 'Consumption Type': l['Consumption Type'] } : {}) }))); // another hospital: stock lines start again
     setValues((s) => ({ ...s, [n]: v })); if (errors[n]) setErrors((e) => ({ ...e, [n]: undefined }));
     if (isOut && n === 'Customer Account') { // shipping block + bill code come from the customer account
       clearTimeout(custTimer.current);
@@ -63,7 +67,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
       outLines = lines.map(({ _k, _avail, ...l }) => Object.fromEntries(Object.entries(l).filter(([, v]) => !empty(v)))).filter((l) => l['Item Code'] || Object.keys(l).length > 0);
       outLines = outLines.filter((l) => l['Item Code'] || l[table.itemField]);
       if (table.itemField && !outLines.length) { setErr('Add at least one line item.'); return; }
-      if (isOut) { const over = lines.findIndex((l) => l._avail != null && Number(l.Quantity) > l._avail); if (over >= 0) { setErr(`Line ${over + 1}: quantity exceeds the ${lines[over]._avail} available in stock.`); return; } }
+      if (stockMode) { const over = lines.findIndex((l) => l._avail != null && Number(l.Quantity) > l._avail); if (over >= 0) { setErr(`Line ${over + 1}: quantity exceeds the ${lines[over]._avail} available in stock.`); return; } }
       for (const l of outLines) for (const lf of table.lineFields) if (lf.type === 'number' && !empty(l[lf.name])) l[lf.name] = Number(l[lf.name]);
     }
     setBusy(true);
@@ -78,14 +82,14 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
     <form onSubmit={submit} noValidate aria-label={table.title}>
       {err && <div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
       <div className={`grid gap-x-2 gap-y-1.5 ${fields.length > 8 ? "compact grid-cols-2 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 [&_.input]:h-8 [&_.input]:py-0 [&_.input]:text-[13px] [&_.label]:mb-0 [&_.label]:text-[10px] [&_.label]:leading-4" : "sm:grid-cols-2"}`}>
-        {fields.map((f) => <Field key={f.name} field={f} value={values[f.name]} onChange={(v) => set(f.name, v)} disabled={readOnly} required={table.required.includes(f.name)} error={errors[f.name]} />)}
+        {fields.map((f) => <Field key={f.name} field={f} value={values[f.name]} onChange={(v) => set(f.name, v)} disabled={readOnly} required={table.required.includes(f.name)} error={errors[f.name]} extraParams={IMPREST_WH && ((isIn && f.name === 'To Warehouse') || (isCons && f.name === 'Warehouse')) ? IMPREST_WH : undefined} />)}
       </div>
       {table.hasLines && (
         <div className="mt-3">
           <h3 className="mb-1 text-sm font-semibold">Line items</h3>
           <LinesEditor lineFields={table.lineFields} itemField={table.itemField} lines={lines} onChange={setLines} readOnly={readOnly}
             batchMode={table.posts && !INWARD.has(table.slug) ? 'pick' : 'enter'} getWarehouse={getWarehouse}
-            autoBatch={isOut || isIn} batchFromAll={isIn} stockPick={isOut ? 'out' : isIn ? 'in' : false} scopeWarehouse={isOut} lineDefaults={isOut && defWh ? { Warehouse: defWh } : null} />
+            autoBatch={!!stockMode} stockPick={stockMode} stockWh={isOut ? (l) => l.Warehouse : isIn ? () => values['To Warehouse'] : isCons ? () => values.Warehouse : null} scopeWarehouse={isOut || isIn} lineDefaults={(isOut || isIn) && defWh ? { Warehouse: defWh } : isCons ? { 'Consumption Type': 'Against Bill' } : null} />
           {table.posts && table.slug !== 'actual-stock' && <p className="mt-2 text-xs text-slate-500">Saving posts to the stock ledger and cannot be edited afterwards. Leave Batch on “Auto” to issue the earliest-expiry stock first.</p>}
         </div>
       )}

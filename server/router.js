@@ -85,7 +85,7 @@ function tableMeta(ctx, t) {
     slug: t.slug, title: t.tab, module: t.module, kind: t.kind, stage: t.stage, idCol: t.idCol, actions: allowed, posts: !!t.post,
     required: t.required, hasLines: t.hasLines && t.lineFields.length > 0, itemField: t.itemField, sort: t.sort,
     fields: t.fields.filter((f) => !(t.hide || []).includes(f.name)).map((f) => fieldMeta(ctx, f)).filter((f) => !f.hidden),
-    lineFields: t.lineFields.map((f) => fieldMeta(ctx, f)).filter((f) => !f.hidden),
+    lineFields: t.lineFields.filter((f) => !(t.hideLines || []).includes(f.name)).map((f) => fieldMeta(ctx, f)).filter((f) => !f.hidden),
   };
 }
 function buildMeta(ctx, mustChange) {
@@ -235,7 +235,7 @@ export default async function handler(req, res) {
       }
       throw notFound('Unknown endpoint');
     }
-    if (path === 'lookup' && req.method === 'GET') return ok(await crud.lookup(ctx, q.field, q.q, 30, q.scopeOnly === '1', { warehouse: q.warehouse, all: q.all }));
+    if (path === 'lookup' && req.method === 'GET') return ok(await crud.lookup(ctx, q.field, q.q, 30, q.scopeOnly === '1', { warehouse: q.warehouse, all: q.all, imprest: q.imprest }));
     if (path === 'lookup/customer' && req.method === 'GET') return ok(await crud.customerDetails(ctx, q.name));
     if (path === 'stock/balances' && req.method === 'GET') {
       const r = await reports.stockBalances(ctx, q);

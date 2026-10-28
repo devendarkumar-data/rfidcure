@@ -279,7 +279,8 @@ test('Imprest Out form: hidden fields, customer details, company / business head
   const names = meta.fields.map((f) => f.name);
   for (const gone of ['Ref. Doc', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State']) assert.ok(!names.includes(gone), `${gone} hidden`);
   for (const need of ['Supplier', 'Bill Code', 'Companies', 'Business Head', 'Ship to Name', 'Ship to Address']) assert.ok(names.includes(need), `${need} present`);
-  assert.ok(meta.lineFields.some((f) => f.name === 'Delivery Date'));
+  assert.ok(names.includes('Delivery Date'), 'Delivery Date is in the main form');
+  for (const gone of ['Delivery Date', 'Consumption Type', 'Rate', 'Gross']) assert.ok(!meta.lineFields.some((f) => f.name === gone), `${gone} not a line column`);
   const c = (await sa('GET', '/api/lookup/customer?name=max hospital')).json;
   assert.deepEqual([c.found, c.code, c.address, c.city, c.pincode], [true, 'MX01', '1 Ring Road', 'Delhi', '110001']);
   assert.equal((await sa('GET', '/api/lookup/customer?name=Nobody')).json.found, false);
@@ -326,4 +327,35 @@ test('Stock Item lookup lists stock records (item, batch, expiry, qty, rate) by 
   const a = (await sa('GET', '/api/lookup?field=Stock Item&all=1&q=SP')).json.options;
   assert.deepEqual(a.map((o) => o.code).sort(), ['SP1', 'SP2']);
   assert.deepEqual((await sa('GET', '/api/lookup?field=Stock Item')).json.options, []);
+});
+
+test('Imprest flow: 100 out to a hospital, 80 returned by Imprest In, remaining 20 consumed against a bill', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const pw = 'Op@Strong2026x';
+  await app.store.append('Users', [{ 'User ID': 'entop2', 'User Name': 'entop2', Role: 'Entry Operator', Branch: 'MWH', Status: 'Active', Password: pw }]);
+  await app.store.append('Warehouse Master', [{ 'Master Id': 'W-9', 'Warehouse Name': 'CITY HOSPITAL', 'Warehouse Type': 'Hospital' }]);
+  await app.store.append('Item Master', [{ 'Master Id': 'IM-F', 'Item Name': 'Flow Screw', Code: 'FL1', Brand: 'ACME', 'Item Category': 'Implants' }]);
+  await app.store.append('Opening Stock', [{ Warehouse: 'MWH', 'Item Code': 'FL1', 'Item Name': 'Flow Screw', 'Batch Number': 'F-1', Quantity: 100, 'Expiry Date': '2031-01-01', 'Stock Value': 5000 }]);
+  const e = await app.as('entop2', pw); const sa = await app.as('sa');
+  const avail = async () => (await e('GET', '/api/lookup?field=Stock Item&warehouse=CITY HOSPITAL&q=FL1')).json.options?.[0]?.qty ?? 0;
+  const hosp = async () => (await e('GET', '/api/lookup?field=Warehouse&imprest=1')).json.options.map((o) => o.value);
+  assert.ok(!(await hosp()).includes('CITY HOSPITAL'), 'no imprest yet');
+  const out = await e('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-28', 'To Warehouse': 'CITY HOSPITAL', 'Delivery Date': '2026-10-29' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'FL1', Quantity: 100, Batch: 'F-1' }] });
+  assert.equal(out.status, 201, out.text);
+  assert.ok((await hosp()).includes('CITY HOSPITAL'), 'hospital with imprest stock is offered');
+  assert.equal(await avail(), 100);
+  const back = (q) => e('POST', '/api/t/imprest-in-new', { header: { Date: '2026-10-28', 'To Warehouse': 'CITY HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'FL1', Quantity: q, Batch: 'F-1' }] });
+  assert.equal((await back(120)).status, 422, 'cannot return more than the hospital holds');
+  const r = await back(80); assert.equal(r.status, 201, r.text);
+  assert.equal(await avail(), 20, 'out 100 - in 80 = 20 left at the hospital');
+  const cons = (body) => e('POST', '/api/t/material-consumption', body);
+  const lines = (q) => [{ 'Consumption Type': 'Against Bill', 'Item Code': 'FL1', Quantity: q, Batch: 'F-1' }];
+  assert.equal((await cons({ header: { Warehouse: 'CITY HOSPITAL' }, lines: lines(20) })).status, 422, 'bill number required');
+  assert.equal((await cons({ header: { Warehouse: 'CITY HOSPITAL', 'Bill No': 'B-77' }, lines: lines(21) })).status, 422, 'more than the 20 left');
+  const ok = await cons({ header: { Warehouse: 'CITY HOSPITAL', 'Bill No': 'B-77', 'Bill Date': '2026-10-28' }, lines: lines(20) });
+  assert.equal(ok.status, 201, ok.text);
+  assert.equal(await avail(), 0);
+  assert.ok(!(await hosp()).includes('CITY HOSPITAL'), 'nothing left at the hospital');
+  const bal = (await sa('GET', '/api/stock/balances?pageSize=200&q=FL1')).json.rows.filter((x) => x['Item Code'] === 'FL1');
+  assert.equal(bal.filter((x) => x.Warehouse === 'MWH').reduce((s, x) => s + x.Quantity, 0), 80, 'MWH has the 80 returned');
 });
