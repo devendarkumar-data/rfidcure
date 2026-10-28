@@ -4,6 +4,7 @@ import { TABLE_BY_SLUG } from '../shared/registry.js';
 import { assertCan, inScope, parseLines } from './access.js';
 import { audit } from './audit.js';
 import { createRecord, imprestLinked } from './crud.js';
+import { keyOf, loadStock } from './stock.js';
 import { HttpError, bad, notFound, normDate, sstr, today, toNum, unprocessable } from './util.js';
 
 const OUT = 'imprest-out-new', IN = 'imprest-in-new', CONS = 'material-consumption';
@@ -48,6 +49,9 @@ export async function consumptionQueue(ctx) {
   const { outs, ins, cons } = await load(ctx);
   const rows = outs.filter((o) => sstr(o.DocNo)).map((o) => position(o, ins, cons)).filter((p) => p.balance > 0 && p.hasIn && mine(ctx, p));
   rows.sort((a, b) => String(a.date).localeCompare(String(b.date)) || a.ref.localeCompare(b.ref));
+  // stock actually at the hospital now: lower than the balance if it was consumed through a document not linked to this Imprest
+  const { balances } = await loadStock(ctx.store, { fresh: true });
+  for (const p of rows) for (const l of p.lines) l.onHand = balances.get(keyOf(p.hospital, l.code, l.batch))?.qty || 0;
   return { rows };
 }
 
