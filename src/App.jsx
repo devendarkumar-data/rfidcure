@@ -15,6 +15,7 @@ import StockSummary from './pages/StockSummary.jsx';
 import TablePage from './pages/TablePage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
 import AccessControlPage from './pages/AccessControlPage.jsx';
+import ImprestSettle from './pages/ImprestSettle.jsx';
 import { GrnDetail, GrnForm, GrnRegister, IntentDetail, IntentForm, IntentRegister, PoDetail, PoForm, PoRegister } from './pages/workflow/index.jsx';
 import PoPrint from './pages/workflow/PoPrint.jsx';
 
@@ -35,7 +36,7 @@ function Need({ feature, table, action = 'view', children }) {
 }
 
 // Tabs that have a dedicated screen (PO linking, workflow, stock) must not open the generic add/edit form.
-const DEDICATED_ROUTE = { 'grn-mrn': '/grn', 'purchase-indent': '/purchase-intent', 'purchase-order-domestic': '/purchasing/po', 'purchase-order-import': '/purchasing/po', 'purchase-requisition': '/requisitions', 'opening-stock': '/inventory/opening-stock' };
+const DEDICATED_ROUTE = { 'imprest-in-new': '/imprest/settle', 'grn-mrn': '/grn', 'purchase-indent': '/purchase-intent', 'purchase-order-domestic': '/purchasing/po', 'purchase-order-import': '/purchasing/po', 'purchase-requisition': '/requisitions', 'opening-stock': '/inventory/opening-stock' };
 function TableRoute() {
   const { slug } = useParams();
   return DEDICATED_ROUTE[slug] ? <Navigate to={DEDICATED_ROUTE[slug]} replace /> : <Keyed><TablePage /></Keyed>;
@@ -76,6 +77,7 @@ export default function App() {
         <Route path="inventory/opening-stock" element={<Need table="opening-stock"><OpeningStock /></Need>} />
         <Route path="inventory/batches" element={<Need feature="stock"><StockBatches /></Need>} />
         <Route path="admin/users" element={<Need feature="users"><UsersPage /></Need>} />
+        <Route path="imprest/settle" element={<ImprestSettle />} />
         <Route path="admin/access" element={<Need feature="access"><AccessControlPage /></Need>} />
         <Route path="admin/data-quality" element={<Need feature="dataQuality"><DataQuality /></Need>} />
         <Route path="*" element={<NotFound />} />

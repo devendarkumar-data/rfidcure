@@ -361,3 +361,36 @@ test('Imprest flow: 100 out to a hospital, 80 returned by Imprest In, remaining 
   const bal = (await sa('GET', '/api/stock/balances?pageSize=200&q=FL1')).json.rows.filter((x) => x['Item Code'] === 'FL1');
   assert.equal(bal.filter((x) => x.Warehouse === 'MWH').reduce((s, x) => s + x.Quantity, 0), 80, 'MWH has the 80 returned');
 });
+
+test('Settle imprest: Imprest Out stays pending; consumed lines become a Consumption, the rest an Imprest In; full trail', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const pw = 'Op@Strong2026x';
+  await app.store.append('Users', [{ 'User ID': 'entop3', 'User Name': 'entop3', Role: 'Entry Operator', Branch: 'MWH', Status: 'Active', Password: pw }]);
+  await app.store.append('Item Master', [{ 'Master Id': 'IM-S', 'Item Name': 'Settle Screw', Code: 'ST1', Brand: 'ACME', 'Item Category': 'Implants' }, { 'Master Id': 'IM-T', 'Item Name': 'Settle Nail', Code: 'ST2', Brand: 'ACME', 'Item Category': 'Implants' }]);
+  await app.store.append('Opening Stock', [
+    { Warehouse: 'MWH', 'Item Code': 'ST1', 'Item Name': 'Settle Screw', 'Batch Number': 'S-1', Quantity: 100, 'Expiry Date': '2031-01-01', 'Stock Value': 5000 },
+    { Warehouse: 'MWH', 'Item Code': 'ST2', 'Item Name': 'Settle Nail', 'Batch Number': 'S-2', Quantity: 50, 'Expiry Date': '2031-01-01', 'Stock Value': 2500 },
+  ]);
+  const e = await app.as('entop3', pw); const sa = await app.as('sa');
+  const out = await e('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-28', 'Customer Account': 'RIVER HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'ST1', Quantity: 100, Batch: 'S-1' }, { Warehouse: 'MWH', 'Item Code': 'ST2', Quantity: 50, Batch: 'S-2' }] });
+  assert.equal(out.status, 201, out.text); const ref = out.json.id;
+  const pend = (await e('GET', '/api/imprest/pending')).json.rows;
+  assert.equal(pend.length, 1); assert.equal(pend[0].ref, ref); assert.equal(pend[0].balance, 150); assert.equal(pend[0].status, 'Pending');
+  assert.equal(pend[0].lines.length, 2);
+  // validations
+  assert.equal((await e('POST', '/api/imprest/settle', { ref, lines: [{ key: 'ST1|S-1', consumed: 20 }] })).status, 422, 'bill no required when something is consumed');
+  assert.equal((await e('POST', '/api/imprest/settle', { ref, billNo: 'B-1', lines: [{ key: 'ST1|S-1', consumed: 101 }] })).status, 422, 'cannot consume more than pending');
+  // ST1: 20 consumed (80 returned); ST2 not checked -> fully returned
+  const r = await e('POST', '/api/imprest/settle', { ref, billNo: 'BILL-9', billDate: '2026-10-28', lines: [{ key: 'ST1|S-1', consumed: 20 }] });
+  assert.equal(r.status, 201, r.text);
+  assert.deepEqual([r.json.summary.returned, r.json.summary.consumed], [130, 20]);
+  assert.ok(r.json.inDoc && r.json.consumptionDoc);
+  assert.equal((await e('GET', '/api/imprest/pending')).json.rows.length, 0, 'nothing pending after settlement');
+  assert.equal((await e('POST', '/api/imprest/settle', { ref, lines: [] })).status, 422, 'already settled');
+  const tr = (await e('GET', `/api/imprest/trail?ref=${encodeURIComponent(ref)}`)).json;
+  assert.deepEqual(tr.events.map((x) => [x.type, x.qty]), [['Imprest Out', 150], ['Imprest In', 130], ['Consumption', 20]]);
+  assert.equal(tr.position.status, 'Settled');
+  const mwh = (await sa('GET', '/api/stock/balances?pageSize=200&warehouse=MWH')).json.rows;
+  const q = (c) => mwh.filter((x) => x['Item Code'] === c).reduce((s, x) => s + x.Quantity, 0);
+  assert.deepEqual([q('ST1'), q('ST2')], [80, 50], 'warehouse has the returned stock back');
+});

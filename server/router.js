@@ -9,6 +9,7 @@ import { getStore } from './store/index.js';
 import { HttpError, bad, forbidden, notFound } from './util.js';
 import { authenticate, changePassword, clearCookie, login, logout, sessionCookie } from './auth.js';
 import * as crud from './crud.js';
+import * as imprest from './imprest.js';
 import * as admin from './admin.js';
 import * as reports from './reports.js';
 import * as wf from './workflow.js';
@@ -236,6 +237,9 @@ export default async function handler(req, res) {
       throw notFound('Unknown endpoint');
     }
     if (path === 'lookup' && req.method === 'GET') return ok(await crud.lookup(ctx, q.field, q.q, 30, q.scopeOnly === '1', { warehouse: q.warehouse, all: q.all, imprest: q.imprest }));
+    if (path === 'imprest/pending' && req.method === 'GET') return ok(await imprest.pending(ctx));
+    if (path === 'imprest/trail' && req.method === 'GET') return ok(await imprest.trail(ctx, q.ref));
+    if (path === 'imprest/settle' && req.method === 'POST') return ok(await imprest.settle(ctx, await readBody(req), req.headers['idempotency-key']), 201);
     if (path === 'lookup/customer' && req.method === 'GET') return ok(await crud.customerDetails(ctx, q.name));
     if (path === 'stock/balances' && req.method === 'GET') {
       const r = await reports.stockBalances(ctx, q);

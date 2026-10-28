@@ -82,7 +82,7 @@ function decorate(f, tableOpts = {}) {
 }
 
 // ---- table specifications -------------------------------------------------------------------------
-const IMH = 'DocNo:Alphanumeric-Autogen|Date:Date|Customer Account:Dropdown|Surgery:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Location:Dropdown|Companies:Dropdown|Narration / Notes:Text|Business Head:Dropdown|OT Name:Text|Place of Supply:Dropdown|Is IGST:Dropdown|Ref. Doc:Text|Ref. Date:Date|Ship to Name:Text|Ship to Address:Long text|Ship to City:Dropdown|Ship to State:Dropdown|Ship to Pin code:Text|To Warehouse:Dropdown|Dispatch Name:Text|Dispatch City:Dropdown|Dispatch Address:Text|Dispatch Pincode:Text|Dispatch State:Dropdown';
+const IMH = 'DocNo:Alphanumeric-Autogen|Date:Date|Customer Account:Dropdown|Surgery:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Location:Dropdown|Companies:Dropdown|Narration / Notes:Text|Business Head:Dropdown|OT Name:Text|Place of Supply:Dropdown|Is IGST:Dropdown|Ref. Doc:Text|Ref. Date:Date|Ship to Name:Text|Ship to Address:Long text|Ship to City:Dropdown|Ship to State:Dropdown|Ship to Pin code:Text|To Warehouse:Dropdown|Dispatch Name:Text|Dispatch City:Dropdown|Dispatch Address:Text|Dispatch Pincode:Text|Dispatch State:Dropdown|Imprest Ref:Text';
 const IMH_OUT = 'DocNo:Alphanumeric-Autogen|Date:Date|Customer Account:Dropdown|Surgery:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Location:Dropdown|Companies:Dropdown|Narration / Notes:Text|Business Head:Dropdown|OT Name:Text|Place of Supply:Dropdown|Is IGST:Dropdown|Ref. Doc:Text|Ref. Date:Date|Ship to Name:Text|Ship to Address:Long text|Ship to City:Dropdown|Ship to State:Dropdown|Ship to Pin code:Text|To Warehouse:Dropdown|Dispatch Name:Text|Dispatch City:Dropdown|Dispatch Address:Text|Dispatch Pincode:Text|Dispatch State:Dropdown|Supplier:Dropdown|Bill Code:Text|Delivery Date:Date';
 const IML = 'Consumption Type:Dropdown:Against Consumption,Against Bill|Warehouse:Dropdown|Item:Dropdown|Description:Autofill|Units:Autofill|Quantity:Number|Rate:Number|Gross:Calculated|Batch:Text|Expiry Date:Date';
 const IML_IN = 'Warehouse:Dropdown|Item:Dropdown|Description:Autofill|Units:Autofill|Quantity:Number|Rate:Number|Gross:Calculated|Batch:Text|Expiry Date:Date';
@@ -144,7 +144,7 @@ export const SPECS = [
   { tab: 'RFID Deactivation', kind: 'log', stage: 'admin', required: ['RFID Tag'], form: 'Reason:Dropdown:Consumed,Expired,Damaged' },
 
   { tab: 'Material Consumption', kind: 'doc', stage: 'consumption', prefix: 'MC', post: 'consumption', wh: ['Warehouse'], required: ['Warehouse'],
-    form: 'Document No:Alphanumeric-Autogen|Customer Account:Dropdown|Location:Dropdown|Warehouse:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Narration / Notes:Text|Business Head:Text|Submit for Approval:Dropdown|Bill No:Text|Bill Date:Date',
+    form: 'Document No:Alphanumeric-Autogen|Customer Account:Dropdown|Location:Dropdown|Warehouse:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Narration / Notes:Text|Business Head:Text|Submit for Approval:Dropdown|Bill No:Text|Bill Date:Date|Imprest Ref:Text',
     lines: 'Consumption Type:Dropdown:Against Bill,Against Consumption|Item:Dropdown|Description:Autofill|Units:Text|Quantity:Number|Batch:Text|Expiry Date:Date|Rate:Number|Gross:Calculated' },
 
   { tab: 'Master Mapping', kind: 'log', stage: 'admin', required: ['ERP Master'] },

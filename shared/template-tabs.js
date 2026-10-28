@@ -296,6 +296,7 @@ export default [
    "Dispatch Address",
    "Dispatch Pincode",
    "Dispatch State",
+   "Imprest Ref",
    "Lines"
   ]
  },
@@ -571,6 +572,7 @@ export default [
    "Submit for Approval",
    "Bill No",
    "Bill Date",
+   "Imprest Ref",
    "Lines"
   ]
  },
