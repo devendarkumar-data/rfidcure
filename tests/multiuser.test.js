@@ -313,3 +313,17 @@ test('batch picker: per-warehouse batches and all-batches mode return expiry and
   const all = (await sa('GET', '/api/stock/batches?code=BP1&all=1')).json.batches;
   assert.deepEqual(all.map((b) => [b.batch, b.expiry, b.rate]), [['B-Y', '2030-05-01', 150], ['B-X', '2031-05-01', 100]]);
 });
+
+test('Stock Item lookup lists stock records (item, batch, expiry, qty, rate) by warehouse or across all', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  await app.store.append('Opening Stock', [
+    { Warehouse: 'MWH', 'Item Code': 'SP1', 'Item Name': 'Screw', 'Batch Number': 'S-1', Quantity: 4, 'Expiry Date': '2031-05-01', 'Brand Name': 'ACME', 'Stock Value': 400 },
+    { Warehouse: 'CWH', 'Item Code': 'SP2', 'Item Name': 'Nail', 'Batch Number': 'S-2', Quantity: 2, 'Expiry Date': '2030-05-01', 'Stock Value': 300 },
+  ]);
+  const m = (await sa('GET', '/api/lookup?field=Stock Item&warehouse=MWH&q=SP')).json.options;
+  assert.deepEqual(m.map((o) => [o.code, o.batch, o.expiry, o.qty, o.rate, o.brand]), [['SP1', 'S-1', '2031-05-01', 4, 100, 'ACME']]);
+  const a = (await sa('GET', '/api/lookup?field=Stock Item&all=1&q=SP')).json.options;
+  assert.deepEqual(a.map((o) => o.code).sort(), ['SP1', 'SP2']);
+  assert.deepEqual((await sa('GET', '/api/lookup?field=Stock Item')).json.options, []);
+});

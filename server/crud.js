@@ -1,6 +1,6 @@
 // Generic, registry-driven list / create / update / delete. All input is validated against the table definition.
 import { TABLE_BY_SLUG, REFS, TAB } from '../shared/registry.js';
-import { fieldAccess } from '../shared/permissions.js';
+import { ROLE_STAGE_ACTIONS, fieldAccess } from '../shared/permissions.js';
 import { assertCan, assertWarehouses, canWriteField, inScope, maskLines, maskRow, parseLines, rowVisible } from './access.js';
 import { audit } from './audit.js';
 import { POSTERS, writeWarehouses } from './posting.js';
@@ -396,7 +396,7 @@ export async function saveSettingsRecord(ctx, table, body) {
 }
 
 // ---- lookups for dropdowns ---------------------------------------------------------------------------------------
-export async function lookup(ctx, field, q, limit = 30, scopeOnly = false) {
+export async function lookup(ctx, field, q, limit = 30, scopeOnly = false, extra = {}) {
   const ref = REFS[field];
   if (!ref) throw bad('Unknown lookup');
   if (fieldAccess(ctx.user.role, field) === 'n') throw forbidden();
@@ -411,6 +411,27 @@ export async function lookup(ctx, field, q, limit = 30, scopeOnly = false) {
     let list = await warehouseList(ctx.store);
     if (scopeOnly) list = list.filter((w) => inScope(ctx, w)); // only the user's own / currently viewed warehouse(s)
     return { options: list.map((w) => ({ value: w, label: w, inScope: inScope(ctx, w) })) };
+  }
+  if (ref.special === 'stock') { // stock records (Opening Stock + ledger): item, batch, expiry, quantity, rate - by warehouse, or across all warehouses
+    const creates = Object.values(ROLE_STAGE_ACTIONS[ctx.user.role] || {}).some((a) => a.includes('create'));
+    if (!creates) throw forbidden();
+    const all = extra.all === '1'; const wh = sstr(extra.warehouse).toUpperCase();
+    if (!all) { if (!wh) return { options: [] }; if (!inScope(ctx, wh)) throw forbidden(`You are not assigned to warehouse ${wh}`); }
+    const { balances } = await loadStock(ctx.store);
+    const merged = new Map();
+    for (const e of balances.values()) {
+      if (!sstr(e.itemCode)) continue;
+      if (!all && e.warehouse !== wh) continue;
+      const k = all ? `${e.itemCode}|${e.batch}` : e.key;
+      const m = merged.get(k) || { code: e.itemCode, name: e.itemName, brand: e.brand, batch: e.batch, expiry: '', qty: 0, value: 0 };
+      m.qty += e.qty; m.value += e.value; m.name ||= e.itemName; m.brand ||= e.brand;
+      if (e.expiry && (!m.expiry || e.expiry < m.expiry)) m.expiry = e.expiry;
+      merged.set(k, m);
+    }
+    const rows = [...merged.values()].filter((m) => all || m.qty > 0)
+      .filter((m) => !needle || `${m.code} ${m.name} ${m.batch} ${m.brand}`.toLowerCase().includes(needle))
+      .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }) || String(a.expiry || '9').localeCompare(String(b.expiry || '9'))).slice(0, 60);
+    return { options: rows.map((m) => ({ value: `${m.code} — ${m.name}`, label: `${m.code} — ${m.name} · batch ${m.batch || 'n/a'} · exp ${m.expiry || 'n/a'} · qty ${Math.round(m.qty * 1e6) / 1e6}`, code: m.code, name: m.name, batch: m.batch, expiry: m.expiry, qty: m.qty, brand: m.brand, rate: m.qty > 0 ? Math.round((m.value / m.qty) * 100) / 100 : 0 })) };
   }
   if (ref.special === 'company') {
     const cfg = (await ctx.store.read('Configuration')).rows[0] || {};

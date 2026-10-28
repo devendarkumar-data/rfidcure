@@ -84,7 +84,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
           <h3 className="mb-1 text-sm font-semibold">Line items</h3>
           <LinesEditor lineFields={table.lineFields} itemField={table.itemField} lines={lines} onChange={setLines} readOnly={readOnly}
             batchMode={table.posts && !INWARD.has(table.slug) ? 'pick' : 'enter'} getWarehouse={getWarehouse}
-            autoBatch={isOut || isIn} batchFromAll={isIn} scopeWarehouse={isOut} lineDefaults={isOut && defWh ? { Warehouse: defWh } : null} />
+            autoBatch={isOut || isIn} batchFromAll={isIn} stockPick={isOut ? 'out' : isIn ? 'in' : false} scopeWarehouse={isOut} lineDefaults={isOut && defWh ? { Warehouse: defWh } : null} />
           {table.posts && table.slug !== 'actual-stock' && <p className="mt-2 text-xs text-slate-500">Saving posts to the stock ledger and cannot be edited afterwards. Leave Batch on “Auto” to issue the earliest-expiry stock first.</p>}
         </div>
       )}

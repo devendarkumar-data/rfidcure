@@ -41,6 +41,7 @@ export const REFS = {
 };
 for (const f of WAREHOUSE_FIELDS) REFS[f] = { special: 'warehouse' };
 REFS.Items = REFS.Item = { special: 'item' };
+REFS['Stock Item'] = { special: 'stock' };
 
 const YN = ['Yes', 'No'];
 const INDENT_STATUS = ['Draft', 'Submitted', 'Approved', 'Partially Fulfilled', 'Fulfilled', 'Rejected'];
