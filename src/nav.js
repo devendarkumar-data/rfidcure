@@ -45,10 +45,11 @@ export function buildNav(meta) {
     it(has(grn, 'create'), '/grn/new', 'Create GRN'),
     it(has(grn, 'view'), '/grn', 'GRN Register'),
     it(has(tables['imprest-out-new'], 'create'), '/t/imprest-out-new?new=1', 'Imprest Out — New'),
-    it(has(tables['imprest-out-register'], 'view'), '/t/imprest-out-register', 'Imprest Out Register'),
-    it(has(tables['imprest-in-new'], 'create'), '/imprest/pending', 'Imprest In — New'),
-    it(has(tables['imprest-in-register'], 'view'), '/t/imprest-in-register', 'Imprest In Register'),
-    it(has(tables['material-consumption'], 'view'), '/t/material-consumption', 'Consumption'),
+    it(has(tables['imprest-out-new'], 'view'), '/imprest/register/out', 'Imprest Out Register'),
+    it(has(tables['imprest-in-new'], 'create'), '/imprest/pending', 'Imprest In — Pending'),
+    it(has(tables['imprest-in-new'], 'view'), '/imprest/register/in', 'Imprest In Register'),
+    it(has(tables['material-consumption'], 'view'), '/consumption/pending', 'Consumption Pending'),
+    it(has(tables['material-consumption'], 'view'), '/consumption/register', 'Consumption Register'),
   ]);
 
   add('inventory', 'Inventory', 'box', [

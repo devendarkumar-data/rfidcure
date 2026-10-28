@@ -24,26 +24,26 @@ export default function ImprestSettle() {
   const { ref: refParam } = useParams(); const ref = decodeURIComponent(refParam || '');
   const toast = useToast();
   const [data, setData] = useState(null); const [err, setErr] = useState('');
-  const [used, setUsed] = useState({}); // key -> consumed qty (text)
-  const [hdr, setHdr] = useState({ date: todayIST(), billNo: '', billDate: '', narration: '' });
+  const [back, setBack] = useState({}); // key -> quantity TAKEN BACK (text)
+  const [hdr, setHdr] = useState({ date: todayIST(), narration: '' });
   const [busy, setBusy] = useState(false); const [done, setDone] = useState(null); const [key, setKey] = useState(idemKey());
   const load = () => api.get('/api/imprest/trail', { ref }).then(setData).catch((e) => setErr(e.message));
-  useEffect(() => { setData(null); setDone(null); setUsed({}); load(); }, [ref]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setData(null); setDone(null); setBack({}); load(); }, [ref]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cur = data?.position;
   const lines = (cur?.lines || []).filter((l) => l.balance > 0);
-  const consumed = (l) => Math.min(l.balance, Math.max(0, num(used[l.key])));
-  const totC = lines.reduce((s, l) => s + consumed(l), 0); const totR = lines.reduce((s, l) => s + l.balance - consumed(l), 0);
-  const over = lines.find((l) => num(used[l.key]) > l.balance);
+  const returned = (l) => Math.min(l.balance, Math.max(0, num(back[l.key])));
+  const consumedOf = (l) => Math.round((l.balance - returned(l)) * 1e6) / 1e6;
+  const totR = lines.reduce((s, l) => s + returned(l), 0); const totC = lines.reduce((s, l) => s + consumedOf(l), 0);
+  const over = lines.find((l) => num(back[l.key]) > l.balance);
 
   const submit = async (e) => {
     e.preventDefault(); setErr('');
-    if (over) { setErr(`${over.code}: consumed quantity cannot be more than the ${over.balance} pending.`); return; }
-    if (totC > 0 && !hdr.billNo.trim()) { setErr('Bill No is required for the consumed quantity.'); return; }
+    if (over) { setErr(`${over.code}: returned quantity cannot be more than the ${over.balance} pending.`); return; }
     setBusy(true);
     try {
-      const r = await api.post('/api/imprest/settle', { ref, date: hdr.date, billNo: hdr.billNo, billDate: hdr.billDate, narration: hdr.narration, lines: lines.filter((l) => consumed(l) > 0).map((l) => ({ key: l.key, consumed: consumed(l) })) }, { headers: { 'Idempotency-Key': key } });
-      toast.success(`Settled ${ref}: returned ${r.summary.returned}, consumed ${r.summary.consumed}`);
+      const r = await api.post('/api/imprest/settle', { ref, date: hdr.date, narration: hdr.narration, lines: lines.map((l) => ({ key: l.key, returned: returned(l) })) }, { headers: { 'Idempotency-Key': key } });
+      toast.success(`Settled ${ref}: returned ${r.summary.returned}, consumed ${r.summary.consumed} (awaiting bill)`);
       setDone(r); setKey(idemKey());
     } catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
@@ -57,33 +57,31 @@ export default function ImprestSettle() {
       {done && <div className="mb-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">Settled {done.ref}: returned {done.summary.returned}{done.inDoc ? ` (${done.inDoc})` : ''}, consumed {done.summary.consumed}{done.consumptionDoc ? ` (${done.consumptionDoc})` : ''}. <Link className="underline" to="/imprest/pending">Back to pending imprest</Link></div>}
       {cur && lines.length > 0 && !done && (
         <form onSubmit={submit} noValidate>
-          <Card title="Step 1 — how much was consumed?">
+          <Card title="Step 1 — how much was taken back (returned)?">
             <div className="overflow-x-auto rounded-md border border-slate-200">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead><tr><th className="th">#</th><th className="th">Item</th><th className="th">Batch</th><th className="th">Expiry</th><th className="th text-right">Dispatched</th><th className="th text-right">Pending</th><th className="th text-right">Consumed qty</th><th className="th text-right">Returned (Imprest In)</th></tr></thead>
+                <thead><tr><th className="th">#</th><th className="th">Item</th><th className="th">Batch</th><th className="th">Expiry</th><th className="th text-right">Dispatched</th><th className="th text-right">Pending</th><th className="th text-right">Returned qty (Imprest In)</th><th className="th text-right">Consumed (automatic)</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {lines.map((l, i) => (
-                    <tr key={l.key} className={consumed(l) > 0 ? 'bg-amber-50/50' : ''}>
+                    <tr key={l.key} className={consumedOf(l) > 0 ? 'bg-amber-50/50' : ''}>
                       <td className="td text-slate-400">{i + 1}</td><td className="td">{l.code} — {l.name}</td><td className="td">{l.batch}</td><td className="td">{l.expiry}</td>
                       <td className="td text-right tabular-nums">{l.dispatched}</td><td className="td text-right tabular-nums">{l.balance}</td>
-                      <td className="td text-right"><input className={`input w-24 text-right ${num(used[l.key]) > l.balance ? 'border-red-400' : ''}`} type="number" min="0" max={l.balance} step="any" placeholder="0" value={used[l.key] ?? ''} onChange={(e) => setUsed((u) => ({ ...u, [l.key]: e.target.value }))} aria-label={`Consumed qty ${l.code}`} /></td>
-                      <td className="td text-right tabular-nums font-medium">{Math.round((l.balance - consumed(l)) * 1e6) / 1e6}</td>
+                      <td className="td text-right"><input className={`input w-24 text-right ${num(back[l.key]) > l.balance ? 'border-red-400' : ''}`} type="number" min="0" max={l.balance} step="any" placeholder="0" value={back[l.key] ?? ''} onChange={(e) => setBack((u) => ({ ...u, [l.key]: e.target.value }))} aria-label={`Returned qty ${l.code}`} /></td>
+                      <td className="td text-right tabular-nums font-medium">{consumedOf(l)}</td>
                     </tr>
                   ))}
                 </tbody>
-                <tfoot><tr className="bg-slate-50 font-semibold"><td className="td" colSpan={6}>Total</td><td className="td text-right tabular-nums">{Math.round(totC * 1e6) / 1e6}</td><td className="td text-right tabular-nums">{Math.round(totR * 1e6) / 1e6}</td></tr></tfoot>
+                <tfoot><tr className="bg-slate-50 font-semibold"><td className="td" colSpan={6}>Total</td><td className="td text-right tabular-nums">{Math.round(totR * 1e6) / 1e6}</td><td className="td text-right tabular-nums">{Math.round(totC * 1e6) / 1e6}</td></tr></tfoot>
               </table>
             </div>
-            <p className="mt-2 text-xs text-slate-500">Enter only what the hospital consumed. Whatever is not consumed is returned to the warehouse as Imprest In. Leave 0 to return everything.</p>
+            <p className="mt-2 text-xs text-slate-500">Enter only what was taken back. The remaining quantity is treated as consumed by the hospital and goes to <b>Consumption Pending</b> until its bill is updated.</p>
           </Card>
-          <Card title="Step 2 — details" className="mt-4">
+          <Card title="Step 2 — date" className="mt-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div><label className="label" htmlFor="im-date">Date</label><input id="im-date" type="date" className="input" value={hdr.date} onChange={(e) => setHdr({ ...hdr, date: e.target.value })} /></div>
-              {totC > 0 && <div><label className="label" htmlFor="im-bill">Bill No <span className="text-red-600">*</span></label><input id="im-bill" className="input" value={hdr.billNo} onChange={(e) => setHdr({ ...hdr, billNo: e.target.value })} /></div>}
-              {totC > 0 && <div><label className="label" htmlFor="im-billdate">Bill Date</label><input id="im-billdate" type="date" className="input" value={hdr.billDate} onChange={(e) => setHdr({ ...hdr, billDate: e.target.value })} /></div>}
               <div className="lg:col-span-2"><label className="label" htmlFor="im-note">Narration</label><input id="im-note" className="input" value={hdr.narration} onChange={(e) => setHdr({ ...hdr, narration: e.target.value })} /></div>
             </div>
-            <div className="mt-3 flex justify-end"><button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : `Settle: consume ${Math.round(totC * 1e6) / 1e6}, return ${Math.round(totR * 1e6) / 1e6}`}</button></div>
+            <div className="mt-3 flex justify-end"><button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : `Settle: return ${Math.round(totR * 1e6) / 1e6}, consume ${Math.round(totC * 1e6) / 1e6}`}</button></div>
           </Card>
         </form>
       )}

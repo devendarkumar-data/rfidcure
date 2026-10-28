@@ -17,7 +17,7 @@ export default function ImprestPending() {
   if (!rows) return <Spinner />;
   return (
     <>
-      <PageHeader title="Imprest In — pending imprest" subtitle="Imprest Outs that are not fully settled. Open one to enter what the hospital consumed; the rest is returned as Imprest In." />
+      <PageHeader title="Imprest In — pending imprest" subtitle="Imprest Outs that are not fully settled. Open one and enter the quantity taken back (Imprest In); the remaining quantity becomes consumption." />
       <Card>
         <div className="mb-3 max-w-xs"><input className="input" placeholder="Search imprest no. or hospital…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search" /></div>
         <div className="overflow-x-auto rounded-md border border-slate-200">

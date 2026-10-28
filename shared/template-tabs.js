@@ -573,6 +573,7 @@ export default [
    "Bill No",
    "Bill Date",
    "Imprest Ref",
+   "Bill Status",
    "Lines"
   ]
  },

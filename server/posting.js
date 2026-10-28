@@ -82,7 +82,7 @@ export const POSTERS = {
 
   consumption({ header, lines, view, doc, date }) {
     const wh = need(header.Warehouse, 'Select the warehouse');
-    if (lines.some((l) => /against bill/i.test(sstr(l['Consumption Type']))) && !sstr(header['Bill No'])) throw unprocessable('Bill No is required for consumption against a bill');
+    if (sstr(header['Bill Status']) !== 'Pending Bill' && lines.some((l) => /against bill/i.test(sstr(l['Consumption Type']))) && !sstr(header['Bill No'])) throw unprocessable('Bill No is required for consumption against a bill');
     const out = [];
     lines.forEach((l, i) => {
       const label = `Line ${i + 1} (${l['Item Code']})`;

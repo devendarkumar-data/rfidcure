@@ -377,14 +377,22 @@ test('Settle imprest: Imprest Out stays pending; consumed lines become a Consump
   const pend = (await e('GET', '/api/imprest/pending')).json.rows;
   assert.equal(pend.length, 1); assert.equal(pend[0].ref, ref); assert.equal(pend[0].balance, 150); assert.equal(pend[0].status, 'Pending');
   assert.equal(pend[0].lines.length, 2);
-  // validations
-  assert.equal((await e('POST', '/api/imprest/settle', { ref, lines: [{ key: 'ST1|S-1', consumed: 20 }] })).status, 422, 'bill no required when something is consumed');
-  assert.equal((await e('POST', '/api/imprest/settle', { ref, billNo: 'B-1', lines: [{ key: 'ST1|S-1', consumed: 101 }] })).status, 422, 'cannot consume more than pending');
-  // ST1: 20 consumed (80 returned); ST2 not checked -> fully returned
-  const r = await e('POST', '/api/imprest/settle', { ref, billNo: 'BILL-9', billDate: '2026-10-28', lines: [{ key: 'ST1|S-1', consumed: 20 }] });
+  assert.equal((await e('POST', '/api/imprest/settle', { ref, lines: [{ key: 'ST1|S-1', returned: 101 }] })).status, 422, 'cannot return more than pending');
+  // only the quantity TAKEN BACK is entered: ST1 80 back (20 consumed automatically); ST2 50 back
+  const r = await e('POST', '/api/imprest/settle', { ref, lines: [{ key: 'ST1|S-1', returned: 80 }, { key: 'ST2|S-2', returned: 50 }] });
   assert.equal(r.status, 201, r.text);
   assert.deepEqual([r.json.summary.returned, r.json.summary.consumed], [130, 20]);
   assert.ok(r.json.inDoc && r.json.consumptionDoc);
+  // consumption waits for its bill
+  const cp = (await e('GET', '/api/imprest/consumption?status=pending')).json.rows;
+  assert.equal(cp.length, 1); assert.equal(cp[0].qty, 20); assert.equal(cp[0].ref, ref); assert.equal(cp[0].status, 'Pending Bill');
+  assert.equal((await e('GET', '/api/imprest/consumption?status=billed')).json.rows.length, 0);
+  assert.equal((await e('POST', '/api/imprest/bill', { doc: cp[0].no })).status, 400, 'bill no required');
+  assert.equal((await e('POST', '/api/imprest/bill', { doc: cp[0].no, billNo: 'BILL-9', billDate: '2026-10-28' })).status, 200);
+  assert.equal((await e('GET', '/api/imprest/consumption?status=pending')).json.rows.length, 0, 'billed consumption leaves Consumption Pending');
+  const reg = (await e('GET', '/api/imprest/consumption?status=billed')).json.rows; assert.equal(reg.length, 1); assert.equal(reg[0].billNo, 'BILL-9');
+  const rin = (await e('GET', '/api/imprest/register?type=in')).json.rows; assert.deepEqual(rin.map((x) => [x.code, x.qty]).sort(), [['ST1', 80], ['ST2', 50]]);
+  const rout = (await e('GET', '/api/imprest/register?type=out')).json.rows; assert.equal(rout.length, 2); assert.ok(rout.every((x) => x.status === 'Settled'));
   assert.equal((await e('GET', '/api/imprest/pending')).json.rows.length, 0, 'nothing pending after settlement');
   assert.equal((await e('POST', '/api/imprest/settle', { ref, lines: [] })).status, 422, 'already settled');
   const tr = (await e('GET', `/api/imprest/trail?ref=${encodeURIComponent(ref)}`)).json;

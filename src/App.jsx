@@ -17,6 +17,8 @@ import UsersPage from './pages/UsersPage.jsx';
 import AccessControlPage from './pages/AccessControlPage.jsx';
 import ImprestSettle from './pages/ImprestSettle.jsx';
 import ImprestPending from './pages/ImprestPending.jsx';
+import ImprestRegister from './pages/ImprestRegister.jsx';
+import ConsumptionPage from './pages/ConsumptionPage.jsx';
 import { GrnDetail, GrnForm, GrnRegister, IntentDetail, IntentForm, IntentRegister, PoDetail, PoForm, PoRegister } from './pages/workflow/index.jsx';
 import PoPrint from './pages/workflow/PoPrint.jsx';
 
@@ -37,7 +39,7 @@ function Need({ feature, table, action = 'view', children }) {
 }
 
 // Tabs that have a dedicated screen (PO linking, workflow, stock) must not open the generic add/edit form.
-const DEDICATED_ROUTE = { 'imprest-in-new': '/imprest/pending', 'grn-mrn': '/grn', 'purchase-indent': '/purchase-intent', 'purchase-order-domestic': '/purchasing/po', 'purchase-order-import': '/purchasing/po', 'purchase-requisition': '/requisitions', 'opening-stock': '/inventory/opening-stock' };
+const DEDICATED_ROUTE = { 'imprest-in-new': '/imprest/pending', 'imprest-in-pending': '/imprest/pending', 'imprest-out-pending': '/imprest/pending', 'imprest-in-register': '/imprest/register/in', 'imprest-out-register': '/imprest/register/out', 'material-consumption': '/consumption/register', 'grn-mrn': '/grn', 'purchase-indent': '/purchase-intent', 'purchase-order-domestic': '/purchasing/po', 'purchase-order-import': '/purchasing/po', 'purchase-requisition': '/requisitions', 'opening-stock': '/inventory/opening-stock' };
 function TableRoute() {
   const { slug } = useParams();
   return DEDICATED_ROUTE[slug] ? <Navigate to={DEDICATED_ROUTE[slug]} replace /> : <Keyed><TablePage /></Keyed>;
@@ -79,6 +81,8 @@ export default function App() {
         <Route path="inventory/batches" element={<Need feature="stock"><StockBatches /></Need>} />
         <Route path="admin/users" element={<Need feature="users"><UsersPage /></Need>} />
         <Route path="imprest/pending" element={<ImprestPending />} />
+        <Route path="imprest/register/:type" element={<ImprestRegister />} />
+        <Route path="consumption/:mode" element={<ConsumptionPage />} />
         <Route path="imprest/settle/:ref" element={<ImprestSettle />} />
         <Route path="admin/access" element={<Need feature="access"><AccessControlPage /></Need>} />
         <Route path="admin/data-quality" element={<Need feature="dataQuality"><DataQuality /></Need>} />

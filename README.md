@@ -179,8 +179,8 @@ Users with all-warehouse access get a **View warehouse** switcher in the top bar
 - **Consumption** is what the hospital used out of the remainder (100 - 80 = 20): pick the hospital, pick from its stock, choose "Against Bill" and give the Bill No / Bill Date. You cannot consume more than the hospital holds.
 - The balance at the hospital is always Out - In - Consumed, read from the stock ledger.
 
-## Settling an Imprest Out (Imprest In screen)
-- **Imprest In — New** is a register of the pending Imprest Outs of your warehouse (Imprest No, date, hospital, dispatched / returned / consumed / pending, status, days open - red after 30 days). Search by number or hospital.
-- Open a document to see its lines (item, batch, expiry, dispatched, pending) and its trail. Step 1: type how much was **consumed** per line (0 = return everything). The returned quantity is calculated live (pending - consumed). Step 2: date and, if something was consumed, Bill No / Bill Date.
-- Saving posts a **Consumption (Against Bill)** for the consumed part and an **Imprest In** for the rest. Both carry the `Imprest Ref` of the Out, so each Imprest Out has a trail: Out -> In -> Consumption, with document numbers, dates and users.
-- Status: Pending -> Partly settled -> Settled. A settled imprest leaves the pending register.
+## Imprest In / Consumption flow
+- **Imprest In — Pending**: register of Imprest Outs from your warehouse that are not fully settled (days open turns red after 30). Open one and enter ONLY the quantity **taken back** per line (Imprest In). The remaining quantity is **consumed automatically**.
+- Saving posts an **Imprest In** for the returned part and a **Consumption** for the rest. Both carry the `Imprest Ref` of the Out (trail: Out -> In -> Consumption). Status: Pending -> Partly settled -> Settled.
+- **Imprest In Register**: items taken back. **Imprest Out Register**: items dispatched with their settlement status.
+- **Consumption Pending**: consumption whose bill is not updated yet (`Bill Status` = Pending Bill). **Update bill** (Bill No required, Bill Date) moves it to the **Consumption Register** (`Bill Status` = Billed).

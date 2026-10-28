@@ -144,7 +144,7 @@ export const SPECS = [
   { tab: 'RFID Deactivation', kind: 'log', stage: 'admin', required: ['RFID Tag'], form: 'Reason:Dropdown:Consumed,Expired,Damaged' },
 
   { tab: 'Material Consumption', kind: 'doc', stage: 'consumption', prefix: 'MC', post: 'consumption', wh: ['Warehouse'], required: ['Warehouse'],
-    form: 'Document No:Alphanumeric-Autogen|Customer Account:Dropdown|Location:Dropdown|Warehouse:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Narration / Notes:Text|Business Head:Text|Submit for Approval:Dropdown|Bill No:Text|Bill Date:Date|Imprest Ref:Text',
+    form: 'Document No:Alphanumeric-Autogen|Customer Account:Dropdown|Location:Dropdown|Warehouse:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Narration / Notes:Text|Business Head:Text|Submit for Approval:Dropdown|Bill No:Text|Bill Date:Date|Imprest Ref:Text|Bill Status:Dropdown:Pending Bill,Billed',
     lines: 'Consumption Type:Dropdown:Against Bill,Against Consumption|Item:Dropdown|Description:Autofill|Units:Text|Quantity:Number|Batch:Text|Expiry Date:Date|Rate:Number|Gross:Calculated' },
 
   { tab: 'Master Mapping', kind: 'log', stage: 'admin', required: ['ERP Master'] },
