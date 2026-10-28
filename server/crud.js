@@ -263,7 +263,10 @@ export async function createRecord(ctx, table, body, idemKey, hooks = {}) {
     if (table.post === 'imprest-out' && !sstr(rawHeader['To Warehouse'])) { // the hospital (Customer Account) is the imprest warehouse the stock goes to
       const hosp = sstr(rawHeader['Customer Account']);
       if (!hosp) throw bad('Select the Customer Account (hospital) the imprest is delivered to');
-      if (!(await warehouseList(store)).some((w) => w.toLowerCase() === hosp.toLowerCase())) throw unprocessable(`Hospital "${hosp}" is not in the Warehouse Master - add it as a warehouse (type Hospital) so its imprest stock can be tracked`);
+      if (!(await warehouseList(store)).some((w) => w.toLowerCase() === hosp.toLowerCase())) { // any location can receive imprest: a virtual warehouse is created for it automatically
+        await store.append(TAB.warehouseMaster, [{ 'Master Id': await nextMasterId(store, { tab: TAB.warehouseMaster }), 'Warehouse Name': hosp, 'Warehouse Type': 'Virtual (Imprest)', Location: sstr(rawHeader['Ship to City']) }]);
+        await audit(store, { user: ctx.user, module: TAB.warehouseMaster, doc: hosp, action: 'Create', next: { 'Warehouse Name': hosp, 'Warehouse Type': 'Virtual (Imprest)', 'Auto-created by': 'Imprest Out' } });
+      }
       rawHeader = { ...rawHeader, 'To Warehouse': hosp };
     }
     const header = await validateHeader(ctx, table, rawHeader);

@@ -333,7 +333,6 @@ test('Imprest flow: 100 out to a hospital, 80 returned by Imprest In, remaining 
   const app = await makeApp(); t.after(() => app.close());
   const pw = 'Op@Strong2026x';
   await app.store.append('Users', [{ 'User ID': 'entop2', 'User Name': 'entop2', Role: 'Entry Operator', Branch: 'MWH', Status: 'Active', Password: pw }]);
-  await app.store.append('Warehouse Master', [{ 'Master Id': 'W-9', 'Warehouse Name': 'CITY HOSPITAL', 'Warehouse Type': 'Hospital' }]);
   await app.store.append('Customer  Hospital Master', [{ 'Master Id': 'C-9', 'Hospital Name': 'CITY HOSPITAL', Code: 'CH1' }]);
   await app.store.append('Item Master', [{ 'Master Id': 'IM-F', 'Item Name': 'Flow Screw', Code: 'FL1', Brand: 'ACME', 'Item Category': 'Implants' }]);
   await app.store.append('Opening Stock', [{ Warehouse: 'MWH', 'Item Code': 'FL1', 'Item Name': 'Flow Screw', 'Batch Number': 'F-1', Quantity: 100, 'Expiry Date': '2031-01-01', 'Stock Value': 5000 }]);
@@ -344,6 +343,8 @@ test('Imprest flow: 100 out to a hospital, 80 returned by Imprest In, remaining 
   const out = await e('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-28', 'Customer Account': 'CITY HOSPITAL', 'Delivery Date': '2026-10-29' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'FL1', Quantity: 100, Batch: 'F-1' }] });
   assert.equal(out.status, 201, out.text);
   assert.ok((await hosp()).includes('CITY HOSPITAL'), 'hospital with imprest stock is offered');
+  const vw = (await app.store.read('Warehouse Master')).rows.find((r) => r['Warehouse Name'] === 'CITY HOSPITAL');
+  assert.ok(vw && vw['Warehouse Type'] === 'Virtual (Imprest)', 'virtual warehouse created automatically for the new location');
   assert.equal(await avail(), 100);
   const back = (q) => e('POST', '/api/t/imprest-in-new', { header: { Date: '2026-10-28', 'To Warehouse': 'CITY HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'FL1', Quantity: q, Batch: 'F-1' }] });
   assert.equal((await back(120)).status, 422, 'cannot return more than the hospital holds');
