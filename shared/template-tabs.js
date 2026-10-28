@@ -887,7 +887,8 @@ export default [
    "MOQ",
    "Preferred Vendor",
    "Batch Number",
-   "Expiry Date"
+   "Expiry Date",
+   "Warehouse"
   ]
  },
  {

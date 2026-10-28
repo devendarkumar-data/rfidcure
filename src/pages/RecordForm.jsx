@@ -76,12 +76,12 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
   return (
     <form onSubmit={submit} noValidate aria-label={table.title}>
       {err && <div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
-      <div className={`grid gap-x-2 gap-y-1.5 ${fields.length > 8 ? "compact grid-cols-2 md:grid-cols-4 xl:grid-cols-6 [&_.input]:py-1 [&_.input]:text-sm [&_label]:text-xs" : "sm:grid-cols-2"}`}>
+      <div className={`grid gap-x-2 gap-y-1.5 ${fields.length > 8 ? "compact grid-cols-2 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 [&_.input]:h-8 [&_.input]:py-0 [&_.input]:text-[13px] [&_.label]:mb-0 [&_.label]:text-[10px] [&_.label]:leading-4" : "sm:grid-cols-2"}`}>
         {fields.map((f) => <Field key={f.name} field={f} value={values[f.name]} onChange={(v) => set(f.name, v)} disabled={readOnly} required={table.required.includes(f.name)} error={errors[f.name]} />)}
       </div>
       {table.hasLines && (
-        <div className="mt-5">
-          <h3 className="mb-2 text-sm font-semibold">Line items</h3>
+        <div className="mt-3">
+          <h3 className="mb-1 text-sm font-semibold">Line items</h3>
           <LinesEditor lineFields={table.lineFields} itemField={table.itemField} lines={lines} onChange={setLines} readOnly={readOnly}
             batchMode={table.posts && !INWARD.has(table.slug) ? 'pick' : 'enter'} getWarehouse={getWarehouse}
             autoBatch={isOut || isIn} batchFromAll={isIn} scopeWarehouse={isOut} lineDefaults={isOut && defWh ? { Warehouse: defWh } : null} />
@@ -89,7 +89,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
         </div>
       )}
       {!readOnly && (
-        <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <div className="mt-3 flex flex-wrap justify-end gap-2">
           <button type="button" className="btn" onClick={onCancel} disabled={busy}>Cancel</button>
           <button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : submitLabel || (mode === 'edit' ? 'Save changes' : table.posts ? 'Save & post' : 'Save')}</button>
         </div>
