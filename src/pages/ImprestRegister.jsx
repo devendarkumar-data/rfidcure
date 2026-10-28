@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+import { printPath } from './DocPrint.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../api.js';
@@ -27,7 +29,7 @@ export default function ImprestRegister() {
               {!shown.length && <tr><td className="td text-slate-500" colSpan={10}>No entries.</td></tr>}
               {shown.map((r, i) => (
                 <tr key={`${r.no}-${i}`}>
-                  <td className="td font-medium">{r.no}</td><td className="td">{r.date}</td><td className="td">{r.hospital}</td><td className="td">{isIn ? r.ref : r.deliveryDate}</td>
+                  <td className="td font-medium"><Link className="text-brand-700 hover:underline" to={printPath(isIn ? 'imprest-in-new' : 'imprest-out-new', r.no)} title="Open / print document">{r.no}</Link></td><td className="td">{r.date}</td><td className="td">{r.hospital}</td><td className="td">{isIn ? r.ref : r.deliveryDate}</td>
                   <td className="td">{r.code} — {r.name}</td><td className="td">{r.batch}</td><td className="td">{r.expiry}</td><td className="td text-right tabular-nums">{r.qty}</td>
                   <td className="td">{isIn ? r.warehouse : <span className={`rounded px-1.5 py-0.5 text-xs ${TONE[r.status] || ''}`}>{r.status}</span>}</td><td className="td">{r.by}</td>
                 </tr>

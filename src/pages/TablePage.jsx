@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { PRINTABLE, printPath } from './DocPrint.jsx';
 import { api, download } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import Card from '../components/Card.jsx';
@@ -106,7 +107,7 @@ export default function TablePage() {
       {dlg?.type === 'copy' && <Modal title={`New entry from ${dlg.row[table.idCol]}`} wide={table.hasLines} onClose={() => setDlg(null)}><RecordForm table={table} mode="create" initial={{ header: Object.fromEntries(Object.entries(dlg.data.record).filter(([k]) => k !== table.idCol && k !== 'Date' && !table.fields.some((f) => f.name === k && (f.type === 'auto' || f.readonly)))), lines: (dlg.data.lines || []).map(({ _k, ...l }) => l) }} onSubmit={create} onCancel={() => setDlg(null)} /></Modal>}
       {dlg?.type === 'edit' && <Modal title={`Edit — ${dlg.row[table.idCol]}`} wide={table.hasLines} onClose={() => setDlg(null)}><RecordForm table={table} mode="edit" initial={{ header: dlg.data.record, lines: dlg.data.lines }} onSubmit={update} onCancel={() => setDlg(null)} /></Modal>}
       {dlg?.type === 'view' && (
-        <Modal title={dlg.row[table.idCol]} wide={table.hasLines} onClose={() => setDlg(null)} footer={dlg.data.editable && acts.includes('edit') ? <button className="btn btn-primary" onClick={() => setDlg({ ...dlg, type: 'edit' })}>Edit</button> : null}>
+        <Modal title={dlg.row[table.idCol]} wide={table.hasLines} onClose={() => setDlg(null)} footer={<>{PRINTABLE[slug] && <Link className="btn" to={printPath(slug, dlg.row[table.idCol])}>Print</Link>}{dlg.data.editable && acts.includes('edit') ? <button className="btn btn-primary" onClick={() => setDlg({ ...dlg, type: 'edit' })}>Edit</button> : null}</>}>
           <RecordForm table={table} mode="view" initial={{ header: dlg.data.record, lines: dlg.data.lines }} />
         </Modal>
       )}

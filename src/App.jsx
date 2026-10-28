@@ -21,6 +21,7 @@ import ImprestPending from './pages/ImprestPending.jsx';
 import ImprestRegister from './pages/ImprestRegister.jsx';
 import ConsumptionPage from './pages/ConsumptionPage.jsx';
 import { GrnDetail, GrnForm, GrnRegister, IntentDetail, IntentForm, IntentRegister, PoDetail, PoForm, PoRegister } from './pages/workflow/index.jsx';
+import DocPrint from './pages/DocPrint.jsx';
 import PoPrint from './pages/workflow/PoPrint.jsx';
 
 function Protected() {
@@ -84,6 +85,7 @@ export default function App() {
         <Route path="imprest/pending" element={<ImprestPending />} />
         <Route path="imprest/register/:type" element={<ImprestRegister />} />
         <Route path="consumption/:mode" element={<ConsumptionPage />} />
+        <Route path="print/:slug/:id" element={<DocPrint />} />
         <Route path="eway/pending" element={<EwayPending />} />
         <Route path="imprest/settle/:ref" element={<ImprestSettle />} />
         <Route path="admin/access" element={<Need feature="access"><AccessControlPage /></Need>} />
