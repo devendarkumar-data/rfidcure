@@ -82,7 +82,12 @@ export default function ConsumptionPage() {
               <div><label className="label" htmlFor="ce-date">Bill Date</label><input id="ce-date" type="date" className="input" value={ehdr.billDate} onChange={(e) => setEhdr({ ...ehdr, billDate: e.target.value })} /></div>
               <div><label className="label" htmlFor="ce-n">Narration</label><input id="ce-n" className="input" value={ehdr.narration} onChange={(e) => setEhdr({ ...ehdr, narration: e.target.value })} /></div>
             </div>
-            {ent.lines.some((l) => l.balance > 0 && l.onHand < l.balance) && <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">Some stock shown in red is no longer at the hospital - it was already consumed or moved by another document that is not linked to {ent.ref}. Check Material Consumption / Imprest In entries for this hospital; only the quantity actually at the hospital can be consumed here.</p>}
+            {ent.lines.some((l) => l.balance > 0 && l.onHand < l.balance) && <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">Some stock shown in red is no longer at the hospital - it was already consumed or moved by another document that is not linked to {ent.ref}. Only the quantity actually at the hospital can be consumed here.</p>}
+            {ent.lines.filter((l) => l.movements?.length).map((l) => (
+              <div key={l.key} className="mt-2 text-xs text-slate-600"><b>Stock movements at {ent.hospital} — {l.code}, batch {l.batch}:</b>
+                <table className="mt-1 min-w-full text-xs"><tbody>{l.movements.map((m, i) => <tr key={i}><td className="pr-3">{m.date}</td><td className="pr-3">{m.type}</td><td className="pr-3">{m.doc}</td><td className="text-right tabular-nums">{m.qty > 0 ? `+${m.qty}` : m.qty}</td></tr>)}</tbody></table>
+              </div>
+            ))}
             <p className="mt-2 text-xs text-slate-500">Without a Bill No the consumption stays under "Awaiting bill" until you update the bill.</p>
             <div className="mt-4 flex justify-end gap-2"><button type="button" className="btn" onClick={() => setEnt(null)}>Cancel</button><button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save consumption'}</button></div>
           </form>

@@ -39,8 +39,8 @@ export const ROLE_STAGE_ACTIONS = {
   auditor: { reports: R },
   // GRN Operator: creates / submits GRN only; everything else is view-only (no edit / delete of GRN either).
   grn_operator: { intent: R, po: R, grn: ['view', 'create', 'export'], transfer: R, imprest: R, consumption: R, dispatch: R, requisition: R, reports: R, admin: R },
-  // Entry Operator: adds / edits Imprest In, Imprest Out and Consumption; views GRN; everything else is view-only.
-  entry_operator: { intent: R, po: R, grn: R, transfer: R, imprest: W, consumption: W, dispatch: R, requisition: R, reports: R, admin: R },
+  // Entry Operator: adds / edits Imprest In, Imprest Out, Consumption and E-Way Bills; views GRN; everything else is view-only.
+  entry_operator: { intent: R, po: R, grn: R, transfer: R, imprest: W, consumption: W, dispatch: R, requisition: R, eway: W, reports: R, admin: R },
   // 'All': every warehouse, view + edit on all operational and master tabs. User/security administration stays with Admin / Super Admin.
   all: { intent: [...W, 'delete'], po: [...W, 'delete'], grn: ALL, transfer: ALL, imprest: ALL, consumption: ALL, dispatch: ALL, billing: ALL, requisition: ALL, eway: ALL, reports: ALL, admin: WA },
   data_entry: { grn: ['view', 'create'] },                                                                   // Reports: "-"
@@ -67,7 +67,7 @@ export const FIELD_GROUPS = ['item', 'batch', 'expiry', 'quantity', 'customer', 
 export const ROLE_FIELD_ACCESS = {
   grn_operator:      { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: n, status: w },
   eway_operator:     { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
-  entry_operator:    { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: n, status: w },
+  entry_operator:    { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   all:               { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   super_admin:       { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   admin:             { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
@@ -137,7 +137,7 @@ const DEFAULT_NONE = {
   all: new Set(SENSITIVE),
   grn_operator: new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS, ...MASTER_TABS, ...PURCHASING_TABS]),
   eway_operator: new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS, ...MASTER_TABS, ...PURCHASING_TABS, ...PO_TABS, 'GRN  MRN', 'Material Consumption', 'Branch Receipt', 'Actual Stock', 'Material Requisition', 'Material Issue', 'Dealer Indent', 'Indent Register']),
-  entry_operator: new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS, ...MASTER_TABS, ...PURCHASING_TABS, ...PO_TABS, 'GRN  MRN', 'Stock Transfer', 'Branch Receipt', 'Actual Stock', 'Material Requisition', 'Material Issue', 'Dealer Indent', 'Indent Register', 'E-Way Bill Outward', 'E-Way Bill Inward', 'Purchase Requisition']),
+  entry_operator: new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS, ...MASTER_TABS, ...PURCHASING_TABS, ...PO_TABS, 'GRN  MRN', 'Stock Transfer', 'Branch Receipt', 'Actual Stock', 'Material Requisition', 'Material Issue', 'Dealer Indent', 'Indent Register', 'Purchase Requisition']),
 };
 let MATRIX = {};
 export const setAccessMatrix = (m) => { MATRIX = m || {}; };

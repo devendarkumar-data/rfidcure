@@ -428,3 +428,14 @@ test('E-Way Bill person: sees dispatches without an E-Way Bill, creates the bill
   assert.equal((await e('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-28', 'Customer Account': 'EWAY HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'EW1', Quantity: 1, Batch: 'E-1' }] })).status, 403, 'view-only on dispatches');
   assert.equal((await e('GET', '/api/t/grn-mrn')).status, 403, 'no GRN access');
 });
+
+test('Entry Operator can use E-Way Bills (outward) as well as Imprest / Consumption', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const pw = 'Op@Strong2026x';
+  await app.store.append('Users', [{ 'User ID': 'entop9', 'User Name': 'entop9', Role: 'Entry Operator', Branch: 'MWH', Status: 'Active', Password: pw }]);
+  await app.store.append('Item Master', [{ 'Master Id': 'IM-F', 'Item Name': 'Eway Screw', Code: 'EW1', Brand: 'ACME', 'Item Category': 'Implants' }]);
+  const e = await app.as('entop9', pw);
+  assert.equal((await e('GET', '/api/eway/pending')).status, 200);
+  const made = await e('POST', '/api/t/e-way-bill-outward', { header: { Date: '2026-10-28', 'Ref. Doc': 'X-1', 'Supply Type': 'Outward', 'E-Way Bill No.': '331000000002' }, lines: [{ Item: 'EW1', HSN: '9021', Quantity: 1, 'Taxable Value': 10 }] });
+  assert.equal(made.status, 201, made.text);
+});

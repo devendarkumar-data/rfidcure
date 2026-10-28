@@ -50,8 +50,11 @@ export async function consumptionQueue(ctx) {
   const rows = outs.filter((o) => sstr(o.DocNo)).map((o) => position(o, ins, cons)).filter((p) => p.balance > 0 && p.hasIn && mine(ctx, p));
   rows.sort((a, b) => String(a.date).localeCompare(String(b.date)) || a.ref.localeCompare(b.ref));
   // stock actually at the hospital now: lower than the balance if it was consumed through a document not linked to this Imprest
-  const { balances } = await loadStock(ctx.store, { fresh: true });
-  for (const p of rows) for (const l of p.lines) l.onHand = balances.get(keyOf(p.hospital, l.code, l.batch))?.qty || 0;
+  const { balances, ledger } = await loadStock(ctx.store, { fresh: true });
+  for (const p of rows) for (const l of p.lines) {
+    l.onHand = balances.get(keyOf(p.hospital, l.code, l.batch))?.qty || 0;
+    if (l.onHand < l.balance) l.movements = ledger.filter((r) => keyOf(r.Warehouse, r['Item Code'], r['Batch Number']) === keyOf(p.hospital, l.code, l.batch)).map((r) => ({ date: normDate(r.Date), type: sstr(r.Type), doc: sstr(r.Doc), qty: toNum(r.Quantity) }));
+  }
   return { rows };
 }
 
