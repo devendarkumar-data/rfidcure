@@ -6,32 +6,34 @@ import ItemPicker from './ItemPicker.jsx';
 const num = (v) => (v === '' || v === null || v === undefined ? 0 : Number(v) || 0);
 
 const SCOPE = { scopeOnly: '1' };
-function BatchSelect({ value, onChange, warehouse, code, disabled, auto }) {
+function BatchSelect({ value, onChange, warehouse, code, disabled, auto, all }) {
   const [list, setList] = useState(null); const [err, setErr] = useState('');
   useEffect(() => {
-    if (!warehouse || !code) { setList(null); return undefined; }
+    if ((!warehouse && !all) || !code) { setList(null); return undefined; }
     let live = true;
-    api.get('/api/stock/batches', { warehouse, code }).then((r) => { if (live) { setList(r.batches || []); setErr(''); } }).catch((e) => { if (live) { setList([]); setErr(e.message); } });
+    api.get('/api/stock/batches', all ? { code, all: '1' } : { warehouse, code }).then((r) => { if (live) { setList(r.batches || []); setErr(''); } }).catch((e) => { if (live) { setList([]); setErr(e.message); } });
     return () => { live = false; };
-  }, [warehouse, code]);
+  }, [warehouse, code, all]);
   useEffect(() => { // pick the earliest-expiry batch from stock automatically (batch, expiry and rate then follow it)
     if (!auto || disabled || !list || !list.length) return;
     if (!value || !list.some((b) => b.batch === value)) onChange(list[0].batch, list[0]);
   }, [list]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!warehouse) return <input className="input" disabled placeholder="Choose warehouse first" />;
+  if (!warehouse && !all) return <input className="input" disabled placeholder="Choose warehouse first" />;
   return (
     <div>
       <select className="input" value={value ?? ''} disabled={disabled || !code} onChange={(e) => onChange(e.target.value, (list || []).find((b) => b.batch === e.target.value))} aria-label="Batch">
-        <option value="">Auto — earliest expiry first (FEFO)</option>
+        {!auto && <option value="">Auto — earliest expiry first (FEFO)</option>}
+        {auto && !(list || []).length && <option value="">{code ? 'No batch in stock' : 'Select an item first'}</option>}
         {(list || []).map((b) => <option key={b.batch} value={b.batch}>{b.batch} · exp {b.expiry || 'n/a'}{b.expired ? ' (EXPIRED)' : ''} · qty {b.qty}</option>)}
       </select>
       {err && <p className="mt-0.5 text-xs text-red-600">{err}</p>}
+      {auto && code && list && !list.length && !err && <p className="mt-0.5 text-xs text-amber-700">{all ? 'No batch of this item is on record' : `No stock of this item in ${warehouse}`} — batch and expiry cannot be filled.</p>}
     </div>
   );
 }
 
 // Generic line-item grid driven by table.lineFields. batchMode: 'pick' (existing batches, outward docs) | 'enter' (free text, inward docs).
-export default function LinesEditor({ lineFields, itemField, lines, onChange, getWarehouse, batchMode = 'enter', readOnly = false, errors = {}, autoBatch = false, lineDefaults = null, scopeWarehouse = false }) {
+export default function LinesEditor({ lineFields, itemField, lines, onChange, getWarehouse, batchMode = 'enter', readOnly = false, errors = {}, autoBatch = false, batchFromAll = false, lineDefaults = null, scopeWarehouse = false }) {
   const cols = lineFields.filter((f) => f.name !== 'Item Code' && f.type !== 'calc' || (f.type === 'calc' && ['Gross', 'System Qty'].includes(f.name)));
   const idRef = useRef(1);
   const set = (i, patch) => onChange(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
@@ -42,9 +44,10 @@ export default function LinesEditor({ lineFields, itemField, lines, onChange, ge
   const cell = (f, l, i) => {
     const v = l[f.name] ?? '';
     if (f.name === itemField) return <div className="min-w-[14rem]"><ItemPicker value={v ? `${l['Item Code'] || ''} — ${v}`.replace(/^ — /, '') : ''} disabled={readOnly || f.readonly} onChange={({ code, name }) => set(i, { 'Item Code': code, [itemField]: name })} /></div>;
+    if (autoBatch && (f.name === 'Expiry Date' || f.name === 'Rate')) return <input className={`input ${f.name === 'Rate' ? 'min-w-[6rem] text-right' : 'min-w-[9rem]'} bg-slate-50`} value={v} readOnly tabIndex={-1} placeholder="from stock" aria-label={f.name} title="Filled automatically from the selected stock batch" />;
     if (f.name === 'Gross') return <span className="tabular-nums">{(num(l.Quantity) * num(l.Rate)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>;
     if (f.type === 'calc') return <span className="tabular-nums text-slate-500">{v}</span>;
-    if (f.name === 'Batch' && batchMode === 'pick') return <div className="min-w-[14rem]"><BatchSelect value={v} warehouse={getWarehouse?.(l)} code={l['Item Code']} disabled={readOnly || f.readonly} onChange={(b, o) => set(i, { Batch: b, ...(autoBatch && o ? { 'Expiry Date': o.expiry || '', ...(o.rate ? { Rate: o.rate } : {}) } : {}) })} auto={autoBatch} /></div>;
+    if (f.name === 'Batch' && batchMode === 'pick') return <div className="min-w-[14rem]"><BatchSelect value={v} warehouse={getWarehouse?.(l)} code={l['Item Code']} disabled={readOnly || f.readonly} onChange={(b, o) => set(i, { Batch: b, ...(autoBatch && o ? { 'Expiry Date': o.expiry || '', ...(o.rate ? { Rate: o.rate } : {}) } : {}) })} auto={autoBatch} all={batchFromAll} /></div>;
     if (f.options || f.yesNo) return <select className="input min-w-[7rem]" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { [f.name]: e.target.value })} aria-label={f.name}><option value="">—</option>{(f.options || ['Yes', 'No']).map((o) => <option key={o}>{o}</option>)}</select>;
     if (f.lookup) return <div className="min-w-[10rem]"><Combobox field={f.lookup} extraParams={scopeWarehouse && f.name === 'Warehouse' ? SCOPE : undefined} value={v} disabled={readOnly || f.readonly} onChange={(x) => set(i, { [f.name]: x, ...(f.name === 'Warehouse' ? { Batch: '' } : {}) })} /></div>;
     if (f.type === 'number') return <input className="input min-w-[6rem] text-right" type="number" min="0" step="any" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { [f.name]: e.target.value })} aria-label={f.name} />;

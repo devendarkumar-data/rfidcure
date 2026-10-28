@@ -23,6 +23,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
 
   const fields = useMemo(() => table.fields.filter((f) => !(mode === 'create' && (f.type === 'auto' && !table.idCol)) ), [table, mode]);
   const isOut = table.slug === 'imprest-out-new' && mode === 'create';
+  const isIn = table.slug === 'imprest-in-new' && mode === 'create';
   const [defWh, setDefWh] = useState('');
   const custTimer = useRef(null);
   useEffect(() => { // the user's own warehouse (or the one being viewed) becomes the default on every line
@@ -83,7 +84,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
           <h3 className="mb-2 text-sm font-semibold">Line items</h3>
           <LinesEditor lineFields={table.lineFields} itemField={table.itemField} lines={lines} onChange={setLines} readOnly={readOnly}
             batchMode={table.posts && !INWARD.has(table.slug) ? 'pick' : 'enter'} getWarehouse={getWarehouse}
-            autoBatch={isOut} scopeWarehouse={isOut} lineDefaults={isOut && defWh ? { Warehouse: defWh } : null} />
+            autoBatch={isOut || isIn} batchFromAll={isIn} scopeWarehouse={isOut} lineDefaults={isOut && defWh ? { Warehouse: defWh } : null} />
           {table.posts && table.slug !== 'actual-stock' && <p className="mt-2 text-xs text-slate-500">Saving posts to the stock ledger and cannot be edited afterwards. Leave Batch on “Auto” to issue the earliest-expiry stock first.</p>}
         </div>
       )}

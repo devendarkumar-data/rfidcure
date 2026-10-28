@@ -81,6 +81,17 @@ export async function stockBatches(ctx, q) {
   if (!creates) throw forbidden();
   needStockFields(ctx);
   const wh = sstr(q.warehouse), code = sstr(q.code);
+  if (q.all === '1') { // every batch of the item known to the system (Opening Stock + ledger, all warehouses) - used by Imprest In
+    if (!code) throw bad('code is required');
+    const { balances } = await loadStock(ctx.store);
+    const byBatch = new Map();
+    for (const e of balances.values()) {
+      if (e.itemCode !== code || !sstr(e.batch)) continue;
+      const b = byBatch.get(e.batch) || { batch: e.batch, expiry: '', qty: 0, value: 0 };
+      b.qty += e.qty; b.value += e.value; if (e.expiry && (!b.expiry || e.expiry < b.expiry)) b.expiry = e.expiry; byBatch.set(e.batch, b);
+    }
+    return { batches: [...byBatch.values()].sort((a, b) => String(a.expiry || '9').localeCompare(String(b.expiry || '9'))).map((b) => ({ batch: b.batch, expiry: b.expiry, qty: Math.round(b.qty * 1e6) / 1e6, rate: b.qty > 0 ? Math.round((b.value / b.qty) * 100) / 100 : 0, expired: !!(b.expiry && b.expiry < today()) })) };
+  }
   if (!wh || !code) throw bad('warehouse and code are required');
   if (!inScope(ctx, wh) && !q.any) throw forbidden(`You are not assigned to warehouse ${wh}`);
   const { balances } = await loadStock(ctx.store);

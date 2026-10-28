@@ -300,3 +300,16 @@ test('Item Master carries Batch Number / Expiry Date and gives Brand to stock ro
   assert.ok(row, 'stock row listed');
   assert.deepEqual([row['Brand Name'], row['Item Name'], row['Item Category Type Name'], row['Batch Number'], row['Expiry Date']], ['ACME', 'Widget Z', 'Implants', 'BN-1', '2030-01-01']);
 });
+
+test('batch picker: per-warehouse batches and all-batches mode return expiry and rate from stock', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  await app.store.append('Opening Stock', [
+    { Warehouse: 'MWH', 'Item Code': 'BP1', 'Item Name': 'Plate', 'Batch Number': 'B-X', Quantity: 4, 'Expiry Date': '2031-05-01', 'Stock Value': 400 },
+    { Warehouse: 'CWH', 'Item Code': 'BP1', 'Item Name': 'Plate', 'Batch Number': 'B-Y', Quantity: 2, 'Expiry Date': '2030-05-01', 'Stock Value': 300 },
+  ]);
+  const one = (await sa('GET', '/api/stock/batches?warehouse=MWH&code=BP1')).json.batches;
+  assert.deepEqual(one.map((b) => [b.batch, b.expiry, b.rate]), [['B-X', '2031-05-01', 100]]);
+  const all = (await sa('GET', '/api/stock/batches?code=BP1&all=1')).json.batches;
+  assert.deepEqual(all.map((b) => [b.batch, b.expiry, b.rate]), [['B-Y', '2030-05-01', 150], ['B-X', '2031-05-01', 100]]);
+});
