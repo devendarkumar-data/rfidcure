@@ -886,7 +886,8 @@ export default [
    "Min Stock Level",
    "MOQ",
    "Preferred Vendor",
-   "UOM"
+   "Batch Number",
+   "Expiry Date"
   ]
  },
  {

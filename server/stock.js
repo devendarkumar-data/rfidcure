@@ -30,9 +30,18 @@ export function computeBalances(openingRows, ledgerRows) {
   return m;
 }
 
+// Item Code links stock to the Item Master: a blank Brand / Item Name / Category on a stock row is taken from the master.
+export function fillFromItemMaster(openingRows, masterRows) {
+  const master = new Map(masterRows.filter((r) => !isBlank(r.Code)).map((r) => [sstr(r.Code), r]));
+  return openingRows.map((r) => {
+    const m = master.get(sstr(r['Item Code'])); if (!m) return r;
+    return { ...r, 'Brand Name': isBlank(r['Brand Name']) ? sstr(m.Brand) : r['Brand Name'], 'Item Name': isBlank(r['Item Name']) ? sstr(m['Item Name']) : r['Item Name'], 'Item Category Type Name': isBlank(r['Item Category Type Name']) ? sstr(m['Item Category']) : r['Item Category Type Name'] };
+  });
+}
 export async function loadStock(store, { fresh = false } = {}) {
-  const [o, l] = await Promise.all([store.read('Opening Stock', { fresh }), store.read('Stock Ledger', { fresh })]);
-  return { opening: o.rows, ledger: l.rows, balances: computeBalances(o.rows, l.rows) };
+  const [o, l, im] = await Promise.all([store.read('Opening Stock', { fresh }), store.read('Stock Ledger', { fresh }), store.read('Item Master', { fresh })]);
+  const opening = fillFromItemMaster(o.rows, im.rows);
+  return { opening, ledger: l.rows, balances: computeBalances(opening, l.rows) };
 }
 
 export function buildCatalog(itemMasterRows, balances) {

@@ -38,11 +38,11 @@ export const REPORTS = [
   // ---- stock ----
   { key: 'opening-stock-register', group: 'Stock', title: 'Opening Stock Register', stage: 'reports', ok: stockOk, dateCol: null, statusCol: 'Expiry Status', columns: ['Warehouse', 'Item Code', 'Item Name', 'Item Category Type Name', 'Brand Name', 'Batch Number', 'Expiry Date', 'Expiry Status', 'Opening Qty', 'Movement Since Opening', 'Qty As On Date', 'Stock Value'],
     run: async (ctx, q) => ({ rows: await opAll(ctx, q) }) },
-  { key: 'item-master-register', group: 'Stock', title: 'Item Master Register', stage: 'reports', ok: stage('reports'), columns: ['Code', 'Item Name', 'Brand', 'Item Category', 'Min Stock Level', 'MOQ', 'Preferred Vendor', 'Total Stock'],
+  { key: 'item-master-register', group: 'Stock', title: 'Item Master Register', stage: 'reports', ok: stage('reports'), columns: ['Code', 'Item Name', 'Brand', 'Item Category', 'Min Stock Level', 'MOQ', 'Preferred Vendor', 'Batch Number', 'Expiry Date', 'Total Stock'],
     run: async (ctx) => {
       const im = await ctx.store.read('Item Master'); const { balances } = await loadStock(ctx.store); const tot = new Map();
       for (const e of scopedBalances(ctx, balances, '')) if (!isTransitLoc(e.warehouse)) tot.set(e.itemCode, (tot.get(e.itemCode) || 0) + e.qty);
-      return { rows: im.rows.map((r) => ({ Code: sstr(r.Code), 'Item Name': sstr(r['Item Name']), Brand: sstr(r.Brand), 'Item Category': sstr(r['Item Category']), 'Min Stock Level': toNum(r['Min Stock Level']), MOQ: toNum(r.MOQ), 'Preferred Vendor': sstr(r['Preferred Vendor']), 'Total Stock': round2(tot.get(sstr(r.Code)) || 0) })) };
+      return { rows: im.rows.map((r) => ({ Code: sstr(r.Code), 'Item Name': sstr(r['Item Name']), Brand: sstr(r.Brand), 'Item Category': sstr(r['Item Category']), 'Min Stock Level': toNum(r['Min Stock Level']), MOQ: toNum(r.MOQ), 'Batch Number': sstr(r['Batch Number']), 'Expiry Date': sstr(r['Expiry Date']), 'Preferred Vendor': sstr(r['Preferred Vendor']), 'Total Stock': round2(tot.get(sstr(r.Code)) || 0) })) };
     } },
   { key: 'item-wise-stock', group: 'Stock', title: 'Item-wise Stock Report', stage: 'reports', ok: stockOk, columns: ['Item Code', 'Item Name', 'Category', 'Total Qty', 'Stock Value'],
     run: async (ctx) => {

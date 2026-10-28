@@ -34,12 +34,12 @@ test('rewritten request (?route=) resolves multi-segment paths', async (t) => {
   const h = await app.anon('GET', '/api/handler?route=health'); assert.equal(h.status, 200);
 });
 
-test('password typed in the Users tab works once, is hashed, and the cell is cleared', async (t) => {
+test('password typed in the Users tab keeps working, is hashed in Credentials, and the cell is NOT cleared', async (t) => {
   const app = await makeApp(); t.after(() => app.close());
   await app.store.append('Users', [{ 'User ID': 'CR1001', 'User Name': 'Devendar', Password: 'Tech@1234', Role: 'Admin', Branch: 'All Branch', Status: 'Active', 'Last Login': '' }]);
   const bad = await app.anon('POST', '/api/auth/login', { userId: 'CR1001', password: 'wrong' }); assert.equal(bad.status, 401);
   const ok = await app.anon('POST', '/api/auth/login', { userId: 'CR1001', password: 'Tech@1234' }); assert.equal(ok.status, 200, ok.text);
-  const users = await app.store.read('Users'); assert.equal(users.rows.find((r) => r['User ID'] === 'CR1001').Password, '');
+  const users = await app.store.read('Users'); assert.equal(users.rows.find((r) => r['User ID'] === 'CR1001').Password, 'Tech@1234', 'sheet password kept');
   const creds = await app.store.read('Credentials'); assert.match(creds.rows.find((r) => r['User ID'] === 'CR1001')['Password Hash'], /^\$2/);
   const again = await app.anon('POST', '/api/auth/login', { userId: 'CR1001', password: 'Tech@1234' }); assert.equal(again.status, 200);
   // admin reset by typing a new password in the sheet
@@ -116,7 +116,7 @@ test('Users tab in Groups/Phone/Email/Password layout: login by e-mail, role fro
   const crm = await app.anon('POST', '/api/auth/login', { userId: 'anshu.colormagix@gmail.com', password: 'Anshu$4321$' });
   assert.equal(crm.status, 403); assert.match(crm.text, /no valid role/);
   const row = (await app.store.read('Users')).rows.find((r) => r.Email === 'pc@colormagix.com');
-  assert.equal(row.Password, '', 'sheet password cleared after first login'); assert.equal(row.Role, 'Admin');
+  assert.equal(row.Password, 'Tech@12345x', 'sheet password kept after login'); assert.equal(row.Role, 'Admin');
 });
 
 test('sign in with User Name (case-insensitive), no e-mail needed; names must be unique', async (t) => {
@@ -287,4 +287,16 @@ test('Imprest Out form: hidden fields, customer details, company / business head
   assert.ok((await sa('GET', '/api/lookup?field=Companies')).json.options.length >= 0);
   const wh = (await sa('GET', '/api/lookup?field=Warehouse&scopeOnly=1')).json.options;
   assert.ok(wh.length >= 1 && wh.every((o) => o.inScope));
+});
+
+test('Item Master carries Batch Number / Expiry Date and gives Brand to stock rows by Item Code', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  await app.store.append('Item Master', [{ 'Master Id': 'IM-9', 'Item Name': 'Widget Z', Code: 'WZ9', Brand: 'ACME', 'Item Category': 'Implants', 'Batch Number': 'BN-1', 'Expiry Date': '2030-01-01' }]);
+  await app.store.append('Opening Stock', [{ Warehouse: 'MWH', 'Item Code': 'WZ9', 'Item Name': '', 'Item Category Type Name': '', 'Batch Number': 'BN-1', Quantity: 5, 'Expiry Date': '2030-01-01', 'Brand Name': '', 'Stock Value': 50 }]);
+  const r = await sa('GET', '/api/stock/opening?pageSize=200&q=WZ9');
+  assert.equal(r.status, 200, r.text);
+  const row = r.json.rows.find((x) => x['Item Code'] === 'WZ9');
+  assert.ok(row, 'stock row listed');
+  assert.deepEqual([row['Brand Name'], row['Item Name'], row['Item Category Type Name'], row['Batch Number'], row['Expiry Date']], ['ACME', 'Widget Z', 'Implants', 'BN-1', '2030-01-01']);
 });

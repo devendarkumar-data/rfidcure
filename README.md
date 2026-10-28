@@ -137,7 +137,7 @@ The template is unchanged. The app adds three worksheets, created by `npm run in
 
 ## Users tab layout and sheet passwords
 The **Users** tab columns are: `User ID, User Name, Password, Role, Branch, Status, Last Login`.
-To add a user by hand, fill a row and type a password in the **Password** column. At that user's first sign-in the password is verified, stored as a bcrypt hash in **Credentials**, and the cell in the Users tab is **cleared**. Typing a new password in the cell later acts as a password reset (same one-time pickup). Branch `All Branch` means all warehouses (for Super Admin / Admin / Finance / Auditor).
+To add a user by hand, fill a row and type a password in the **Password** column. The password stays visible in the sheet (it is **not** cleared). It is also mirrored as a bcrypt hash in **Credentials**. Changing the cell changes the login (the old password stops working); a password changed in the app or reset by an admin is written back to the cell when the cell holds a password. Branch `All Branch` means all warehouses (for Super Admin / Admin / Finance / Auditor).
 
 ## Purchase Order print and master data
 - **Print PO** (PO page → Print) follows the supplied Cure Surgical format (invoice-to block, supplier details, item table with CGST/SGST/IGST, totals, amount in words, terms, signatory). Print / Save as PDF from the browser.
@@ -159,7 +159,7 @@ Columns: `Groups | User Name | Phone | Email | Password` are required; `Branch |
 - Sign-in ID is the **User Name** (case-insensitive, must be unique); the Email is also accepted if filled in.
 - **Role** is read from `Groups`: comma-separated entries, the first valid role name wins (Admin, Super Admin, Sales or Sales Team, Finance, Auditor, Purchase Manager, Approver, Warehouse Manager, ...). `All` is a role (see Access Control below); entries such as Create, CRM, Production or Fabrication are not roles and are ignored; a row with no valid role cannot sign in.
 - Blank Branch = All Branch; blank Status = Active. Roles limited to their own warehouse (Sales, Warehouse roles, Purchase Team, Data Entry) need a Branch such as MWH, DWH or CWH to see any stock.
-- The plain-text Password is accepted once, hashed, and the cell is cleared.
+- The plain-text Password in the Users tab is kept and is the source of truth for that user's login (anyone who can open the sheet can read it - restrict sheet sharing).
 
 ## Access Control (per group, per tab)
 Administration -> **Access Control** shows every tab against every group. For each cell choose **None** (hidden), **View**, **Edit** (create and change) or **Default** (the standard role rules). Settings are stored in the `Access Control` worksheet (one row per tab, one column per group; blank = default; created automatically). Super Admin always has full access and its column is locked; only a Super Admin can change the Admin column. Every change is written to Audit Logs.
@@ -171,4 +171,4 @@ Users with all-warehouse access get a **View warehouse** switcher in the top bar
 - New header fields: **Supplier** (Vendor Master), **Bill Code**; **Companies** (Configuration company name + Account Master) and **Business Head** (Sales Executive Master rows whose Type is "Business Head", otherwise all salespersons) are dropdowns.
 - Choosing the **Customer Account** fills Ship to Name / Address / City / State / Pin code and Bill Code from **Customer  Hospital Master** (new optional columns Address, City, State, Pincode).
 - Lines: Warehouse defaults to the user's own (or the viewed) warehouse and only that warehouse is offered; choosing an item auto-selects the earliest-expiry batch and fills Batch, Expiry Date and Rate from stock; Delivery Date column added.
-- Passwords typed in the Users tab are picked up once at first login and the cell is cleared; they never reappear.
+- Passwords typed in the Users tab are kept in the sheet (never cleared).

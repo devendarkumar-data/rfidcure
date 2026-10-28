@@ -6,7 +6,7 @@ import { can, fieldAccess, actionsForTab } from '../shared/permissions.js';
 import { audit } from './audit.js';
 import { inScope } from './access.js';
 import { warehouseList } from './crud.js';
-import { computeBalances, keyOf } from './stock.js';
+import { computeBalances, fillFromItemMaster, keyOf } from './stock.js';
 import { HttpError, bad, forbidden, isBlank, normDate, round2, sstr, today, toNum, withLock } from './util.js';
 
 const TAB = 'Opening Stock';
@@ -24,7 +24,8 @@ export async function listOpening(ctx, q = {}) {
   needView(ctx);
   if (q.export && !actionsForTab(ctx.user.role, 'reports', 'Opening Stock').includes('export')) throw forbidden();
   const asOn = normDate(q.asOn) || today();
-  const [{ rows: opening }, { rows: ledger }] = await Promise.all([ctx.store.read(TAB), ctx.store.read('Stock Ledger')]);
+  const [{ rows: rawOpening }, { rows: ledger }, { rows: masterRows }] = await Promise.all([ctx.store.read(TAB), ctx.store.read('Stock Ledger'), ctx.store.read('Item Master')]);
+  const opening = fillFromItemMaster(rawOpening, masterRows);
   // movement posted after go-live, up to the chosen date
   const upTo = ledger.filter((r) => { const d = normDate(r.Date); return !d || d <= asOn; });
   const move = new Map();
