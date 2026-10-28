@@ -36,14 +36,19 @@ export function buildNav(meta) {
   ]);
 
   const rq = tables['purchase-requisition']; const grn = tables['grn-mrn'];
-  add('warehouse', 'Warehouse Operations', 'inbox', [
-    it(has(rq, 'create'), '/requisitions/new', 'Create Purchase Requisition'),
-    it(has(rq, 'view'), '/requisitions', 'Purchase Requisitions'),
-    it(has(rq, 'view'), '/requisitions?view=pending', 'Pending Purchase Requisitions'),
-    it(has(rq, 'view'), '/requisitions?view=open', 'Open Requisitions (dispatch / receive)'),
+  // Warehouse operations, one section per flow
+  add('wh-req', 'Requisition & Issue', 'inbox', [
+    it(has(rq, 'create'), '/requisitions/new', 'Raise Requisition (to mother warehouse)'),
+    it(has(rq, 'view'), '/requisitions', 'Requisition Register'),
+    it(has(rq, 'view'), '/requisitions?view=pending', 'Pending Requisitions'),
+    it(has(rq, 'view'), '/requisitions?view=open', 'Issue / Receive (open requisitions)'),
     it(has(tables['stock-transfer'], 'view'), '/t/stock-transfer', 'Stock Transfer'),
+  ]);
+  add('wh-grn', 'GRN (Purchase Receipt)', 'inbox', [
     it(has(grn, 'create'), '/grn/new', 'Create GRN'),
     it(has(grn, 'view'), '/grn', 'GRN Register'),
+  ]);
+  add('wh-imprest', 'Imprest & Consumption', 'inbox', [
     it(has(tables['imprest-out-new'], 'create'), '/t/imprest-out-new?new=1', 'Imprest Out — New'),
     it(has(tables['imprest-out-new'], 'view'), '/imprest/register/out', 'Imprest Out Register'),
     it(has(tables['imprest-in-new'], 'create'), '/imprest/pending', 'Imprest In — Pending'),
