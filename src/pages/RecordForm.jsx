@@ -60,9 +60,10 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
     for (const f of fields) if (!f.readonly && f.type !== 'auto' && f.type !== 'calc' && !empty(values[f.name])) header[f.name] = f.type === 'number' ? Number(values[f.name]) : values[f.name];
     let outLines;
     if (table.hasLines) {
-      outLines = lines.map(({ _k, ...l }) => Object.fromEntries(Object.entries(l).filter(([, v]) => !empty(v)))).filter((l) => l['Item Code'] || Object.keys(l).length > 0);
+      outLines = lines.map(({ _k, _avail, ...l }) => Object.fromEntries(Object.entries(l).filter(([, v]) => !empty(v)))).filter((l) => l['Item Code'] || Object.keys(l).length > 0);
       outLines = outLines.filter((l) => l['Item Code'] || l[table.itemField]);
       if (table.itemField && !outLines.length) { setErr('Add at least one line item.'); return; }
+      if (isOut) { const over = lines.findIndex((l) => l._avail != null && Number(l.Quantity) > l._avail); if (over >= 0) { setErr(`Line ${over + 1}: quantity exceeds the ${lines[over]._avail} available in stock.`); return; } }
       for (const l of outLines) for (const lf of table.lineFields) if (lf.type === 'number' && !empty(l[lf.name])) l[lf.name] = Number(l[lf.name]);
     }
     setBusy(true);
