@@ -30,6 +30,18 @@ export async function warehouseList(store) {
   for (const e of balances.values()) if (e.warehouse && !/^TRANSIT-/.test(e.warehouse) && !set.has(e.warehouse)) set.set(e.warehouse, e.warehouse); // in-transit locations are system-managed, never selectable
   return [...set.values()].sort();
 }
+// Warehouses a user can be assigned to: real stock locations only (hospital / imprest virtual warehouses are system-managed).
+export async function assignableWarehouses(store) {
+  const { rows } = await store.read(TAB.warehouseMaster);
+  const virtual = new Set(rows.filter((r) => /virtual|imprest/i.test(sstr(r['Warehouse Type']))).map((r) => sstr(r['Warehouse Name']).toUpperCase()));
+  return (await warehouseList(store)).filter((w) => !virtual.has(w.toUpperCase()));
+}
+// Standard branch warehouse that must always exist in the Warehouse Master.
+export async function ensureWarehouse(store, name, type = 'Branch') {
+  const { rows } = await store.read(TAB.warehouseMaster);
+  if (rows.some((r) => sstr(r['Warehouse Name']).toUpperCase() === name.toUpperCase())) return;
+  await store.append(TAB.warehouseMaster, [{ 'Master Id': await nextMasterId(store, { tab: TAB.warehouseMaster }), 'Warehouse Name': name, 'Warehouse Type': type }]);
+}
 export async function itemCatalog(store, stock) {
   const im = await store.read(TAB.itemMaster);
   const { balances } = stock || (await loadStock(store));

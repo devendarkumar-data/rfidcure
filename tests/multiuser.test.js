@@ -439,3 +439,12 @@ test('Entry Operator can use E-Way Bills (outward) as well as Imprest / Consumpt
   const made = await e('POST', '/api/t/e-way-bill-outward', { header: { Date: '2026-10-28', 'Ref. Doc': 'X-1', 'Supply Type': 'Outward', 'E-Way Bill No.': '331000000002' }, lines: [{ Item: 'EW1', HSN: '9021', Quantity: 1, 'Taxable Value': 10 }] });
   assert.equal(made.status, 201, made.text);
 });
+
+test('User warehouse picker lists real warehouses only (no hospital / virtual) and includes BWH', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  await app.store.append('Warehouse Master', [{ 'Master Id': 'W-H', 'Warehouse Name': 'District General Hospital', 'Warehouse Type': 'Virtual (Imprest)' }]);
+  const sa = await app.as('sa');
+  const r = await sa('GET', '/api/admin/users'); assert.equal(r.status, 200, r.text);
+  assert.ok(r.json.warehouses.includes('BWH')); assert.ok(!r.json.warehouses.includes('District General Hospital'));
+  const again = (await sa('GET', '/api/admin/users')).json.warehouses; assert.equal(again.filter((w) => w === 'BWH').length, 1, 'BWH added once');
+});
