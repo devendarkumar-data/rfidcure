@@ -277,8 +277,8 @@ test('Imprest Out form: hidden fields, customer details, company / business head
   await app.store.append('Sales Executive Master', [{ 'Master Id': 'S-1', 'Salesperson Name': 'Asha', Type: 'Business Head' }, { 'Master Id': 'S-2', 'Salesperson Name': 'Ravi', Type: 'Executive' }]);
   const meta = (await sa('GET', '/api/meta')).json.modules.flatMap((m) => m.tables).find((x) => x.slug === 'imprest-out-new');
   const names = meta.fields.map((f) => f.name);
-  for (const gone of ['Ref. Doc', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State']) assert.ok(!names.includes(gone), `${gone} hidden`);
-  for (const need of ['Supplier', 'Bill Code', 'Companies', 'Business Head', 'Ship to Name', 'Ship to Address']) assert.ok(names.includes(need), `${need} present`);
+  for (const gone of ['To Warehouse', 'Location', 'Is IGST', 'Ref. Date', 'Supplier', 'Ref. Doc', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State']) assert.ok(!names.includes(gone), `${gone} hidden`);
+  for (const need of ['Bill Code', 'Companies', 'Business Head', 'Ship to Name', 'Ship to Address']) assert.ok(names.includes(need), `${need} present`);
   assert.ok(names.includes('Delivery Date'), 'Delivery Date is in the main form');
   for (const gone of ['Delivery Date', 'Consumption Type', 'Rate', 'Gross']) assert.ok(!meta.lineFields.some((f) => f.name === gone), `${gone} not a line column`);
   const c = (await sa('GET', '/api/lookup/customer?name=max hospital')).json;
@@ -334,13 +334,14 @@ test('Imprest flow: 100 out to a hospital, 80 returned by Imprest In, remaining 
   const pw = 'Op@Strong2026x';
   await app.store.append('Users', [{ 'User ID': 'entop2', 'User Name': 'entop2', Role: 'Entry Operator', Branch: 'MWH', Status: 'Active', Password: pw }]);
   await app.store.append('Warehouse Master', [{ 'Master Id': 'W-9', 'Warehouse Name': 'CITY HOSPITAL', 'Warehouse Type': 'Hospital' }]);
+  await app.store.append('Customer  Hospital Master', [{ 'Master Id': 'C-9', 'Hospital Name': 'CITY HOSPITAL', Code: 'CH1' }]);
   await app.store.append('Item Master', [{ 'Master Id': 'IM-F', 'Item Name': 'Flow Screw', Code: 'FL1', Brand: 'ACME', 'Item Category': 'Implants' }]);
   await app.store.append('Opening Stock', [{ Warehouse: 'MWH', 'Item Code': 'FL1', 'Item Name': 'Flow Screw', 'Batch Number': 'F-1', Quantity: 100, 'Expiry Date': '2031-01-01', 'Stock Value': 5000 }]);
   const e = await app.as('entop2', pw); const sa = await app.as('sa');
   const avail = async () => (await e('GET', '/api/lookup?field=Stock Item&warehouse=CITY HOSPITAL&q=FL1')).json.options?.[0]?.qty ?? 0;
   const hosp = async () => (await e('GET', '/api/lookup?field=Warehouse&imprest=1')).json.options.map((o) => o.value);
   assert.ok(!(await hosp()).includes('CITY HOSPITAL'), 'no imprest yet');
-  const out = await e('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-28', 'To Warehouse': 'CITY HOSPITAL', 'Delivery Date': '2026-10-29' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'FL1', Quantity: 100, Batch: 'F-1' }] });
+  const out = await e('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-28', 'Customer Account': 'CITY HOSPITAL', 'Delivery Date': '2026-10-29' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'FL1', Quantity: 100, Batch: 'F-1' }] });
   assert.equal(out.status, 201, out.text);
   assert.ok((await hosp()).includes('CITY HOSPITAL'), 'hospital with imprest stock is offered');
   assert.equal(await avail(), 100);

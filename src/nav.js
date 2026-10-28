@@ -47,7 +47,6 @@ export function buildNav(meta) {
     it(has(tables['imprest-out-new'], 'create'), '/t/imprest-out-new?new=1', 'Imprest Out — New'),
     it(has(tables['imprest-out-register'], 'view'), '/t/imprest-out-register', 'Imprest Out Register'),
     it(has(tables['imprest-in-new'], 'create'), '/t/imprest-in-new?new=1', 'Imprest In — New'),
-    it(has(tables['imprest-in-new'], 'view'), '/t/imprest-in-new', 'Imprest In — Entries'),
     it(has(tables['imprest-in-register'], 'view'), '/t/imprest-in-register', 'Imprest In Register'),
     it(has(tables['material-consumption'], 'view'), '/t/material-consumption', 'Consumption'),
   ]);

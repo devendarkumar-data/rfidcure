@@ -259,7 +259,14 @@ export async function createRecord(ctx, table, body, idemKey, hooks = {}) {
       if (prevId) return { duplicate: true };
     }
     if (table.workflow === 'grn' && hooks.rawBody) body = await hooks.rawBody(body);
-    const header = await validateHeader(ctx, table, body?.header ?? body ?? {});
+    let rawHeader = body?.header ?? body ?? {};
+    if (table.post === 'imprest-out' && !sstr(rawHeader['To Warehouse'])) { // the hospital (Customer Account) is the imprest warehouse the stock goes to
+      const hosp = sstr(rawHeader['Customer Account']);
+      if (!hosp) throw bad('Select the Customer Account (hospital) the imprest is delivered to');
+      if (!(await warehouseList(store)).some((w) => w.toLowerCase() === hosp.toLowerCase())) throw unprocessable(`Hospital "${hosp}" is not in the Warehouse Master - add it as a warehouse (type Hospital) so its imprest stock can be tracked`);
+      rawHeader = { ...rawHeader, 'To Warehouse': hosp };
+    }
+    const header = await validateHeader(ctx, table, rawHeader);
     const date = header.Date || today();
     let id = null, lines = [], warnings = [], view = null;
 
