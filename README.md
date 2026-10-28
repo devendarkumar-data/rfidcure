@@ -180,6 +180,7 @@ Users with all-warehouse access get a **View warehouse** switcher in the top bar
 - The balance at the hospital is always Out - In - Consumed, read from the stock ledger.
 
 ## Settling an Imprest Out (Imprest In screen)
-- **Imprest In — New** lists the pending Imprest Outs of your warehouse. Pick one; tick the items the hospital CONSUMED (and the consumed quantity); everything not ticked is returned to the warehouse.
-- Saving posts an **Imprest In** for the returned part and a **Consumption (Against Bill)** for the consumed part (Bill No required). Both carry the `Imprest Ref` of the Out, so each Imprest Out has a trail: Out -> In -> Consumption, with document numbers, dates and users.
-- Status of an Imprest Out: Pending -> Partly settled -> Settled. A settled imprest no longer appears in the pending list.
+- **Imprest In — New** is a register of the pending Imprest Outs of your warehouse (Imprest No, date, hospital, dispatched / returned / consumed / pending, status, days open - red after 30 days). Search by number or hospital.
+- Open a document to see its lines (item, batch, expiry, dispatched, pending) and its trail. Step 1: type how much was **consumed** per line (0 = return everything). The returned quantity is calculated live (pending - consumed). Step 2: date and, if something was consumed, Bill No / Bill Date.
+- Saving posts a **Consumption (Against Bill)** for the consumed part and an **Imprest In** for the rest. Both carry the `Imprest Ref` of the Out, so each Imprest Out has a trail: Out -> In -> Consumption, with document numbers, dates and users.
+- Status: Pending -> Partly settled -> Settled. A settled imprest leaves the pending register.
