@@ -3,7 +3,7 @@
 // between the two so the rest of the code does not care how the sheet is laid out.
 //   User ID = Email (people sign in with their e-mail address)
 //   Role    = first entry of the comma-separated Groups cell that is a valid role name (Admin, Sales, Sales Team, ...)
-//   Branch  = Branch cell, blank means "All Branch";  Status = Status cell, blank means Active
+//   Branch  = Branch cell (the Warehouse cell is only a mirror the app keeps in step; used if Branch is blank), blank means "All Branch";  Status = Status cell, blank means Active
 import { roleKey, ROLE_LABELS } from './permissions.js';
 
 export const USERS_SHEET_HEADERS = ['Groups', 'User Name', 'Phone', 'Email', 'Password', 'Branch', 'Status', 'Last Login', 'Warehouse'];
@@ -20,7 +20,7 @@ export function userFromSheet(r) {
   return {
     ...r,
     'User ID': String(r.Email ?? '').trim() || String(r['User Name'] ?? '').trim(), Role: roleFromGroups(r.Groups),
-    Branch: String(r.Warehouse ?? '').trim() || String(r.Branch ?? '').trim() || 'All Branch', Status: String(r.Status ?? '').trim() || 'Active',
+    Branch: String(r.Branch ?? '').trim() || String(r.Warehouse ?? '').trim() || 'All Branch', Status: String(r.Status ?? '').trim() || 'Active',
   };
 }
 

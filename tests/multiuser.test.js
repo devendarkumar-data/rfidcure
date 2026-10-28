@@ -448,3 +448,12 @@ test('User warehouse picker lists real warehouses only (no hospital / virtual) a
   assert.ok(r.json.warehouses.includes('BWH')); assert.ok(!r.json.warehouses.includes('District General Hospital'));
   const again = (await sa('GET', '/api/admin/users')).json.warehouses; assert.equal(again.filter((w) => w === 'BWH').length, 1, 'BWH added once');
 });
+
+test('Users sheet: Branch column decides the warehouse; a stale Warehouse mirror cannot show another warehouse', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const pw = 'Op@Strong2026x';
+  await app.store.append('Users', [{ 'User ID': 'cwhuser', 'User Name': 'cwhuser', Role: 'Entry Operator', Branch: 'CWH', Warehouse: 'DWH', Status: 'Active', Password: pw }]);
+  const e = await app.as('cwhuser', pw);
+  const me = (await e('GET', '/api/auth/me')).json;
+  assert.deepEqual(me.user.scope.warehouses, ['CWH']);
+});
