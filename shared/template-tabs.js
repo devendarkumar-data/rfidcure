@@ -231,8 +231,8 @@ export default [
    "Supplier",
    "Bill Code",
    "Delivery Date",
-   "Return Closed",
-   "Lines"
+   "Lines",
+   "Return Closed"
   ]
  },
  {
