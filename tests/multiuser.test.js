@@ -457,3 +457,14 @@ test('Users sheet: Branch column decides the warehouse; a stale Warehouse mirror
   const me = (await e('GET', '/api/auth/me')).json;
   assert.deepEqual(me.user.scope.warehouses, ['CWH']);
 });
+
+test('Warehouse dropdowns: BWH and LWH exist, hospitals are not offered as warehouses', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  await app.store.append('Warehouse Master', [{ 'Master Id': 'W-X', 'Warehouse Name': 'City Care Hospital' }]);
+  await app.store.append('Stock Ledger', [{ Date: '2026-10-28', Type: 'Imprest Out', Doc: 'X-1', Warehouse: 'CITY CARE HOSPITAL', 'Item Code': 'A', Quantity: 1 }]);
+  const r = await sa('GET', '/api/lookup?field=Warehouse'); assert.equal(r.status, 200, r.text);
+  const names = r.json.options.map((o) => o.value);
+  assert.ok(names.includes('BWH') && names.includes('LWH')); assert.ok(!names.some((n) => /city care/i.test(n)));
+  const u = (await sa('GET', '/api/admin/users')).json.warehouses; assert.ok(u.includes('LWH') && !u.some((n) => /city care/i.test(n)));
+});

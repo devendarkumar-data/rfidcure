@@ -71,14 +71,14 @@ export default function LinesEditor({ lineFields, itemField, lines, onChange, ge
   return (
     <div>
       <div className="overflow-x-auto rounded-md border border-slate-200">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead><tr><th className="th w-8">#</th>{cols.map((f) => <th key={f.name} className="th">{f.name}</th>)}{!readOnly && <th className="th w-10" />}</tr></thead>
-          <tbody className="divide-y divide-slate-100">
+        <table className="min-w-full divide-y divide-slate-200 max-sm:block">
+          <thead className="max-sm:hidden"><tr><th className="th w-8">#</th>{cols.map((f) => <th key={f.name} className="th">{f.name}</th>)}{!readOnly && <th className="th w-10" />}</tr></thead>
+          <tbody className="divide-y divide-slate-100 max-sm:block">
             {lines.map((l, i) => (
-              <tr key={l._k ?? i} className={errors[i] ? 'bg-red-50' : ''}>
-                <td className="td text-slate-400">{i + 1}</td>
-                {cols.map((f) => <td key={f.name} className="td align-top">{cell(f, l, i)}</td>)}
-                {!readOnly && <td className="td align-top"><button type="button" className="btn btn-sm" onClick={() => del(i)} aria-label={`Remove line ${i + 1}`} disabled={lines.length === 1}>✕</button></td>}
+              <tr key={l._k ?? i} className={`${errors[i] ? 'bg-red-50' : ''} max-sm:block max-sm:p-3`}>
+                <td className="td text-slate-400 max-sm:block max-sm:p-0 max-sm:pb-1 max-sm:font-semibold">Line {i + 1}</td>
+                {cols.map((f) => <td key={f.name} data-label={f.name} className="td align-top max-sm:block max-sm:px-0 max-sm:py-1 max-sm:before:mb-0.5 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]">{cell(f, l, i)}</td>)}
+                {!readOnly && <td className="td align-top max-sm:block max-sm:px-0"><button type="button" className="btn btn-sm" onClick={() => del(i)} aria-label={`Remove line ${i + 1}`} disabled={lines.length === 1}>✕</button></td>}
               </tr>
             ))}
           </tbody>

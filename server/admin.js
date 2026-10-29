@@ -5,7 +5,7 @@ import { ROLE_INFO } from '../shared/users-layout.js';
 
 import { audit, activity } from './audit.js';
 import { checkPasswordPolicy, getSettings, hashPassword, parseWarehouses } from './auth.js';
-import { assignableWarehouses, ensureWarehouse, warehouseList } from './crud.js';
+import { assignableWarehouses, ensureStandardWarehouses, warehouseList } from './crud.js';
 import { bad, conflict, forbidden, notFound, sstr, withLock } from './util.js';
 
 const adminOnly = (ctx, action) => { if (!can(ctx.user.role, 'admin', action)) throw forbidden('Only administrators can manage users'); if (ctx.user.scope.mode === 'all-readonly') throw forbidden(); };
@@ -24,7 +24,7 @@ function assertMayTouch(ctx, targetRoleLabel, newRoleLabel) {
 
 export async function listUsers(ctx) {
   adminOnly(ctx, 'view');
-  await ensureWarehouse(ctx.store, 'BWH');
+  await ensureStandardWarehouses(ctx.store);
   const [u, c, wh] = await Promise.all([ctx.store.read('Users'), ctx.store.read('Credentials'), assignableWarehouses(ctx.store)]);
   const creds = new Map(c.rows.map((r) => [sstr(r['User ID']).toLowerCase(), r]));
   return { rows: u.rows.map((r) => pub(r, creds.get(sstr(r['User ID']).toLowerCase()))), roles: Object.values(ROLE_LABELS), roleInfo: ROLE_INFO, warehouses: wh };
@@ -38,6 +38,7 @@ async function validateUser(ctx, b, { creating }) {
   const status = sstr(b.Status || 'Active'); if (!/^(active|inactive)$/i.test(status)) throw bad('Status must be Active or Inactive');
   const branch = /^\s*all(\s+branch(es)?)?\s*$/i.test(sstr(b.Branch)) ? '' : parseWarehouses(b.Branch).join(', ');
   const key = roleKey(canonical);
+  await ensureStandardWarehouses(ctx.store);
   const wl = (await warehouseList(ctx.store)).map((x) => x.toUpperCase());
   const bad_ = parseWarehouses(branch).filter((w) => wl.length && !wl.includes(w));
   if (bad_.length) throw bad(`Unknown warehouse(s) in Branch: ${bad_.join(', ')}`);

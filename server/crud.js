@@ -34,9 +34,14 @@ export async function warehouseList(store) {
 export async function assignableWarehouses(store) {
   const { rows } = await store.read(TAB.warehouseMaster);
   const virtual = new Set(rows.filter((r) => /virtual|imprest/i.test(sstr(r['Warehouse Type']))).map((r) => sstr(r['Warehouse Name']).toUpperCase()));
+  // anything that has received an Imprest Out is a hospital / customer location, not a stock warehouse
+  const { rows: led } = await store.read('Stock Ledger');
+  for (const r of led) if (r.Type === 'Imprest Out' && toNum(r.Quantity) > 0) virtual.add(sstr(r.Warehouse).toUpperCase());
   return (await warehouseList(store)).filter((w) => !virtual.has(w.toUpperCase()));
 }
 // Standard branch warehouse that must always exist in the Warehouse Master.
+export const STANDARD_WAREHOUSES = ['BWH', 'LWH'];
+export async function ensureStandardWarehouses(store) { for (const w of STANDARD_WAREHOUSES) await ensureWarehouse(store, w); }
 export async function ensureWarehouse(store, name, type = 'Branch') {
   const { rows } = await store.read(TAB.warehouseMaster);
   if (rows.some((r) => sstr(r['Warehouse Name']).toUpperCase() === name.toUpperCase())) return;
@@ -441,7 +446,8 @@ export async function lookup(ctx, field, q, limit = 30, scopeOnly = false, extra
     return { options: out };
   }
   if (ref.special === 'warehouse') {
-    let list = await warehouseList(ctx.store);
+    await ensureStandardWarehouses(ctx.store);
+    let list = extra.imprest === '1' ? await warehouseList(ctx.store) : await assignableWarehouses(ctx.store); // dropdowns show warehouse names only (hospitals are not warehouses)
     if (scopeOnly) list = list.filter((w) => inScope(ctx, w)); // only the user's own / currently viewed warehouse(s)
     if (extra.imprest === '1') { // hospitals / imprest warehouses that currently hold imprest stock sent out from the user's warehouse(s)
       const { rows: led } = await ctx.store.read('Stock Ledger'); const { balances } = await loadStock(ctx.store);
