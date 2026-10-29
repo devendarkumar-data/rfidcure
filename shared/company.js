@@ -1,7 +1,7 @@
 // Company block printed on the Purchase Order (taken from the supplied PO format).
 // Company Name can be overridden by Configuration > Company Name; the rest is edited here.
 export const COMPANY = {
-  name: 'Cure Surgicals -imp',
+  name: 'Cure Surgicals',
   address: 'S-25, Green Park Extension',
   city: 'DELHI',
   state: '',

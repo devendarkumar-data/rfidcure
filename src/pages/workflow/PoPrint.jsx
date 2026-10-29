@@ -50,7 +50,7 @@ export default function PoPrint() {
       <style>{'@page { size: A4; margin: 8mm; } @media print { body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } } .po-doc, .po-doc * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }'}</style>
       <div className="mb-3 flex justify-between print:hidden"><Back to={`/purchasing/po/${encodeURIComponent(id)}`}>Back</Back><button className="btn btn-primary" onClick={() => window.print()}>Print / Save as PDF</button></div>
       <div className="po-doc" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-        <div style={{ textAlign: 'center', marginBottom: 4 }}><img src="/logo.png" alt="Cure Surgicals" style={{ height: 44, display: 'inline-block', verticalAlign: 'middle', marginRight: 10 }} /><span style={{ fontWeight: 700, fontSize: 12, verticalAlign: 'middle' }}>PURCHASE ORDER</span></div>
+        <div style={{ textAlign: 'center', marginBottom: 4, fontWeight: 700, fontSize: 12 }}>PURCHASE ORDER</div>
         <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
           <tbody>
             <tr>
@@ -60,8 +60,7 @@ export default function PoPrint() {
             </tr>
             <tr>
               <td rowSpan={7} style={{ ...box, verticalAlign: 'top', padding: 6 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{co.name}</div>
-                <div style={val}>{co.address}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}><img src="/logo.png" alt="Cure Surgicals" style={{ height: 48 }} /><div><div style={{ fontWeight: 700, fontSize: 14 }}>{co.name}</div><div style={val}>{co.address}</div></div></div>
                 <div style={{ ...val, marginTop: 6 }}><span style={lbl}>STATE :</span> {co.state}</div>
                 <div style={{ ...val, marginTop: 4 }}><span style={lbl}>CITY :</span> {co.city} &nbsp;&nbsp;&nbsp; <span style={lbl}>PIN :</span> {co.pin}</div>
                 <div style={{ ...val, marginTop: 4 }}><span style={lbl}>TEL NO :</span> {co.tel} &nbsp;&nbsp;&nbsp; <span style={lbl}>GSTIN :</span> {co.gstin}</div>

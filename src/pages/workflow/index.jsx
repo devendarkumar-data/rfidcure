@@ -240,6 +240,7 @@ export function IntentDetail() {
     <>
       <PageHeader back={<Back to="/purchase-intent">Purchase Intents</Back>} title={`Purchase Intent ${id}`} subtitle={<StatusBadge value={status.Status} />}
         actions={<>
+          <Link className="btn" to={`/purchase-intent/${encodeURIComponent(id)}/print`}>Print</Link>
           {can.edit && <Link className="btn" to={`/purchase-intent/new?edit=${encodeURIComponent(id)}`}>Edit</Link>}
           {can.submit && <button className="btn btn-primary" onClick={() => run('submit').catch((e) => toast.error(e.message))}>Submit for review</button>}
           {can.convert && poCreate && <Link className="btn btn-primary" to={`/purchasing/po/new?intent=${encodeURIComponent(id)}`}>Create PO</Link>}

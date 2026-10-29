@@ -22,6 +22,7 @@ import ImprestRegister from './pages/ImprestRegister.jsx';
 import ConsumptionPage from './pages/ConsumptionPage.jsx';
 import { GrnDetail, GrnForm, GrnRegister, IntentDetail, IntentForm, IntentRegister, PoDetail, PoForm, PoRegister } from './pages/workflow/index.jsx';
 import DocPrint from './pages/DocPrint.jsx';
+import IntentPrint from './pages/workflow/IntentPrint.jsx';
 import PoPrint from './pages/workflow/PoPrint.jsx';
 
 function Protected() {
@@ -64,6 +65,7 @@ export default function App() {
 
         <Route path="purchase-intent" element={<Need table="purchase-indent"><IntentRegister /></Need>} />
         <Route path="purchase-intent/new" element={<Need table="purchase-indent" action="create"><IntentForm /></Need>} />
+        <Route path="purchase-intent/:id/print" element={<Need table="purchase-indent"><IntentPrint /></Need>} />
         <Route path="purchase-intent/:id" element={<Need table="purchase-indent"><IntentDetail /></Need>} />
         <Route path="purchasing/po" element={<Need table="purchase-order-domestic"><PoRegister /></Need>} />
         <Route path="purchasing/po/new" element={<Need table="purchase-order-domestic" action="create"><PoForm /></Need>} />
