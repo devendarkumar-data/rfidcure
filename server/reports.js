@@ -2,8 +2,8 @@
 import { ROLE_STAGE_ACTIONS, can, fieldAccess, groupAccess } from '../shared/permissions.js';
 import { TABLES } from '../shared/registry.js';
 import { inScope } from './access.js';
-import { itemCatalog } from './crud.js';
-import { StockView, loadStock, locations, scanOpeningStock } from './stock.js';
+import { hospitalSet, itemCatalog } from './crud.js';
+import { StockView, computeBalances, loadStock, locations, scanOpeningStock } from './stock.js';
 import { reqCounts } from './requisition.js';
 import { workflowCounts } from './workflow.js';
 import { bad, forbidden, istParts, normDate, round2, sstr, today, toNum } from './util.js';
@@ -25,13 +25,15 @@ export function scopedBalances(ctx, balances, warehouse) {
 export async function stockBalances(ctx, q = {}) {
   needReports(ctx); needStockFields(ctx);
   if (q.export && !can(ctx.user.role, 'reports', 'export')) throw forbidden();
-  const { balances } = await loadStock(ctx.store);
+  const { balances, opening } = await loadStock(ctx.store);
+  const hosp = q.hospitals === '1' ? new Set() : await hospitalSet(ctx.store); // hospital (imprest) locations are not stock warehouses
+  const open = q.master ? computeBalances(opening, []) : null; // Stock Master: opening and live quantity side by side
   const t = today(); const needle = sstr(q.q).toLowerCase();
-  let rows = scopedBalances(ctx, balances, q.warehouse).filter((e) => (q.showZero ? true : Math.abs(e.qty) > 1e-9));
+  let rows = scopedBalances(ctx, balances, q.warehouse).filter((e) => !hosp.has(e.warehouse)).filter((e) => (q.showZero ? true : Math.abs(e.qty) > 1e-9 || (open && Math.abs(open.get(e.key)?.qty || 0) > 1e-9)));
   if (needle) rows = rows.filter((e) => `${e.itemCode} ${e.itemName} ${e.batch} ${e.brand}`.toLowerCase().includes(needle));
   const shaped = rows.map((e) => {
     const days = e.expiry ? daysBetween(t, e.expiry) : null;
-    return { Warehouse: e.warehouse, 'Item Code': e.itemCode, 'Item Name': e.itemName, Category: e.category, Brand: e.brand, 'Batch Number': e.batch, 'Expiry Date': e.expiry, Quantity: e.qty, 'Stock Value': e.value, Rate: e.qty > 0 ? round2(e.value / e.qty) : 0, 'Days To Expiry': days, Flag: e.qty < 0 ? 'Negative' : days !== null && days < 0 ? 'Expired' : days !== null && days <= 90 ? 'Expiring' : '' };
+    return { Warehouse: e.warehouse, 'Item Code': e.itemCode, 'Item Name': e.itemName, Category: e.category, Brand: e.brand, 'Batch Number': e.batch, 'Expiry Date': e.expiry, ...(open ? { 'Opening Qty': open.get(e.key)?.qty || 0 } : {}), Quantity: e.qty, 'Stock Value': e.value, Rate: e.qty > 0 ? round2(e.value / e.qty) : 0, 'Days To Expiry': days, Flag: e.qty < 0 ? 'Negative' : days !== null && days < 0 ? 'Expired' : days !== null && days <= 90 ? 'Expiring' : '' };
   }).filter((r) => (!q.flag || r.Flag.toLowerCase() === q.flag.toLowerCase()));
   const sortCol = ['Warehouse', 'Item Code', 'Item Name', 'Batch Number', 'Expiry Date', 'Quantity', 'Stock Value', 'Days To Expiry'].includes(q.sort) ? q.sort : 'Item Code';
   const dir = q.dir === 'desc' ? -1 : 1;
@@ -60,8 +62,9 @@ export async function stockLevels(ctx, q = {}) {
 export async function stockSummary(ctx, q = {}) {
   needReports(ctx); needStockFields(ctx);
   const { balances } = await loadStock(ctx.store);
+  const hosp = await hospitalSet(ctx.store);
   const items = new Map(); const whs = new Set();
-  for (const e of scopedBalances(ctx, balances, q.warehouse)) {
+  for (const e of scopedBalances(ctx, balances, q.warehouse).filter((x) => !hosp.has(x.warehouse))) {
     if (Math.abs(e.qty) < 1e-9) continue;
     whs.add(e.warehouse);
     const it = items.get(e.itemCode) || items.set(e.itemCode, { itemCode: e.itemCode, itemName: e.itemName, total: 0, value: 0, by: {} }).get(e.itemCode);

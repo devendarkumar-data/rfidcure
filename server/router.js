@@ -6,11 +6,13 @@ import { mayRaiseIntent } from './workflow.js';
 import { fieldAccess, STAGE_LABELS } from '../shared/permissions.js';
 import { config } from './config.js';
 import { getStore } from './store/index.js';
-import { HttpError, bad, forbidden, notFound } from './util.js';
+import { HttpError, bad, forbidden, notFound, today } from './util.js';
+import { assertCan } from './access.js';
 import { authenticate, changePassword, clearCookie, login, logout, sessionCookie } from './auth.js';
 import * as crud from './crud.js';
 import * as imprest from './imprest.js';
 import * as eway from './eway.js';
+import * as poseries from './poseries.js';
 import * as admin from './admin.js';
 import * as reports from './reports.js';
 import * as wf from './workflow.js';
@@ -213,6 +215,7 @@ export default async function handler(req, res) {
       if (r2 === 'pos/get' && req.method === 'GET') return ok(await wf.getPo(ctx, q.id));
       if (r2 === 'pos/defaults' && req.method === 'GET') return ok(await wf.poDefaults(ctx));
       if (r2 === 'pos/item-info' && req.method === 'GET') return ok(await wf.poItemInfo(ctx, q));
+      if (r2 === 'pos/vendor' && req.method === 'GET') { assertCan(ctx, TABLE_BY_SLUG['purchase-order-domestic'], 'view'); return ok(await poseries.preview(ctx, q.vendor, q.type === 'import' ? 'import' : 'domestic', q.date || today())); }
       if (r2 === 'pos/open' && req.method === 'GET') return ok(await wf.openPos(ctx, q));
       if (r2 === 'pos' && req.method === 'POST') return ok(await wf.savePo(ctx, body, null, idem), 201);
       if (r2 === 'pos' && req.method === 'PUT') return ok(await wf.savePo(ctx, body, q.id));

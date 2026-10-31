@@ -189,3 +189,12 @@ Users with all-warehouse access get a **View warehouse** switcher in the top bar
 - New role **E-Way Bill Operator** (set Role = `E-Way Bill Operator` in the Users sheet; warehouse access = assigned Branch). Can create / edit E-Way Bills (outward and inward) and view dispatches; no access to GRN, purchasing, masters or admin. Super Admin, Admin and All also have the E-Way Bill stage.
 - **Pending E-Way Bills** lists Imprest Outs and Stock Transfers (in the user's warehouses) with no E-Way Bill. **Create E-Way Bill** opens the form with Ref. Doc filled in; once saved (Ref. Doc = the dispatch number) the dispatch leaves the list.
 - The E-Way Bill No. is typed from the GST portal. Automatic generation through the GST/NIC API needs GSP credentials and is not built.
+
+## Vendor-wise PO numbers
+- Number = `PREFIX/FY/SEQ5/SUFFIX`, e.g. `ABC/26-27/00004/DOM`, `PO/26-27/00006/IMP`. Prefix = vendor's **Custom PO Prefix**; blank = the shared `DEFAULT` series with prefix `PO`. Separate counters per vendor/series, purchase type (DOM / IMP) and financial year; a new financial year starts at 00001.
+- Masters (Masters menu): **Vendor Master** (new columns Vendor Category, Custom PO Prefix, Allowed Purchase Type, Default Currency, Allowed Currency, Status; Vendor ID = `Sup ID`), **PO Series Config** (Series ID, Vendor ID, PO Prefix, Purchase Type, Financial Year, Last Sequence, Suffix, Status) and **Currency Master** (seeded on first use). All can be imported from Excel with the standard import button.
+- The counter is kept in PO Series Config (updated under a lock, so two users cannot get the same number). A missing series row is created automatically on first use; an **Inactive** series row blocks creation with an error. Existing PO numbers never change; cancelled numbers are not reused. Inactive vendors and vendors not allowed for the chosen purchase type are refused. Import PO currency must be one of the vendor's Allowed Currency.
+- Domestic POs stay in INR for now (foreign-currency domestic POs are not built).
+
+## Stock Master
+Inventory > **Stock Master**: opening quantity and live quantity per warehouse / item / batch (with expiry, rate, value). Hospital (imprest) locations are left out of Stock Master, Live Stock Overview and Batch-wise Stock. The old Opening Stock menu is replaced by it; import / edit of opening stock is the button on the Stock Master page.

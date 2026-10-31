@@ -144,7 +144,10 @@ export default [
    "Terms of Delivery",
    "Place of Supply",
    "Submit For Approval",
-   "Lines"
+   "Lines",
+   "Financial Year",
+   "PO Prefix",
+   "Series Vendor ID"
   ]
  },
  {
@@ -165,7 +168,10 @@ export default [
    "Location",
    "Supplier Ref No",
    "Destination",
-   "Lines"
+   "Lines",
+   "Financial Year",
+   "PO Prefix",
+   "Series Vendor ID"
   ]
  },
  {
@@ -875,7 +881,43 @@ export default [
    "Pincode",
    "State",
    "GSTIN",
-   "Drug Lic"
+   "Drug Lic",
+   "Vendor Category",
+   "Custom PO Prefix",
+   "Allowed Purchase Type",
+   "Default Currency",
+   "Allowed Currency",
+   "Status"
+  ]
+ },
+ {
+  "tab": "PO Series Config",
+  "module": "M03",
+  "moduleName": "Master Data Management",
+  "type": "Master",
+  "headers": [
+   "Master Id",
+   "Series ID",
+   "Vendor ID",
+   "PO Prefix",
+   "Purchase Type",
+   "Financial Year",
+   "Last Sequence",
+   "Suffix",
+   "Status"
+  ]
+ },
+ {
+  "tab": "Currency Master",
+  "module": "M03",
+  "moduleName": "Master Data Management",
+  "type": "Master",
+  "headers": [
+   "Master Id",
+   "Currency Code",
+   "Currency Name",
+   "Symbol",
+   "Status"
   ]
  },
  {

@@ -468,3 +468,43 @@ test('Warehouse dropdowns: BWH and LWH exist, hospitals are not offered as wareh
   assert.ok(names.includes('BWH') && names.includes('LWH')); assert.ok(!names.some((n) => /city care/i.test(n)));
   const u = (await sa('GET', '/api/admin/users')).json.warehouses; assert.ok(u.includes('LWH') && !u.some((n) => /city care/i.test(n)));
 });
+
+test('Vendor-wise PO numbering: custom prefix / DEFAULT series, DOM / IMP, financial year, no reuse, inactive vendor, allowed type + currency', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  await app.store.append('Vendor Master', [
+    { 'Master Id': 'V1', 'Sup ID': 'VND001', 'Vendor Name': 'ABC Medical', 'Custom PO Prefix': 'ABC', 'Allowed Purchase Type': 'Both', 'Default Currency': 'INR', 'Allowed Currency': 'INR, USD', Status: 'Active' },
+    { 'Master Id': 'V2', 'Sup ID': 'VND002', 'Vendor Name': 'PQR Healthcare', 'Allowed Purchase Type': 'Domestic', Status: 'Active' },
+    { 'Master Id': 'V3', 'Sup ID': 'VND003', 'Vendor Name': 'Gone Ltd', Status: 'Inactive' },
+  ]);
+  const sa = await app.as('sa');
+  const mk = (vendor, extra = {}) => sa('POST', '/api/wf/pos', { header: { Date: '2026-10-27', 'Vendor Account': vendor, Location: 'MWH', Destination: 'MWH', ...extra.header }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 2, Rate: 100, 'GST %': 12 }], submit: false, ...extra.body }, extra.url);
+  const dom = (v) => sa('POST', '/api/wf/pos', { header: { Date: '2026-10-27', 'Vendor Account': v, Location: 'MWH', Destination: 'MWH' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 2, Rate: 100, 'GST %': 12 }], submit: false });
+  assert.equal((await dom('ABC Medical')).json.id, 'ABC/26-27/00001/DOM');
+  assert.equal((await dom('ABC Medical')).json.id, 'ABC/26-27/00002/DOM');
+  assert.equal((await dom('PQR Healthcare')).json.id, 'PO/26-27/00001/DOM');
+  assert.equal((await dom('PQR Healthcare')).json.id, 'PO/26-27/00002/DOM', 'DEFAULT series is shared');
+  const gone = await dom('Gone Ltd'); assert.ok(gone.status >= 400 && gone.status < 500, 'inactive vendor: ' + gone.text);
+  const series = (await sa('GET', '/api/t/po-series-config?pageSize=50')).json.rows; assert.ok(series.some((r) => r['Vendor ID'] === 'VND001' && r['Last Sequence'] === 2)); assert.ok(series.some((r) => r['Vendor ID'] === 'DEFAULT' && r['Last Sequence'] === 2));
+  // import: allowed currency only; separate IMP sequence
+  const imp = (cur, v = 'ABC Medical') => sa('POST', '/api/wf/pos', { poType: 'import', header: { Date: '2026-10-27', 'Vendor Account': v, Location: 'MWH', Destination: 'MWH', Currency: cur, 'Exchange Rate': 83 }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10 }], submit: false });
+  const bad = await imp('EUR'); assert.equal(bad.status >= 400, true, 'EUR is not allowed for ABC');
+  const pv = await sa('GET', '/api/wf/pos/vendor?vendor=ABC%20Medical&type=import&date=2026-10-27'); assert.equal(pv.status, 200, pv.text); assert.equal(pv.json.next, 'ABC/26-27/00001/IMP'); assert.deepEqual(pv.json.vendor.currencies.map((c) => c.code).sort(), ['INR', 'USD']);
+  // concurrent creation never duplicates a number
+  const many = await Promise.all([1, 2, 3, 4].map(() => dom('ABC Medical'))); const ids = many.map((r) => r.json.id); assert.equal(new Set(ids).size, 4, ids.join());
+  // new financial year starts again at 00001
+  const ny = await sa('POST', '/api/wf/pos', { header: { Date: '2027-04-02', 'Vendor Account': 'ABC Medical', Location: 'MWH', Destination: 'MWH' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10, 'GST %': 12 }], submit: false });
+  assert.equal(ny.json.id, 'ABC/27-28/00001/DOM');
+});
+
+test('Stock Master shows opening + live quantity; hospitals are left out of the live stock views', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  await app.store.append('Item Master', [{ 'Master Id': 'IM-Q', 'Item Name': 'Master Screw', Code: 'SM1', Brand: 'ACME', 'Item Category': 'Implants' }]);
+  await app.store.append('Opening Stock', [{ Warehouse: 'MWH', 'Item Code': 'SM1', 'Item Name': 'Master Screw', 'Batch Number': 'M-1', Quantity: 10, 'Expiry Date': '2031-01-01', 'Stock Value': 500 }]);
+  const sa = await app.as('sa');
+  const out = await sa('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-28', 'Customer Account': 'DISTRICT GENERAL HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'SM1', Quantity: 4, Batch: 'M-1' }] });
+  assert.equal(out.status, 201, out.text);
+  const m = (await sa('GET', '/api/stock/balances?master=1&showZero=1&pageSize=200&q=SM1')).json.rows;
+  assert.deepEqual(m.map((r) => [r.Warehouse, r['Opening Qty'], r.Quantity]), [['MWH', 10, 6]], 'hospital row hidden; opening 10, live 6');
+  const sum = (await sa('GET', '/api/stock/summary')).json; assert.ok(!sum.warehouses.includes('DISTRICT GENERAL HOSPITAL'));
+  const withH = (await sa('GET', '/api/stock/balances?hospitals=1&pageSize=200')).json.rows; assert.ok(withH.some((r) => r.Warehouse === 'DISTRICT GENERAL HOSPITAL'));
+});

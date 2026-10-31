@@ -4,8 +4,8 @@ import { TABLES, SPECS, parseDsl, slugify, REFS, TABLE_BY_SLUG } from '../shared
 import TEMPLATE from '../shared/template-tabs.js';
 
 test('67 template worksheets + added tabs, unique slugs', () => {
-  assert.equal(TABLES.length, 68); // 67 from the template + Purchase Requisition
-  assert.equal(new Set(TABLES.map((t) => t.slug)).size, 68);
+  assert.equal(TABLES.length, 70); // 67 from the template + Purchase Requisition + PO Series Config + Currency Master
+  assert.equal(new Set(TABLES.map((t) => t.slug)).size, 70);
 });
 test('every spec refers to a real template tab and every form field is a real column', () => {
   for (const s of SPECS) {

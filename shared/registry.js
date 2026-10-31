@@ -159,7 +159,7 @@ export const SPECS = [
 ];
 const SPEC_BY_TAB = Object.fromEntries(SPECS.map((s) => [s.tab, s]));
 
-const NUMERIC_MASTER_COLS = new Set(['Min Stock Level', 'MOQ', 'No. of Decimals']);
+const NUMERIC_MASTER_COLS = new Set(['Min Stock Level', 'MOQ', 'No. of Decimals', 'Last Sequence']);
 const LONG = new Set(['Narration-Notes', 'Narration / Notes', 'Payment Terms', 'Terms of Delivery', 'IP Whitelist', 'Ship to Address']);
 const DATE_NAME = /(^|[ _])(date|upto)$|^(Date|Ref\. Date|Valid Upto|Invoice Date|Last Login|Last Backup)$/i;
 

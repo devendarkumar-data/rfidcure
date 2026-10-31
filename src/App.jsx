@@ -11,6 +11,7 @@ import { ReqDetail, ReqForm, ReqRegister } from './pages/workflow/requisition.js
 import OpeningStock from './pages/OpeningStock.jsx';
 import NotFound from './pages/NotFound.jsx';
 import StockBatches from './pages/StockBatches.jsx';
+import StockMaster from './pages/StockMaster.jsx';
 import StockSummary from './pages/StockSummary.jsx';
 import TablePage from './pages/TablePage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
@@ -80,6 +81,7 @@ export default function App() {
         <Route path="grn/new" element={<Need table="grn-mrn" action="create"><GrnForm /></Need>} />
         <Route path="grn/:id" element={<Need table="grn-mrn"><GrnDetail /></Need>} />
 
+        <Route path="inventory/stock-master" element={<Need feature="stock"><StockMaster /></Need>} />
         <Route path="inventory/summary" element={<Need feature="stock"><StockSummary /></Need>} />
         <Route path="inventory/opening-stock" element={<Need table="opening-stock"><OpeningStock /></Need>} />
         <Route path="inventory/batches" element={<Need feature="stock"><StockBatches /></Need>} />

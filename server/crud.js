@@ -32,12 +32,18 @@ export async function warehouseList(store) {
 }
 // Warehouses a user can be assigned to: real stock locations only (hospital / imprest virtual warehouses are system-managed).
 export async function assignableWarehouses(store) {
-  const { rows } = await store.read(TAB.warehouseMaster);
-  const virtual = new Set(rows.filter((r) => /virtual|imprest/i.test(sstr(r['Warehouse Type']))).map((r) => sstr(r['Warehouse Name']).toUpperCase()));
-  // anything that has received an Imprest Out is a hospital / customer location, not a stock warehouse
-  const { rows: led } = await store.read('Stock Ledger');
-  for (const r of led) if (r.Type === 'Imprest Out' && toNum(r.Quantity) > 0) virtual.add(sstr(r.Warehouse).toUpperCase());
+  const virtual = await hospitalSet(store);
   return (await warehouseList(store)).filter((w) => !virtual.has(w.toUpperCase()));
+}
+// Hospital / imprest locations (not stock warehouses): virtual warehouses in the master, or any location that received an Imprest Out
+// unless the Warehouse Master explicitly types it as a real warehouse (e.g. Central / Branch / Mother).
+export async function hospitalSet(store) {
+  const { rows } = await store.read(TAB.warehouseMaster);
+  const typ = new Map(rows.map((r) => [sstr(r['Warehouse Name']).toUpperCase(), sstr(r['Warehouse Type'])]));
+  const set = new Set([...typ].filter(([, t]) => /virtual|imprest/i.test(t)).map(([n]) => n));
+  const { rows: led } = await store.read('Stock Ledger');
+  for (const r of led) { const n = sstr(r.Warehouse).toUpperCase(); if (r.Type === 'Imprest Out' && toNum(r.Quantity) > 0 && !(typ.get(n) && !/virtual|imprest/i.test(typ.get(n)))) set.add(n); }
+  return set;
 }
 // Standard branch warehouse that must always exist in the Warehouse Master.
 export const STANDARD_WAREHOUSES = ['BWH', 'LWH'];

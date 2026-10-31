@@ -61,10 +61,10 @@ test('stock engine through the API', async (t) => {
   await t.test('imprest out moves stock source -> imprest warehouse; imprest in brings it back', async () => {
     const out = await wm('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-26', 'To Warehouse': 'CWH' }, lines: [{ Warehouse: 'MWH', Item: 'A1', Quantity: 1, Batch: 'B-LATE' }] });
     assert.equal(out.status, 201, out.text);
-    assert.equal(qtyOf(await bal(sa), 'CWH', 'A1', 'B-LATE'), 3);
+    assert.equal(qtyOf(await bal(sa, '&hospitals=1'), 'CWH', 'A1', 'B-LATE'), 3);
     const back = await app.as('sa');
     const inn = await back('POST', '/api/t/imprest-in-new', { header: { Date: '2026-10-27', 'To Warehouse': 'CWH' }, lines: [{ Warehouse: 'MWH', Item: 'A1', Quantity: 1, Batch: 'B-LATE' }] });
-    assert.equal(inn.status, 201, inn.text); assert.equal(qtyOf(await bal(sa), 'CWH', 'A1', 'B-LATE'), 2);
+    assert.equal(inn.status, 201, inn.text); assert.equal(qtyOf(await bal(sa, '&hospitals=1'), 'CWH', 'A1', 'B-LATE'), 2);
   });
   await t.test('actual stock posts only the variance (admin only)', async () => {
     assert.equal((await wm('POST', '/api/t/actual-stock', { header: { Date: '2026-10-26', Warehouse: 'MWH' }, lines: [{ Items: 'A1', Batch: 'B-LATE', Quantity: 1 }] })).status, 403);

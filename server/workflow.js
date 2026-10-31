@@ -9,6 +9,7 @@ import { assertWarehouses, inScope, maskLines, maskRow, parseLines } from './acc
 import { audit } from './audit.js';
 import { getSettings } from './auth.js';
 import { CURRENCIES } from '../shared/po-options.js';
+import * as poseries from './poseries.js';
 import { itemCatalog, nextDocNo, stripInternal, validateHeader, validateLines, warehouseList } from './crud.js';
 import { loadStock } from './stock.js';
 import { COMPANY } from '../shared/company.js';
@@ -429,7 +430,7 @@ export async function savePo(ctx, body, id, idem) {
     const header = await validateHeader(ctx, t, hdr);
     const date = header.Date || today();
     need(sstr(header['Vendor Account']), 'Vendor is required');
-    if (poType === 'import') { need(CURRENCIES.some(([c]) => c === sstr(header.Currency)), 'Currency is required for an Import PO'); need(toNum(header['Exchange Rate']) > 0, 'Exchange Rate is required for an Import PO'); }
+    if (poType === 'import') { const vi = await poseries.vendorInfo(ctx, header['Vendor Account']); need(vi.currencies.some((c) => c.code === sstr(header.Currency)), `Currency is required and must be one allowed for ${vi.name}: ${vi.currencies.map((c) => c.code).join(', ')}`); need(toNum(header['Exchange Rate']) > 0, 'Exchange Rate is required for an Import PO'); }
     const stock = await loadStock(ctx.store, { fresh: true });
     const catalog = await itemCatalog(ctx.store, stock);
     let lines = await validateLines(ctx, t, cleanLines(body?.lines), catalog, { strictItems: true });
@@ -454,7 +455,8 @@ export async function savePo(ctx, body, id, idem) {
     const intents = [...new Set(calc.lines.map((l) => sstr(l['Intent No'])).filter(Boolean))];
     let no = id;
     if (!id) {
-      no = await nextDocNo(ctx.store, t, date); row[t.idCol] = no;
+      const alloc = await poseries.allocate(ctx, { vendor: header['Vendor Account'], type: poType, date, existingNos: (await ctx.store.read(t.tab, { fresh: true })).rows.map((r) => r[t.idCol]) });
+      no = alloc.no; row[t.idCol] = no; row['Financial Year'] = alloc.fy; row['PO Prefix'] = alloc.prefix; row['Series Vendor ID'] = alloc.seriesVendorId;
       await ctx.store.append(t.tab, [row]);
       await ctx.store.append(DOC_STATUS_TAB, [{ 'Doc Type': PO, 'Document No.': no, Status: status, 'Created By': ctx.user.id, 'Created At': t0, 'Submitted At': wantSubmit ? t0 : '', 'Source Ref': intents.join(', '), Warehouse: loc, ...money, 'Updated At': t0 }]);
       await addHistory(ctx.store, { type: PO, no, event: 'Created', to: status, user: ctx.user, details: { lines: calc.lines.length, ...money } });

@@ -163,7 +163,7 @@ export function IntentForm() {
   return (
     <>
       <PageHeader back={<Back to="/purchase-intent">Purchase Intents</Back>} title={editId ? `Edit Purchase Intent ${editId}` : 'Create Purchase Intent'} subtitle="Request material for a warehouse. Intents never change stock." />
-      <ErrorBox msg={err} />
+      <ErrorBox msg={err || vErr} />
       <Card title="Header" className="mb-4">
         <div className="grid gap-3 sm:grid-cols-3">
           <div><label className="label">Date</label><input type="date" className="input" value={hdr.Date} onChange={(e) => setHdr({ ...hdr, Date: e.target.value })} /></div>
@@ -317,6 +317,11 @@ export function PoForm() {
   const [canChoose, setCanChoose] = useState(true); const [whList, setWhList] = useState([]);
   const [hdr, setHdr] = useState({ Date: todayIST(), 'Type Of Purchase': '', 'Voucher Prefix': 'PO', 'Vendor Account': '', Location: '', 'Is IGST': 'No', 'Place of Supply': '', 'Payment Terms': '', 'Terms of Delivery': '', 'Narration-Notes': '', 'Supplier Ref No': '', 'Exchange Rate': '', Currency: '' });
   const [lines, setLines] = useState([]); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [ready, setReady] = useState(false);
+  const [vinfo, setVinfo] = useState(null); const [vErr, setVErr] = useState('');
+  useEffect(() => {
+    if (editId || !hdr['Vendor Account']) { setVinfo(null); setVErr(''); return; }
+    api.get('/api/wf/pos/vendor', { vendor: hdr['Vendor Account'], type, date: hdr.Date }).then((r) => { setVinfo(r); setVErr(''); setHdr((h) => (type === 'import' && !r.vendor.currencies.some((c) => c.code === h.Currency) ? { ...h, Currency: r.vendor.currencies.some((c) => c.code === r.vendor.defaultCurrency) ? r.vendor.defaultCurrency : (r.vendor.currencies[0]?.code || '') } : h)); }).catch((e) => { setVinfo(null); setVErr(e.message); });
+  }, [hdr['Vendor Account'], type, hdr.Date, editId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [picker, setPicker] = useState(false); const [override, setOverride] = useState(''); const [needOverride, setNeedOverride] = useState(false);
   const canOverride = ['super_admin', 'admin', 'purchase_manager'].includes(user?.role) || user?.actions?.includes?.('po:approve');
 
@@ -378,7 +383,7 @@ export function PoForm() {
           <div><label className="label">Date</label><input type="date" className="input" value={hdr.Date} onChange={(e) => setH('Date', e.target.value)} /></div>
           <div><label className="label">Vendor <span className="text-red-600">*</span></label><Combobox field="Vendor Account" value={hdr['Vendor Account']} onChange={(v) => setH('Vendor Account', v)} /></div>
           {canChoose && <div><label className="label">Warehouse / Location</label><select className="input" value={hdr.Location} onChange={(e) => setH('Location', e.target.value)}>{!hdr.Location && <option value="">Select…</option>}{[...new Set([hdr.Location, ...whList].filter(Boolean))].map((w) => <option key={w}>{w}</option>)}</select></div>}
-          <div><label className="label">Document No. format</label><input className="input bg-slate-50" readOnly value={`PO/${'YY-YY'}/#####/${type === 'import' ? 'IMP' : 'DOM'}`} title="Generated automatically on save; the suffix shows Domestic (DOM) or Import (IMP)" /></div>
+          <div><label className="label">PO No. (generated on save){vinfo ? ` · FY ${vinfo.financialYear}` : ''}</label><input className="input bg-slate-50" readOnly value={vinfo ? vinfo.next : `PREFIX/YY-YY/#####/${type === 'import' ? 'IMP' : 'DOM'}`} title="Generated automatically from the vendor's series; cannot be edited" /></div>
           <div><label className="label">Supplier reference</label><input className="input" value={hdr['Supplier Ref No']} onChange={(e) => setH('Supplier Ref No', e.target.value)} /></div>
           {type === 'domestic' ? (<>
             <div><label className="label">Currency</label><input className="input bg-slate-50" readOnly value={`${BASE_CURRENCY[0]} – ${BASE_CURRENCY[1]}`} /></div>
@@ -387,7 +392,7 @@ export function PoForm() {
             <div className="sm:col-span-2"><label className="label">Payment terms</label><textarea rows={1} className="input h-9 min-h-0 resize-y py-1.5" value={hdr['Payment Terms']} onChange={(e) => setH('Payment Terms', e.target.value)} /></div>
             <div className="sm:col-span-2"><label className="label">Terms of delivery</label><textarea rows={1} className="input h-9 min-h-0 resize-y py-1.5" value={hdr['Terms of Delivery']} onChange={(e) => setH('Terms of Delivery', e.target.value)} /></div>
           </>) : (<>
-            <div><label className="label">Currency <span className="text-red-600">*</span></label><select className="input" value={hdr.Currency} onChange={(e) => setH('Currency', e.target.value)}><option value="">Select…</option>{CURRENCIES.map(([c, n]) => <option key={c} value={c}>{c} – {n}</option>)}</select></div>
+            <div><label className="label">Currency <span className="text-red-600">*</span></label><select className="input" value={hdr.Currency} onChange={(e) => setH('Currency', e.target.value)}><option value="">Select…</option>{(vinfo?.vendor.currencies?.length ? vinfo.vendor.currencies.map((c) => [c.code, c.name]) : CURRENCIES).map(([c, n]) => <option key={c} value={c}>{c} – {n}</option>)}</select></div>
             <div><label className="label">Exchange rate (INR per {hdr.Currency || 'unit'}) <span className="text-red-600">*</span></label><input className="input" type="number" min="0" step="any" value={hdr['Exchange Rate']} onChange={(e) => setH('Exchange Rate', e.target.value)} /></div>
             <div className="sm:col-span-2"><label className="label">Terms of delivery</label><textarea rows={1} className="input h-9 min-h-0 resize-y py-1.5" value={hdr['Terms Of Delivery'] || ''} onChange={(e) => setH('Terms Of Delivery', e.target.value)} /></div>
           </>)}
