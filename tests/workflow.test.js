@@ -195,3 +195,13 @@ test('PO numbers carry a DOM / IMP suffix and a PO can be raised without an inde
   const i = await sa('POST', '/api/wf/pos', { poType: 'import', header: { Date: '2026-10-27', 'Vendor Account': 'BOMBAY ORTHO INDUSTRIES', Location: 'MWH', Currency: 'USD', 'Exchange Rate': 83 }, lines: [{ ...line, 'GST %': undefined }] });
   assert.equal(i.status, 201, i.text); assert.match(i.json.id, /^PO\/26-27\/\d{5}\/IMP$/);
 });
+
+test('PO defaults: every user gets a warehouse dropdown with MWH pre-selected; Place of Supply always has options', async (t) => {
+  const { makeApp } = await import('./helpers.js');
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  const d = (await sa('GET', '/api/wf/pos/defaults')).json;
+  assert.equal(d.canChooseWarehouse, true); assert.equal(d.location, 'MWH'); assert.ok(d.warehouses.includes('MWH'));
+  const pos = (await sa('GET', '/api/lookup?field=Place of Supply')).json.options.map((o) => o.value);
+  assert.ok(pos.includes('Delhi') && pos.length > 20, 'states offered even when the State Master is empty');
+});

@@ -502,10 +502,13 @@ export async function lookup(ctx, field, q, limit = 30, scopeOnly = false, extra
     const names = [...new Set((heads.length ? heads : rows).map((r) => sstr(r['Salesperson Name'])).filter(Boolean))].sort();
     return { options: names.filter((v) => !needle || v.toLowerCase().includes(needle)).map((v) => ({ value: v, label: v })) };
   }
-  const vals = [...new Set(await masterValues(ctx.store, ref))].sort();
+  let vals = [...new Set(await masterValues(ctx.store, ref))].sort();
+  if (!vals.length && ref.master === 'state-master') vals = INDIA_STATES; // State Master not filled yet: offer the standard list
   return { options: vals.filter((v) => !needle || v.toLowerCase().includes(needle)).slice(0, 200).map((v) => ({ value: v, label: v })) };
 }
 
+
+export const INDIA_STATES = ['Andaman and Nicobar Islands', 'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chandigarh', 'Chhattisgarh', 'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir', 'Jharkhand', 'Karnataka', 'Kerala', 'Ladakh', 'Lakshadweep', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Puducherry', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal'];
 
 // Details of a customer / hospital used to pre-fill the Imprest Out shipping block (name, address, city, state, pin, bill code).
 export async function customerDetails(ctx, name) {

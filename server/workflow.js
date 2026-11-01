@@ -609,9 +609,9 @@ export async function poDefaults(ctx) {
   const all = await warehouseList(ctx.store);
   const mine = ctx.user.scope.mode === 'assigned' ? ctx.user.scope.warehouses : null;
   const warehouses = mine ? all.filter((w) => mine.includes(w.toUpperCase())) : all;
-  const location = mine ? (mine[0] || '') : def;
-  // Only users who may pick between several warehouses see the field; a one-warehouse user is pre-filled and cannot change it.
-  return { location, destination: location, canChooseWarehouse: mine ? mine.length > 1 : true, warehouses, note: 'Warehouse defaults to the signed-in user\'s assigned warehouse. Domestic PO: Destination always equals Location.' };
+  const location = warehouses.find((w) => w.toUpperCase() === 'MWH') || (mine ? (mine[0] || '') : def); // Mother Warehouse unless the user may not use it
+  // Everyone sees the Warehouse dropdown (their allowed warehouses; MWH is pre-selected when allowed).
+  return { location, destination: location, canChooseWarehouse: true, warehouses, note: 'Warehouse defaults to MWH when the user may use it, otherwise their first assigned warehouse. Domestic PO: Destination always equals Location.' };
 }
 
 // Per-item helper data for the PO line grid: last PO rate, reorder level, brand, stock at a warehouse.

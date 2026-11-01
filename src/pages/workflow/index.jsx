@@ -321,7 +321,7 @@ export function PoForm() {
   const [key] = useState(() => idemKey());
   const [type, setType] = useState('domestic');
   const [canChoose, setCanChoose] = useState(true); const [whList, setWhList] = useState([]);
-  const [hdr, setHdr] = useState({ Date: todayIST(), 'Type Of Purchase': '', 'Voucher Prefix': 'PO', 'Vendor Account': '', Location: '', 'Is IGST': 'No', 'Place of Supply': '', 'Payment Terms': '', 'Terms of Delivery': '', 'Narration-Notes': '', 'Supplier Ref No': '', 'Exchange Rate': '', Currency: '' });
+  const [hdr, setHdr] = useState({ Date: todayIST(), 'Type Of Purchase': '', 'Voucher Prefix': 'PO', 'Vendor Account': '', Location: '', 'Is IGST': 'No', 'Place of Supply': 'Delhi', 'Payment Terms': '', 'Terms of Delivery': '', 'Narration-Notes': '', 'Supplier Ref No': '', 'Exchange Rate': '', Currency: '' });
   const [lines, setLines] = useState([]); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [ready, setReady] = useState(false);
   const [vinfo, setVinfo] = useState(null); const [vErr, setVErr] = useState('');
   useEffect(() => {
@@ -388,7 +388,7 @@ export function PoForm() {
           <div><label className="label">Type of purchase</label><select className="input" value={hdr['Type Of Purchase']} onChange={(e) => setH('Type Of Purchase', e.target.value)}><option value="">Select…</option>{PURCHASE_TYPES.map((x) => <option key={x}>{x}</option>)}</select></div>
           <div><label className="label">Date</label><input type="date" className="input" value={hdr.Date} onChange={(e) => setH('Date', e.target.value)} /></div>
           <div><label className="label">Vendor <span className="text-red-600">*</span></label><Combobox field="Vendor Account" value={hdr['Vendor Account']} onChange={(v) => setH('Vendor Account', v)} /></div>
-          {canChoose && <div><label className="label">Warehouse / Location</label><select className="input" value={hdr.Location} onChange={(e) => setH('Location', e.target.value)}>{!hdr.Location && <option value="">Select…</option>}{[...new Set([hdr.Location, ...whList].filter(Boolean))].map((w) => <option key={w}>{w}</option>)}</select></div>}
+          {<div><label className="label">Warehouse / Location</label><select className="input" value={hdr.Location} onChange={(e) => setH('Location', e.target.value)}>{!hdr.Location && <option value="">Select…</option>}{[...new Set([hdr.Location, ...whList].filter(Boolean))].map((w) => <option key={w}>{w}</option>)}</select></div>}
           <div><label className="label">PO No. (generated on save){vinfo ? ` · FY ${vinfo.financialYear}` : ''}</label><input className="input bg-slate-50" readOnly value={vinfo ? vinfo.next : `PREFIX/YY-YY/#####/${type === 'import' ? 'IMP' : 'DOM'}`} title="Generated automatically from the vendor's series; cannot be edited" /></div>
           <div><label className="label">Supplier reference</label><input className="input" value={hdr['Supplier Ref No']} onChange={(e) => setH('Supplier Ref No', e.target.value)} /></div>
           {type === 'domestic' ? (<>

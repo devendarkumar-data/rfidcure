@@ -171,7 +171,7 @@ test('PO: warehouse locked to the assigned one, Type of Purchase list, import ne
   const sa = await app.as('sa'); const wm = await app.as('wm');
   await sa('PUT', '/api/admin/access', { tab: 'Purchase Order — Domestic', role: 'warehouse_manager', level: 'Edit' });
   await sa('PUT', '/api/admin/access', { tab: 'Purchase Order — Import', role: 'warehouse_manager', level: 'Edit' });
-  const d = await wm('GET', '/api/wf/pos/defaults'); assert.equal(d.json.location, 'MWH'); assert.equal(d.json.canChooseWarehouse, false);
+  const d = await wm('GET', '/api/wf/pos/defaults'); assert.equal(d.json.location, 'MWH'); assert.equal(d.json.canChooseWarehouse, true); assert.deepEqual(d.json.warehouses, ['MWH']); // dropdown is shown but holds only the user's own warehouse
   const line = [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10, 'GST %': 12 }];
   const base = { 'Vendor Account': 'BOMBAY ORTHO INDUSTRIES', Date: '2026-10-27', 'Type Of Purchase': 'Spine' };
   const other = await wm('POST', '/api/wf/pos', { header: { ...base, Location: 'DWH' }, lines: line, submit: true });
