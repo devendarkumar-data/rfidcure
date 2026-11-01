@@ -199,7 +199,8 @@ export default [
    "Invoice Date",
    "Warehouse",
    "Attachment",
-   "Lines"
+   "Lines",
+   "Receipt Type"
   ]
  },
  {
@@ -918,6 +919,24 @@ export default [
    "Currency Name",
    "Symbol",
    "Status"
+  ]
+ },
+ {
+  "tab": "Attachment Store",
+  "module": "M03",
+  "moduleName": "Master Data Management",
+  "type": "List",
+  "headers": [
+   "Attachment Id",
+   "Doc Type",
+   "File Name",
+   "Mime",
+   "Size",
+   "Part",
+   "Parts",
+   "Data",
+   "Uploaded By",
+   "Uploaded At"
   ]
  },
  {

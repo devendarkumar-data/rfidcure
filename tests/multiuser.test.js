@@ -509,3 +509,24 @@ test('Stock Master shows opening + live quantity; hospitals are left out of the 
   const sum = (await sa('GET', '/api/stock/summary')).json; assert.ok(!sum.warehouses.includes('DISTRICT GENERAL HOSPITAL'));
   const withH = (await sa('GET', '/api/stock/balances?hospitals=1&pageSize=200')).json.rows; assert.ok(withH.some((r) => r.Warehouse === 'DISTRICT GENERAL HOSPITAL'));
 });
+
+test('GRN form drops Place of Supply / Submit For Approval / Destination; attachments upload and download; register searches invoice and PO', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const wm = await app.as('wm');
+  const meta = (await wm('GET', '/api/meta')).json.modules.flatMap((m) => m.tables).find((x) => x.slug === 'grn-mrn');
+  const names = meta.fields.map((f) => f.name);
+  for (const gone of ['Place of Supply', 'Submit For Approval', 'Destination']) assert.ok(!names.includes(gone), `${gone} removed`);
+  for (const need of ['Attachment', 'Receipt Type', 'Invoice No.']) assert.ok(names.includes(need), `${need} present`);
+  assert.equal(meta.fields.find((f) => f.name === 'Attachment').type, 'upload');
+  const pdf = Buffer.from('%PDF-1.4 test').toString('base64');
+  const up = await wm('POST', '/api/attachments', { docType: 'grn', fileName: 'inv 1.pdf', mime: 'application/pdf', data: pdf });
+  assert.equal(up.status, 201, up.text);
+  assert.equal((await wm('POST', '/api/attachments', { docType: 'grn', fileName: 'x.exe', mime: 'application/x-msdownload', data: pdf })).status, 400);
+  assert.equal((await wm('POST', '/api/attachments', { docType: 'grn', fileName: 'big.pdf', mime: 'application/pdf', data: 'A'.repeat(2_100_000) })).status, 400);
+  const dl = (await wm('GET', `/api/attachments/get?id=${up.json.id}`)).json;
+  assert.deepEqual([dl.name, dl.mime, dl.data], ['inv 1.pdf', 'application/pdf', pdf]);
+  const r = await wm('POST', '/api/t/grn-mrn', { ...grn('MWH', [{ 'Item Code': 'A1', Quantity: 1, Rate: 1, Batch: 'ATT-1', 'Expiry Date': '2031-01-01' }]), header: { Date: '2026-11-01', Warehouse: 'MWH', 'Invoice No.': 'INV-7788', Attachment: `${up.json.id}|inv 1.pdf`, 'Receipt Type': 'MRN', 'Update Stock': 'Yes' } });
+  assert.equal(r.status, 201, r.text);
+  const found = (await wm('GET', '/api/t/grn-mrn?q=INV-7788')).json;
+  assert.equal(found.rows.length, 1); assert.equal(found.rows[0]['Receipt Type'], 'MRN');
+});

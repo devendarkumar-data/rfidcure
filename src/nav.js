@@ -1,6 +1,6 @@
 // The ONE place that defines the sidebar. Items only appear when the logged-in user's meta allows them.
 export const DEDICATED_SLUGS = ['purchase-indent', 'purchase-indent-pending', 'purchase-order-domestic', 'purchase-order-import', 'grn-mrn', 'opening-stock', 'stock-ledger', 'purchase-requisition', 'stock-transfer', 'e-way-bill-outward', 'e-way-bill-inward', 'imprest-out-new', 'imprest-out-register', 'imprest-out-pending', 'imprest-in-new', 'imprest-in-register', 'imprest-in-pending', 'material-consumption', 'item-master', 'vendor-master', 'warehouse-master', 'customer-hospital-master'];
-export const ADMIN_SLUGS = ['activity-log', 'login-sessions', 'audit-logs', 'configuration', 'security', 'backup'];
+export const ADMIN_SLUGS = ['activity-log', 'login-sessions', 'audit-logs', 'configuration', 'security', 'backup', 'attachment-store'];
 
 const has = (t, a) => !!t && t.actions.includes(a);
 

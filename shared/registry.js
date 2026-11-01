@@ -58,7 +58,7 @@ const FIXED_OPTIONS = {
 const TYPE_MAP = {
   text: 'text', number: 'number', decimal: 'number', manual: 'number', date: 'date', datepicker: 'date', dropdown: 'select',
   checkbox: 'bool', longtext: 'textarea', 'long text': 'textarea', 'alphanumeric-autogen': 'auto', alphanumeric: 'text',
-  autofill: 'calc', calculated: 'calc', upload: 'text', boolean: 'bool', time: 'text',
+  autofill: 'calc', calculated: 'calc', upload: 'upload', boolean: 'bool', time: 'text',
 };
 export function parseDsl(str) {
   if (!str) return [];
@@ -97,6 +97,7 @@ const RFID_LINES = null;
 export const SPECS = [
   { tab: 'Opening Stock', kind: 'stockdata', stage: 'reports', wh: ['Warehouse'] },
   { tab: 'Stock Ledger', kind: 'audit', stage: 'reports', wh: ['Warehouse'], sort: { col: 'Date', dir: 'desc' } },
+  { tab: 'Attachment Store', kind: 'log', stage: 'admin', hide: ['Data'] },
   { tab: 'Activity Log', kind: 'audit', stage: 'admin', sort: { col: 'Created_Date', dir: 'desc' } },
   { tab: 'Login Sessions', kind: 'audit', stage: 'admin', sort: { col: 'Created_Date', dir: 'desc' } },
   { tab: 'Audit Logs', kind: 'audit', stage: 'admin', sort: { col: 'Created_Date', dir: 'desc' } },
@@ -113,7 +114,8 @@ export const SPECS = [
     lines: 'Items:Dropdown|Description:Text|Warehouse:Dropdown|Units:Text|Current Stock:Number|Reorder Level:Number|Nos. of Pcs/Box:Number|Quantity:Number|Price Type:Dropdown:Price Book,Special Book|Price Book Rate:Number|Special Rate:Number|Last PO Rate:Number|Brand:Dropdown|Item Category:Dropdown|Item Group:Dropdown|Division:Dropdown|Rate:Number|Rate (INR):Calculated|PKG Charges:Number|Other Discount:Number|Gross:Calculated|Line Total:Calculated|Intent No:Text|Intent Line:Number|Line No:Number' },
   { tab: 'GRN  MRN', kind: 'doc', stage: 'grn', workflow: 'grn', prefix: 'GRN', post: 'grn', wh: ['Warehouse'], required: ['Date', 'Warehouse'],
     hideLines: ['PO Line', 'Ordered Qty', 'Received Qty', 'Accepted Qty', 'Rejected / Damaged Qty', 'Excess Decision', 'Short Close'],
-    form: 'Update Stock:Checkbox|Raise Receipt:Checkbox|Attachment:Text',
+    hide: ['Place of Supply', 'Submit For Approval', 'Destination'],
+    form: 'Update Stock:Checkbox|Raise Receipt:Checkbox|Attachment:Upload|Receipt Type:Dropdown:GRN,MRN',
     lines: 'Items:Dropdown|PO No:Dropdown|Description:Autofill|Quantity:Number|Rate:Number|Batch:Text|Expiry Date:Date|Gross:Calculated|Other Discount:Number|Taxable Value:Number|CGST:Number|IGST:Number|Brand:Dropdown|Item Category:Dropdown|Item Group:Dropdown|Division:Dropdown|Price Book Rate:Number|Special Rate:Number|MRP:Number|Price Type:Text|No. of PCS/Box:Number|Ordered Qty:Number|Received Qty:Number|Accepted Qty:Number|Rejected / Damaged Qty:Number|Excess Decision:Dropdown:Amend PO,Reject Excess,Arrange Return|Short Close:Dropdown:Keep Open,Close Balance (authorized)|PO Line:Number' },
 
   { tab: 'Imprest Out — New', kind: 'doc', stage: 'imprest', prefix: 'IIO', post: 'imprest-out', wh: ['To Warehouse'], required: ['Date'], form: IMH_OUT, lines: IML_OUT, hide: ['Return Closed', 'To Warehouse', 'Location', 'Is IGST', 'Ref. Date', 'Supplier', 'Ref. Doc', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State'] },

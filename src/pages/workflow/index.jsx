@@ -9,6 +9,7 @@ import DataTable from '../../components/DataTable.jsx';
 import FilterBar, { FilterItem } from '../../components/FilterBar.jsx';
 import ItemPicker from '../../components/ItemPicker.jsx';
 import Modal from '../../components/Modal.jsx';
+import AttachmentInput, { AttachmentLinks } from '../../components/Attachments.jsx';
 import PageHeader from '../../components/PageHeader.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
@@ -49,7 +50,7 @@ export function Grid({ cols, lines, onChange, readOnly = false, minLines = 1, er
     if (c.type === 'select') return <select className="input min-w-[7rem]" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label}>{c.options.map((o) => <option key={o}>{o}</option>)}</select>;
     if (c.type === 'number') return <input className="input min-w-[6rem] text-right" type="number" min="0" step="any" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label} />;
     if (c.type === 'date') return <input className="input min-w-[9rem]" type="date" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label} />;
-    return <input className="input min-w-[8rem]" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label} />;
+    return <input className={`input ${c.w || 'min-w-[8rem]'}`} value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label} />;
   };
   return (
     <div>
@@ -109,7 +110,7 @@ const INTENT_STATUSES = ['Draft', 'Pending Review', 'Returned for Correction', '
 const intentCols = [
   { k: 'Items', label: 'Item', type: 'item' }, { k: 'Units', label: 'Units', type: 'text' }, { k: 'Current Stock', label: 'Current Stock', type: 'ro', num: true },
   { k: 'Quantity', label: 'Required Qty', type: 'number' }, { k: 'Required By Date', label: 'Required By', type: 'date' },
-  { k: 'Priority', label: 'Priority', type: 'select', options: PRIORITIES }, { k: 'Reason', label: 'Reason', type: 'text' },
+  { k: 'Priority', label: 'Priority', type: 'select', options: PRIORITIES }, { k: 'Reason', label: 'Reason', type: 'text', w: 'min-w-[6rem] max-w-[11rem]' },
 ];
 
 export function IntentForm() {
@@ -395,11 +396,11 @@ export function PoForm() {
             <div><label className="label">IGST?</label><select className="input" value={hdr['Is IGST']} onChange={(e) => setH('Is IGST', e.target.value)}><option>No</option><option>Yes</option></select></div>
             <div><label className="label">Place of supply</label><Combobox field="Place of Supply" value={hdr['Place of Supply']} onChange={(v) => setH('Place of Supply', v)} /></div>
             <div className="sm:col-span-2"><label className="label">Payment terms</label><textarea rows={1} className="input h-9 min-h-0 resize-y py-1.5" value={hdr['Payment Terms']} onChange={(e) => setH('Payment Terms', e.target.value)} /></div>
-            <div className="sm:col-span-2"><label className="label">Terms of delivery</label><textarea rows={1} className="input h-9 min-h-0 resize-y py-1.5" value={hdr['Terms of Delivery']} onChange={(e) => setH('Terms of Delivery', e.target.value)} /></div>
+            <div><label className="label">Terms of delivery</label><textarea rows={1} maxLength={120} className="input h-9 min-h-0 resize-y py-1.5" value={hdr['Terms of Delivery']} onChange={(e) => setH('Terms of Delivery', e.target.value)} /></div>
           </>) : (<>
             <div><label className="label">Currency <span className="text-red-600">*</span></label><select className="input" value={hdr.Currency} onChange={(e) => setH('Currency', e.target.value)}><option value="">Select…</option>{(vinfo?.vendor.currencies?.length ? vinfo.vendor.currencies.map((c) => [c.code, c.name]) : CURRENCIES).map(([c, n]) => <option key={c} value={c}>{c} – {n}</option>)}</select></div>
             <div><label className="label">Exchange rate (INR per {hdr.Currency || 'unit'}) <span className="text-red-600">*</span></label><input className="input" type="number" min="0" step="any" value={hdr['Exchange Rate']} onChange={(e) => setH('Exchange Rate', e.target.value)} /></div>
-            <div className="sm:col-span-2"><label className="label">Terms of delivery</label><textarea rows={1} className="input h-9 min-h-0 resize-y py-1.5" value={hdr['Terms Of Delivery'] || ''} onChange={(e) => setH('Terms Of Delivery', e.target.value)} /></div>
+            <div><label className="label">Terms of delivery</label><textarea rows={1} maxLength={120} className="input h-9 min-h-0 resize-y py-1.5" value={hdr['Terms Of Delivery'] || ''} onChange={(e) => setH('Terms Of Delivery', e.target.value)} /></div>
           </>)}
           <div className="sm:col-span-2 lg:col-span-4"><label className="label">Notes</label><textarea rows={1} className="input h-9 min-h-0 resize-y py-1.5" value={hdr['Narration-Notes']} onChange={(e) => setH('Narration-Notes', e.target.value)} /></div>
         </div>
@@ -580,7 +581,7 @@ export function GrnForm() {
     if (!out.length) return setErr('Enter a received quantity on at least one line');
     setBusy(true);
     try {
-      const header = { ...Object.fromEntries(Object.entries(hdr).filter(([, v]) => !empty(v))), 'Supplier Ref No': po, Warehouse: cur.Warehouse };
+      const header = { ...Object.fromEntries(Object.entries(hdr).filter(([, v]) => !empty(v))), 'Supplier Ref No': po, Warehouse: cur.Warehouse, 'Receipt Type': 'GRN' };
       if (header['Invoice Value'] !== undefined) header['Invoice Value'] = num(header['Invoice Value']);
       const r = await api.post('/api/t/grn-mrn', { header, lines: out }, { headers: { 'Idempotency-Key': key } });
       toast.success(r.duplicate ? 'Already saved — duplicate ignored' : `GRN ${r.id} posted; stock updated`);
@@ -591,9 +592,10 @@ export function GrnForm() {
     <>
       <PageHeader back={<Back to="/grn">GRN Register</Back>} title="Create GRN" subtitle="Receive goods against a Purchase Order — it appears here as soon as it is created, authorization is not required. Accepted quantity is posted to stock once." />
       <ErrorBox msg={err} />
-      <div className="mb-4 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-md border-2 border-brand-600 bg-brand-50 p-3"><div className="font-semibold text-brand-800">Receive against a PO</div><div className="mt-0.5 text-xs text-slate-600">Pick the Purchase Order below; its items and balances are filled in for you.</div></div>
-        <Link to="/grn/manual" className="rounded-md border border-slate-300 bg-white p-3 hover:border-brand-600"><div className="font-semibold text-slate-800">Manual GRN / MRN →</div><div className="mt-0.5 text-xs text-slate-600">Open the full form, add items yourself and link each line to a PO (optional).</div></Link>
+      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-md border-2 border-brand-600 bg-brand-50 p-3"><div className="font-semibold text-brand-800">GRN against a PO</div><div className="mt-0.5 text-xs text-slate-600">Pick the Purchase Order below; its items and balances are filled in for you.</div></div>
+        <Link to="/grn/manual?type=GRN" className="rounded-md border border-slate-300 bg-white p-3 hover:border-brand-600"><div className="font-semibold text-slate-800">Manual GRN →</div><div className="mt-0.5 text-xs text-slate-600">Add items yourself; link a line to a PO if it has one.</div></Link>
+        <Link to="/grn/manual?type=MRN" className="rounded-md border border-slate-300 bg-white p-3 hover:border-brand-600"><div className="font-semibold text-slate-800">Manual MRN →</div><div className="mt-0.5 text-xs text-slate-600">Material receipt note: add items yourself; link a line to a PO if it has one.</div></Link>
       </div>
       <Card title="1. Purchase Order" className="mb-4">
         {!pos.length ? <p className="text-sm text-slate-500">No Purchase Orders are waiting for receipt in your warehouses.</p> : (<>
@@ -613,7 +615,7 @@ export function GrnForm() {
           <div><label className="label">Invoice date</label><input type="date" className="input" value={hdr['Invoice Date']} onChange={(e) => setHdr({ ...hdr, 'Invoice Date': e.target.value })} /></div>
           <div><label className="label">Invoice value</label><input type="number" min="0" step="any" className="input" value={hdr['Invoice Value']} onChange={(e) => setHdr({ ...hdr, 'Invoice Value': e.target.value })} /></div>
           <div className="sm:col-span-2"><label className="label">Notes</label><input className="input" value={hdr['Narration-Notes']} onChange={(e) => setHdr({ ...hdr, 'Narration-Notes': e.target.value })} /></div>
-          <div><label className="label">Attachment reference</label><input className="input" value={hdr.Attachment} onChange={(e) => setHdr({ ...hdr, Attachment: e.target.value })} /></div>
+          <div className="sm:col-span-2"><label className="label">Supporting documents</label><AttachmentInput value={hdr.Attachment} onChange={(v) => setHdr((h) => ({ ...h, Attachment: v }))} /></div>
         </div></Card>
         <Card title="3. Items received (leave quantity blank for lines not delivered)" pad={false} className="mb-4">
           <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-100">
@@ -638,9 +640,9 @@ export function GrnRegister() {
   const nav = useNavigate(); const { tables } = useAuth(); const [range, setRange] = useState({ from: '', to: '' }); const t = tables['grn-mrn'];
   // every GRN column from the sheet (field-level access still applies), key ones first and relabelled
   const LABEL = { 'Document No.': 'GRN No.', 'Supplier Ref No': 'PO No.', 'Vendor Account': 'Vendor' };
-  const FIRST = ['Document No.', 'Date', 'Supplier Ref No', 'Vendor Account', 'Type Of Purchase', 'Warehouse', 'Invoice No.', 'Invoice Date', 'Invoice Value'];
+  const FIRST = ['Document No.', 'Receipt Type', 'Date', 'Supplier Ref No', 'Vendor Account', 'Type Of Purchase', 'Warehouse', 'Invoice No.', 'Invoice Date', 'Invoice Value'];
   const names = (t?.fields || []).map((f) => f.name); const ordered = [...FIRST.filter((n) => names.includes(n)), ...names.filter((n) => !FIRST.includes(n) && n !== 'Lines')];
-  const columns = ordered.map((name) => ({ name, ...(LABEL[name] ? { label: LABEL[name] } : {}), ...(name === 'Document No.' ? { render: (v) => <span className="font-medium text-brand-700">{v}</span> } : {}), ...(name === 'Invoice Value' ? { type: 'number' } : {}), ...(name === 'Narration-Notes' ? { sortable: false } : {}) }));
+  const columns = ordered.map((name) => ({ name, ...(LABEL[name] ? { label: LABEL[name] } : {}), ...(name === 'Document No.' ? { render: (v) => <span className="font-medium text-brand-700">{v}</span> } : {}), ...(name === 'Invoice Value' ? { type: 'number' } : {}), ...(['Narration-Notes', 'Terms of Delivery'].includes(name) ? { sortable: false, render: (v) => <span className="block max-w-[10rem] truncate" title={v}>{v}</span> } : {}), ...(name === 'Attachment' ? { sortable: false, render: (v) => <AttachmentLinks value={v} /> } : {}) }));
   const canCreate = t?.actions.includes('create');
   return (
     <>
@@ -649,7 +651,7 @@ export function GrnRegister() {
         <FilterItem label="From"><input type="date" className="input" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></FilterItem>
         <FilterItem label="To"><input type="date" className="input" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></FilterItem>
       </FilterBar>
-      <DataTable endpoint="/api/t/grn-mrn" columns={columns} params={range} exportable={t?.actions.includes('export')} exportName="grn" defaultSort={{ col: 'Date', dir: 'desc' }}
+      <DataTable endpoint="/api/t/grn-mrn" columns={columns} searchPlaceholder="Search invoice no., PO no., linked PO, item, vendor…" params={range} exportable={t?.actions.includes('export')} exportName="grn" defaultSort={{ col: 'Date', dir: 'desc' }}
         rowKey={(r) => r['Document No.']} onRowClick={(r) => nav(`/grn/${encodeURIComponent(r['Document No.'])}`)}
         rowActions={(r) => (
           <div className="flex justify-end gap-1">
@@ -672,11 +674,11 @@ export function GrnDetail() {
     <>
       <PageHeader back={<Back to="/grn">GRN Register</Back>} title={`GRN ${id}`} actions={h['Supplier Ref No'] && <Link className="btn" to={`/purchasing/po/${encodeURIComponent(h['Supplier Ref No'])}`}>View PO {h['Supplier Ref No']}</Link>} />
       <Card title="Header" className="mb-4"><dl className="grid gap-4 sm:grid-cols-4">
-        {Object.entries(h).filter(([k]) => k !== 'Lines' && k !== '__row').map(([k, v]) => <KV key={k} k={k === 'Supplier Ref No' ? 'PO No.' : k === 'Vendor Account' ? 'Vendor' : k}>{String(v ?? '')}</KV>)}
+        {Object.entries(h).filter(([k]) => k !== 'Lines' && k !== '__row').map(([k, v]) => <KV key={k} k={k === 'Supplier Ref No' ? 'PO No.' : k === 'Vendor Account' ? 'Vendor' : k}>{k === 'Attachment' ? <AttachmentLinks value={v} /> : String(v ?? '')}</KV>)}
       </dl></Card>
       <Card title="Items" pad={false}><div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-100">
-        <thead><tr>{['#', 'Item', 'PO line', 'Ordered', 'Received', 'Rejected', 'Accepted', 'Batch', 'Expiry'].map((x) => <th key={x} className="th">{x}</th>)}</tr></thead>
-        <tbody className="divide-y divide-slate-100">{lines.map((l, i) => <tr key={i}><td className="td">{i + 1}</td><td className="td"><div className="font-medium">{l.Items}</div><div className="text-xs text-slate-500">{l['Item Code']}</div></td><td className="td">{l['PO Line']}</td>
+        <thead><tr>{['#', 'Item', 'Linked PO', 'PO line', 'Ordered', 'Received', 'Rejected', 'Accepted', 'Batch', 'Expiry'].map((x) => <th key={x} className="th">{x}</th>)}</tr></thead>
+        <tbody className="divide-y divide-slate-100">{lines.map((l, i) => <tr key={i}><td className="td">{i + 1}</td><td className="td"><div className="font-medium">{l.Items}</div><div className="text-xs text-slate-500">{l['Item Code']}</div></td><td className="td">{l['PO No'] || h['Supplier Ref No'] || '—'}</td><td className="td">{l['PO Line']}</td>
           <td className="td text-right tabular-nums">{n2(l['Ordered Qty'])}</td><td className="td text-right tabular-nums">{n2(l['Received Qty'])}</td><td className="td text-right tabular-nums">{n2(l['Rejected / Damaged Qty'])}</td><td className="td text-right tabular-nums">{n2(l['Accepted Qty'])}</td><td className="td">{l.Batch}</td><td className="td">{l['Expiry Date']}</td></tr>)}</tbody></table></div></Card>
     </>
   );

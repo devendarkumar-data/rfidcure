@@ -198,3 +198,9 @@ Users with all-warehouse access get a **View warehouse** switcher in the top bar
 
 ## Stock Master
 Inventory > **Stock Master**: opening quantity and live quantity per warehouse / item / batch (with expiry, rate, value). Hospital (imprest) locations are left out of Stock Master, Live Stock Overview and Batch-wise Stock. The old Opening Stock menu is replaced by it; import / edit of opening stock is the button on the Stock Master page.
+
+## GRN / MRN – manual entry, attachments
+- Create GRN offers three ways: against a PO, **Manual GRN** and **Manual MRN** (saved in the new trailing `Receipt Type` column of `GRN  MRN`). Manual forms default the warehouse to MWH when the user may use it.
+- Place of Supply, Submit For Approval and Destination are no longer on the GRN form (the sheet columns stay).
+- Supporting documents (PDF / PNG / JPG, 1.5 MB each, 5 per GRN) are stored in the new `Attachment Store` tab as base64 chunks. Sheet cells are small, so for larger files move this to object storage.
+- The GRN register search covers invoice no., PO no. and the PO linked on each line.

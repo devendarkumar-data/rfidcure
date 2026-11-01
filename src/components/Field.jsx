@@ -1,4 +1,5 @@
 import Combobox from './Combobox.jsx';
+import AttachmentInput from './Attachments.jsx';
 
 const baseId = (n) => `f-${String(n).replace(/[^a-z0-9]+/gi, '-')}`;
 
@@ -10,6 +11,8 @@ export default function Field({ field, value, onChange, required, disabled, erro
   let control;
   if (field.type === 'auto' || field.type === 'calc') {
     control = <input id={id} className="input" value={v} disabled placeholder={field.type === 'auto' ? 'Generated on save' : 'Calculated'} />;
+  } else if (field.type === 'upload') {
+    control = <AttachmentInput id={id} value={v} disabled={ro} onChange={onChange} />;
   } else if (field.options || field.type === 'bool' || field.yesNo) {
     const opts = field.options || ['Yes', 'No'];
     control = (
@@ -30,7 +33,7 @@ export default function Field({ field, value, onChange, required, disabled, erro
     control = <input id={id} className="input" type="text" value={v} disabled={ro} maxLength={500} onChange={(e) => onChange(e.target.value)} />;
   }
   return (
-    <div className={field.type === 'textarea' ? 'sm:col-span-2 [.compact_&]:col-span-2 2xl:[.compact_&]:col-span-2' : ''}>
+    <div className={field.type === 'textarea' || field.type === 'upload' ? 'sm:col-span-2 [.compact_&]:col-span-2 2xl:[.compact_&]:col-span-2' : ''}>
       <label htmlFor={id} className="label">{field.name}{required && <span className="text-red-600"> *</span>}</label>
       {control}
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
