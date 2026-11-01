@@ -126,11 +126,24 @@ test('Purchase Intent -> PO authorization -> GRN workflow', async (t) => {
     const g = (await sa('GET', `/api/t/grn-mrn/record?id=${encodeURIComponent(ctx.grn)}`)).json;
     assert.equal(g.record['Vendor Account'], 'Acme Surgicals'); assert.equal(g.record.Warehouse, 'MWH'); assert.equal(g.lines[0]['Item Code'], 'A1');
   });
+  await t.test('F2: manual GRN - items added by hand, a line names its PO (PO No) and is received against it', async () => {
+    const before = await stockOf(sa, 'MWH', 'A1');
+    const r = await op('POST', '/api/t/grn-mrn', { header: { Date: '2026-10-28', Warehouse: 'MWH', 'Invoice No.': 'INV-M' }, lines: [{ 'Item Code': 'A1', Quantity: 1, Batch: 'GRN-M1', 'Expiry Date': '2031-06-30', 'PO No': ctx.po }] });
+    assert.equal(r.status, 201, r.text);
+    assert.equal(await stockOf(sa, 'MWH', 'A1'), before + 1);
+    const po = (await pm('GET', `/api/wf/pos/get?id=${encodeURIComponent(ctx.po)}`)).json;
+    assert.equal(po.lines[0]['Received Qty'], 3); assert.equal(po.lines[0]['Balance Qty'], 1);
+    const bad = await op('POST', '/api/t/grn-mrn', { header: { Date: '2026-10-28', Warehouse: 'MWH' }, lines: [{ 'Item Code': 'A1', Quantity: 5, Batch: 'GRN-M2', 'Expiry Date': '2031-06-30', 'PO No': ctx.po }] });
+    assert.equal(bad.status, 422, 'more than the PO balance');
+    const free = await op('POST', '/api/t/grn-mrn', { header: { Date: '2026-10-28', Warehouse: 'MWH' }, lines: [{ 'Item Code': 'A1', Quantity: 1, Batch: 'GRN-M3', 'Expiry Date': '2031-06-30' }] });
+    assert.equal(free.status, 201, 'a line without a PO is a plain manual receipt');
+    const lk = await op('GET', '/api/lookup?field=PO%20No'); assert.equal(lk.status, 200, lk.text); assert.ok(lk.json.options.some((o) => o.value === ctx.po));
+  });
   await t.test('full receipt completes the PO and removes it from Pending POs; closed intents/POs stay in All', async () => {
-    const r = await op('POST', '/api/t/grn-mrn', grnBody(ctx.po, [{ 'PO Line': 1, 'Received Qty': 2, Batch: 'GRN-B2', 'Expiry Date': '2031-06-30' }]));
+    const r = await op('POST', '/api/t/grn-mrn', grnBody(ctx.po, [{ 'PO Line': 1, 'Received Qty': 1, Batch: 'GRN-B2', 'Expiry Date': '2031-06-30' }]));
     assert.equal(r.status, 201, r.text);
     const po = (await pm('GET', `/api/wf/pos/get?id=${encodeURIComponent(ctx.po)}`)).json;
-    assert.equal(po.status.Status, 'Completed'); assert.equal(po.grns.length, 2);
+    assert.equal(po.status.Status, 'Completed'); assert.equal(po.grns.length, 3);
     assert.equal((await pm('GET', '/api/wf/pos?view=pending')).json.total, 0);
     assert.equal((await pm('GET', '/api/wf/pos?view=all')).json.total, 1);
     assert.equal((await op('POST', '/api/t/grn-mrn', grnBody(ctx.po, [{ 'PO Line': 1, 'Received Qty': 1, Batch: 'X' }]))).status, 422); // PO is completed

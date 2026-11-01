@@ -24,6 +24,7 @@ import ConsumptionPage from './pages/ConsumptionPage.jsx';
 import { GrnDetail, GrnForm, GrnRegister, IntentDetail, IntentForm, IntentRegister, PoDetail, PoForm, PoRegister } from './pages/workflow/index.jsx';
 import DocPrint from './pages/DocPrint.jsx';
 import IntentPrint from './pages/workflow/IntentPrint.jsx';
+import GrnManual from './pages/workflow/GrnManual.jsx';
 import PoPrint from './pages/workflow/PoPrint.jsx';
 
 function Protected() {
@@ -78,6 +79,7 @@ export default function App() {
         <Route path="reports" element={<Need feature="reports"><ReportsIndex /></Need>} />
         <Route path="reports/:key" element={<Need feature="reports"><ReportPage /></Need>} />
         <Route path="grn" element={<Need table="grn-mrn"><GrnRegister /></Need>} />
+        <Route path="grn/manual" element={<Need table="grn-mrn" action="create"><GrnManual /></Need>} />
         <Route path="grn/new" element={<Need table="grn-mrn" action="create"><GrnForm /></Need>} />
         <Route path="grn/:id" element={<Need table="grn-mrn"><GrnDetail /></Need>} />
 

@@ -163,7 +163,7 @@ export function IntentForm() {
   return (
     <>
       <PageHeader back={<Back to="/purchase-intent">Purchase Intents</Back>} title={editId ? `Edit Purchase Intent ${editId}` : 'Create Purchase Intent'} subtitle="Request material for a warehouse. Intents never change stock." />
-      <ErrorBox msg={err || vErr} />
+      <ErrorBox msg={err} />
       <Card title="Header" className="mb-4">
         <div className="grid gap-3 sm:grid-cols-3">
           <div><label className="label">Date</label><input type="date" className="input" value={hdr.Date} onChange={(e) => setHdr({ ...hdr, Date: e.target.value })} /></div>
@@ -375,7 +375,7 @@ export function PoForm() {
   return (
     <>
       <PageHeader back={<Back to="/purchasing/po">Purchase Orders</Back>} title={editId ? `Edit PO ${editId}` : 'Create Purchase Order'} subtitle="Raise the PO from approved Purchase Intents. Stock changes only when goods are received (GRN)." />
-      <ErrorBox msg={err} />
+      <ErrorBox msg={err || vErr} />
       <Card title="Header" className="mb-4">
         <div className="grid gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
           {!editId && <div><label className="label" htmlFor="po-cat">Purchase category</label><select id="po-cat" className="input" value={type} onChange={(e) => { setType(e.target.value); setLines([]); }}><option value="domestic">Domestic</option><option value="import">Import</option></select></div>}
@@ -586,6 +586,10 @@ export function GrnForm() {
     <>
       <PageHeader back={<Back to="/grn">GRN Register</Back>} title="Create GRN" subtitle="Receive goods against a Purchase Order — it appears here as soon as it is created, authorization is not required. Accepted quantity is posted to stock once." />
       <ErrorBox msg={err} />
+      <div className="mb-4 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-md border-2 border-brand-600 bg-brand-50 p-3"><div className="font-semibold text-brand-800">Receive against a PO</div><div className="mt-0.5 text-xs text-slate-600">Pick the Purchase Order below; its items and balances are filled in for you.</div></div>
+        <Link to="/grn/manual" className="rounded-md border border-slate-300 bg-white p-3 hover:border-brand-600"><div className="font-semibold text-slate-800">Manual GRN / MRN →</div><div className="mt-0.5 text-xs text-slate-600">Open the full form, add items yourself and link each line to a PO (optional).</div></Link>
+      </div>
       <Card title="1. Purchase Order" className="mb-4">
         {!pos.length ? <p className="text-sm text-slate-500">No Purchase Orders are waiting for receipt in your warehouses.</p> : (<>
           <input className="input mb-2 sm:max-w-sm" placeholder="Search PO or vendor…" value={q} onChange={(e) => setQ(e.target.value)} />

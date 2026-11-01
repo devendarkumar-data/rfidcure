@@ -95,7 +95,7 @@ export function coerce(f, v, where) {
 }
 
 async function refCheck(ctx, f, value, where) {
-  if (isBlank(value) || !f.ref || ['item', 'company', 'bhead'].includes(f.ref.special)) return;
+  if (isBlank(value) || !f.ref || ['item', 'company', 'bhead', 'po'].includes(f.ref.special)) return;
   const cache = (ctx.cache ||= new Map());
   const ck = f.ref.master ? `m:${f.ref.master}:${f.ref.col}` : `s:${f.ref.special}`;
   if (!cache.has(ck)) cache.set(ck, f.ref.master ? await masterValues(ctx.store, f.ref) : (await warehouseList(ctx.store)));
@@ -490,6 +490,11 @@ export async function lookup(ctx, field, q, limit = 30, scopeOnly = false, extra
     const cfg = (await ctx.store.read('Configuration')).rows[0] || {};
     const names = [...new Set([sstr(cfg['Company Name']), ...(await masterValues(ctx.store, { master: 'account-master', col: 'Name' }))].filter(Boolean))].sort();
     return { options: names.filter((v) => !needle || v.toLowerCase().includes(needle)).map((v) => ({ value: v, label: v })) };
+  }
+  if (ref.special === 'po') { // open Purchase Orders (not fully received / closed) in the user's warehouses - for linking a manual GRN line
+    const { openPoList } = await import('./workflow.js');
+    const list = await openPoList(ctx);
+    return { options: list.filter((p) => !needle || `${p.no} ${p.vendor}`.toLowerCase().includes(needle)).slice(0, 60).map((p) => ({ value: p.no, label: `${p.no} · ${p.vendor} · ${p.warehouse}` })) };
   }
   if (ref.special === 'bhead') { // Sales Executive Master rows typed "Business Head"; if none are typed, every salesperson is offered
     const { rows } = await ctx.store.read('Sales Executive Master');

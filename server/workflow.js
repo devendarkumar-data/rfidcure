@@ -108,12 +108,13 @@ async function poReceived(ctx, { fresh = true } = {}) {
   const t = grnTable(); const { rows } = await ctx.store.read(t.tab, { fresh });
   const out = new Map(); const grns = new Map();
   for (const r of rows) {
-    const po = sstr(r['Supplier Ref No']); if (!po) continue;
+    const head = sstr(r['Supplier Ref No']); const seen = new Set();
     for (const l of parseLines(r.Lines)) {
-      if (!toNum(l['PO Line'])) continue;
+      const po = sstr(l['PO No']) || head; if (!po || !toNum(l['PO Line'])) continue;
       const k = `${po}|${toNum(l['PO Line'])}`; out.set(k, (out.get(k) || 0) + toNum(l['Accepted Qty']));
+      if (!seen.has(po)) { seen.add(po); (grns.get(po) || grns.set(po, []).get(po)).push(sstr(r['Document No.'])); }
     }
-    (grns.get(po) || grns.set(po, []).get(po)).push(sstr(r['Document No.']));
+    if (head && !seen.has(head)) (grns.get(head) || grns.set(head, []).get(head)).push(sstr(r['Document No.']));
   }
   return { received: out, grns };
 }
@@ -526,6 +527,10 @@ export async function poAction(ctx, id, body) {
   });
 }
 
+export async function openPoList(ctx) {
+  return (await allPos(ctx)).filter((x) => PO_OPEN_FOR_GRN.has(x.s.Status) && (ctx.user.scope.mode !== 'assigned' || inScope(ctx, x.r.Destination || x.r.Location)) && x.bals.some((b) => b.balance > 1e-9))
+    .map((x) => ({ no: sstr(x.r[x.t.idCol]), vendor: sstr(x.r['Vendor Account']), warehouse: sstr(x.r.Destination || x.r.Location) }));
+}
 async function allPos(ctx, { fresh = false } = {}) {
   const st = await statusMap(ctx.store, { fresh }); const { received, grns } = await poReceived(ctx, { fresh });
   const out = [];
@@ -643,11 +648,26 @@ export async function openPos(ctx, q = {}) {
 
 // ---- GRN integration (used as hooks by the generic create path) ---------------------------------------------------------
 export function grnHooks(ctx) {
-  let poNo = '';
+  let poNo = ''; const linked = new Set();
   return {
     async rawBody(body) {
       poNo = sstr(body?.header?.['Supplier Ref No']);
-      if (!poNo) return body; // direct receipt (no PO) keeps the existing GRN behaviour
+      if (!poNo) { // manual GRN: items are added by hand; a line may name the PO it belongs to (PO No), which is then received against
+        const all = await allPos(ctx, { fresh: true }); const taken = new Map(); const lines = [];
+        for (const [i, l] of (body?.lines || []).entries()) {
+          const no = sstr(l['PO No']);
+          if (!no) { lines.push(l); continue; }
+          const x = all.find((p) => p.r[p.t.idCol] === no); if (!x) throw unprocessable(`Line ${i + 1}: PO ${no} was not found`);
+          if (!PO_OPEN_FOR_GRN.has(x.s.Status)) throw unprocessable(`Line ${i + 1}: PO ${no} is "${x.s.Status}" and cannot be received against`);
+          const code = sstr(l['Item Code']); const qty = toNum(l.Quantity); need(qty > 0, `Line ${i + 1}: Quantity must be greater than zero`);
+          const cand = x.bals.map((b) => ({ b, pl: x.lines.find((q) => toNum(q['Line No']) === b.lineNo) })).filter((c) => sstr(c.pl['Item Code']) === code && c.b.balance - (taken.get(`${no}|${c.b.lineNo}`) || 0) >= qty - 1e-9);
+          if (!cand.length) throw unprocessable(`Line ${i + 1} (${code}): PO ${no} has no line for this item with ${qty} still to receive`);
+          const c = cand[0]; taken.set(`${no}|${c.b.lineNo}`, (taken.get(`${no}|${c.b.lineNo}`) || 0) + qty);
+          lines.push({ ...l, 'PO No': no, 'PO Line': c.b.lineNo, 'Ordered Qty': toNum(c.pl.Quantity), 'Received Qty': qty, 'Rejected / Damaged Qty': 0, 'Accepted Qty': qty });
+          linked.add(no);
+        }
+        return { ...body, header: { ...body.header, 'Update Stock': sstr(body.header?.['Update Stock']) || 'Yes' }, lines };
+      }
       const x = (await allPos(ctx, { fresh: true })).find((p) => p.r[p.t.idCol] === poNo);
       if (!x) throw unprocessable(`PO ${poNo} was not found`);
       if (!PO_OPEN_FOR_GRN.has(x.s.Status)) throw unprocessable(`PO ${poNo} is "${x.s.Status}". Goods can be received only against a Pending Authorization, Authorized or Partially Received PO.`);
@@ -667,7 +687,7 @@ export function grnHooks(ctx) {
       }
       return { ...body, header, lines };
     },
-    async after() { if (poNo) await refreshPoReceipt(ctx, poNo); },
+    async after() { if (poNo) await refreshPoReceipt(ctx, poNo); for (const n of linked) await refreshPoReceipt(ctx, n); },
   };
 }
 

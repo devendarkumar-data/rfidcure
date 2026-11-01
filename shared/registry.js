@@ -42,6 +42,7 @@ export const REFS = {
 for (const f of WAREHOUSE_FIELDS) REFS[f] = { special: 'warehouse' };
 REFS.Items = REFS.Item = { special: 'item' };
 REFS['Stock Item'] = { special: 'stock' };
+REFS['PO No'] = { special: 'po' };
 
 const YN = ['Yes', 'No'];
 const INDENT_STATUS = ['Draft', 'Submitted', 'Approved', 'Partially Fulfilled', 'Fulfilled', 'Rejected'];
@@ -111,8 +112,9 @@ export const SPECS = [
   { tab: 'Purchase Order — Import', kind: 'doc', stage: 'po', workflow: 'po', poType: 'import', prefix: 'PO', suffix: 'IMP', required: ['Date', 'Vendor Account'],
     lines: 'Items:Dropdown|Description:Text|Units:Text|Current Stock:Number|Quantity:Number|Rate:Number|Rate (INR):Calculated|PKG Charges:Number|Other Discount:Number|Gross:Calculated|Line Total:Calculated|Intent No:Text|Intent Line:Number|Line No:Number' },
   { tab: 'GRN  MRN', kind: 'doc', stage: 'grn', workflow: 'grn', prefix: 'GRN', post: 'grn', wh: ['Warehouse'], required: ['Date', 'Warehouse'],
+    hideLines: ['PO Line', 'Ordered Qty', 'Received Qty', 'Accepted Qty', 'Rejected / Damaged Qty', 'Excess Decision', 'Short Close'],
     form: 'Update Stock:Checkbox|Raise Receipt:Checkbox|Attachment:Text',
-    lines: 'Items:Dropdown|Description:Autofill|Quantity:Number|Rate:Number|Batch:Text|Expiry Date:Date|Gross:Calculated|Other Discount:Number|Taxable Value:Number|CGST:Number|IGST:Number|Brand:Dropdown|Item Category:Dropdown|Item Group:Dropdown|Division:Dropdown|Ordered Qty:Number|Received Qty:Number|Accepted Qty:Number|Rejected / Damaged Qty:Number|Excess Decision:Dropdown:Amend PO,Reject Excess,Arrange Return|Short Close:Dropdown:Keep Open,Close Balance (authorized)|PO Line:Number' },
+    lines: 'Items:Dropdown|PO No:Dropdown|Description:Autofill|Quantity:Number|Rate:Number|Batch:Text|Expiry Date:Date|Gross:Calculated|Other Discount:Number|Taxable Value:Number|CGST:Number|IGST:Number|Brand:Dropdown|Item Category:Dropdown|Item Group:Dropdown|Division:Dropdown|Ordered Qty:Number|Received Qty:Number|Accepted Qty:Number|Rejected / Damaged Qty:Number|Excess Decision:Dropdown:Amend PO,Reject Excess,Arrange Return|Short Close:Dropdown:Keep Open,Close Balance (authorized)|PO Line:Number' },
 
   { tab: 'Imprest Out — New', kind: 'doc', stage: 'imprest', prefix: 'IIO', post: 'imprest-out', wh: ['To Warehouse'], required: ['Date'], form: IMH_OUT, lines: IML_OUT, hideLines: ['Rate', 'Gross'], hide: ['Return Closed', 'To Warehouse', 'Location', 'Is IGST', 'Ref. Date', 'Supplier', 'Ref. Doc', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State'] },
   { tab: 'Imprest Out Register', kind: 'list', stage: 'imprest', wh: ['To Warehouse'] },
