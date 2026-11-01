@@ -309,7 +309,7 @@ const poCols = (type) => (type === 'domestic' ? [
   { k: 'Items', label: 'Items', type: 'item' }, { k: 'Description', label: 'Description', type: 'text' }, { k: 'Units', label: 'Units', type: 'text' },
   { k: 'Intent No', label: 'Intent', type: 'ro' }, { k: 'Intent Line', label: 'Int. line', type: 'ro' },
   { k: 'Quantity', label: 'Quantity', type: 'number' },
-  { k: 'Price Type', label: 'Price Type', type: 'select', options: ['', 'Price Book', 'Special Book'] }, { k: 'Price Book Type', label: 'Price Book Type', type: 'text', w: 'min-w-[7rem]' }, { k: 'Special Rate', label: 'Special Rate', type: 'number' },
+  { k: 'Price Type', label: 'Price Type', type: 'select', options: ['', 'Price Book', 'Special Book'] }, { k: 'Price Book Type', label: 'Price Book Type', type: 'text', w: 'min-w-[7rem]' }, { k: 'Special Rate', label: 'Special Rate', type: 'number' }, { k: 'L-Imprest Out', label: 'L-Imprest Out', type: 'text', w: 'min-w-[8rem]' },
   { k: 'Rate', label: 'Rate (FX)', type: 'number' }, { k: 'Gross', label: 'Gross', type: 'ro', num: true },
   { k: 'PKG Charges', label: 'PKG Charges', type: 'number' }, { k: 'Other Discount', label: 'Other Discount', type: 'number' },
   { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' }, { k: 'Last PO Rate', label: 'Last PO Rate', type: 'number' },
