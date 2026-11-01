@@ -304,11 +304,11 @@ const poCols = (type) => (type === 'domestic' ? [
   { k: 'Price Type', label: 'Price Type', type: 'select', options: ['', 'Price Book', 'Special Book'] }, { k: 'Price Book Rate', label: 'Price Book Rate', type: 'number' }, { k: 'Special Rate', label: 'Special Rate', type: 'number' }, { k: 'Last PO Rate', label: 'Last PO Rate', type: 'number' },
   { k: 'Brand', label: 'Brand', type: 'ref', field: 'Brand' }, { k: 'Item Group', label: 'Item Group', type: 'ref', field: 'Item Group' }, { k: 'Division', label: 'Division', type: 'ref', field: 'Division' },
   { k: 'Other Discount', label: 'Discount', type: 'number' }, { k: 'GST %', label: 'GST %', type: 'number' },
-  { k: 'Intent No', label: 'Intent', type: 'ro' }, { k: 'Intent Line', label: 'Int. line', type: 'ro' }, { k: 'Line Total', label: 'Line Total', type: 'ro', num: true },
+  { k: 'Intent No', label: 'L-Purchase Indent', type: 'ro' }, { k: 'Intent Line', label: 'Int. line', type: 'ro' }, { k: 'Line Total', label: 'Line Total', type: 'ro', num: true },
 ] : [
   { k: 'Items', label: 'Item', type: 'item' }, { k: 'Description', label: 'Description', type: 'text' }, { k: 'Units', label: 'Units', type: 'text' },
   { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' }, { k: 'Nos. of Pcs/Box', label: 'Nos. of Pcs/Box', type: 'number' },
-  { k: 'Intent No', label: 'Intent', type: 'ro' }, { k: 'Intent Line', label: 'Int. line', type: 'ro' },
+  { k: 'Intent No', label: 'L-Purchase Indent', type: 'ro' }, { k: 'Intent Line', label: 'Int. line', type: 'ro' },
   { k: 'Quantity', label: 'Quantity', type: 'number' },
   { k: 'Price Type', label: 'Price Type', type: 'select', options: ['', 'Price Book', 'Special Book'] }, { k: 'Price Book Rate', label: 'Price Book Rate', type: 'number' }, { k: 'Special Rate', label: 'Special Rate', type: 'number' }, { k: 'Last PO Rate', label: 'Last PO Rate', type: 'number' },
   { k: 'Brand', label: 'Brand', type: 'ref', field: 'Brand' }, { k: 'Item Category', label: 'Item Category', type: 'ref', field: 'Item Category' }, { k: 'Item Group', label: 'Item Group', type: 'ref', field: 'Item Group' }, { k: 'Division', label: 'Division', type: 'ref', field: 'Division' },
@@ -461,7 +461,7 @@ export function PoRegister() {
   const act = async (id, action, remarks) => { try { await api.post(`/api/wf/pos/action?id=${encodeURIComponent(id)}`, { action, remarks }); toast.success(`PO ${id}: ${action === 'approve' ? 'authorized' : 'rejected'}`); setRk((n) => n + 1); } catch (e) { toast.error(e.message); throw e; } };
   const columns = [
     { name: 'Document No.', label: 'PO No.', render: (v) => <span className="font-medium text-brand-700">{v}</span> }, { name: 'Date' }, { name: 'PO Type', sortable: false }, { name: 'Vendor Account', label: 'Vendor' },
-    { name: 'Source Purchase Intent', label: 'Intent', sortable: false }, { name: 'Item Summary', sortable: false }, { name: 'Total Quantity', label: 'Qty', type: 'number', sortable: false },
+    { name: 'Source Purchase Intent', label: 'L-Purchase Indent', sortable: false }, { name: 'Item Summary', sortable: false }, { name: 'Total Quantity', label: 'Qty', type: 'number', sortable: false },
     ...(view === 'pending-auth' || view === 'all' ? [{ name: 'Created By', sortable: false }, { name: 'Submitted At', label: 'Submitted', sortable: false, render: (v) => (v ? String(v).slice(0, 16).replace('T', ' ') : '—') }] : []),
     ...(view !== 'pending-auth' ? [{ name: 'Received Quantity', label: 'Received', type: 'number', sortable: false }, { name: 'Balance Quantity', label: 'Balance', type: 'number', sortable: false }, { name: 'GRN Status', sortable: false }] : []),
     { name: 'Grand Total', label: 'Value', type: 'number', render: (v) => inr(v) }, { name: 'Status', render: (v) => <StatusBadge value={poLabel(v)} /> },
@@ -525,7 +525,7 @@ export function PoDetail() {
       </dl></Card>
       <Card title={authorizing ? 'Items — adjust quantity or remove lines before authorizing' : 'Items'} pad={false} className="mb-4">
         <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-100">
-          <thead><tr>{['#', 'Item', 'Intent', 'Stock', ...(poType === 'domestic' ? ['Reorder', 'Brand', 'Item Group', 'Division', 'Last PO rate', 'Price type'] : []), 'Quantity', 'Rate', 'Disc.', poType === 'domestic' ? 'GST %' : 'PKG', 'Line total', 'Received', 'Balance', ...(authorizing ? ['Remove'] : [])].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
+          <thead><tr>{['#', 'Item', 'L-Purchase Indent', 'Stock', ...(poType === 'domestic' ? ['Reorder', 'Brand', 'Item Group', 'Division', 'Last PO rate', 'Price type'] : []), 'Quantity', 'Rate', 'Disc.', poType === 'domestic' ? 'GST %' : 'PKG', 'Line total', 'Received', 'Balance', ...(authorizing ? ['Remove'] : [])].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-slate-100">{lines.map((l) => { const e = edit[l['Line No']] || {}; return (
             <tr key={l['Line No']} className={e.remove ? 'bg-red-50 line-through opacity-60' : ''}>
               <td className="td">{l['Line No']}</td><td className="td"><div className="font-medium">{l.Items}</div><div className="text-xs text-slate-500">{l['Item Code']}</div></td>
@@ -677,7 +677,7 @@ export function GrnDetail() {
         {Object.entries(h).filter(([k]) => k !== 'Lines' && k !== '__row').map(([k, v]) => <KV key={k} k={k === 'Supplier Ref No' ? 'PO No.' : k === 'Vendor Account' ? 'Vendor' : k}>{k === 'Attachment' ? <AttachmentLinks value={v} /> : String(v ?? '')}</KV>)}
       </dl></Card>
       <Card title="Items" pad={false}><div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-100">
-        <thead><tr>{['#', 'Item', 'Linked PO', 'PO line', 'Ordered', 'Received', 'Rejected', 'Accepted', 'Batch', 'Expiry'].map((x) => <th key={x} className="th">{x}</th>)}</tr></thead>
+        <thead><tr>{['#', 'Item', 'L-Purchase Order', 'PO line', 'Ordered', 'Received', 'Rejected', 'Accepted', 'Batch', 'Expiry'].map((x) => <th key={x} className="th">{x}</th>)}</tr></thead>
         <tbody className="divide-y divide-slate-100">{lines.map((l, i) => <tr key={i}><td className="td">{i + 1}</td><td className="td"><div className="font-medium">{l.Items}</div><div className="text-xs text-slate-500">{l['Item Code']}</div></td><td className="td">{l['PO No'] || h['Supplier Ref No'] || '—'}</td><td className="td">{l['PO Line']}</td>
           <td className="td text-right tabular-nums">{n2(l['Ordered Qty'])}</td><td className="td text-right tabular-nums">{n2(l['Received Qty'])}</td><td className="td text-right tabular-nums">{n2(l['Rejected / Damaged Qty'])}</td><td className="td text-right tabular-nums">{n2(l['Accepted Qty'])}</td><td className="td">{l.Batch}</td><td className="td">{l['Expiry Date']}</td></tr>)}</tbody></table></div></Card>
     </>
