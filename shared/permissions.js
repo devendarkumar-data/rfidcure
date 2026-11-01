@@ -29,7 +29,8 @@ export const ROLE_STAGE_ACTIONS = {
   purchase_manager: { intent: W, po: W, grn: R, requisition: R, reports: R },
   warehouse_operator: { intent: W, grn: ['view', 'create'], requisition: W, reports: R },
   // Central stock operations at the Mother Warehouse: raises indents, receives goods, approves and dispatches requisitions.
-  mother_warehouse_operator: { intent: W, grn: ['view', 'create'], transfer: W, imprest: W, consumption: W, requisition: WA, reports: R },
+  // Mother Warehouse is split in two people: this one raises Purchase Intents and runs Imprest Out / In and Consumption (no GRN); the GRN Operator does GRN only.
+  mother_warehouse_operator: { intent: W, transfer: W, imprest: W, consumption: W, requisition: WA, reports: R },
   // Works the authorization queues (intents, POs, requisitions); does not raise documents.
   // E-Way Bill person: raises and maintains E-Way Bills (outward / inward); sees dispatches (view only) so they know what needs one.
   eway_operator: { transfer: R, imprest: R, requisition: R, eway: [...W, 'delete'], reports: R },
@@ -37,8 +38,8 @@ export const ROLE_STAGE_ACTIONS = {
   sales: { dispatch: W, billing: W, reports: R },
   finance: { billing: W, reports: R },
   auditor: { reports: R },
-  // GRN Operator: creates / submits GRN only; everything else is view-only (no edit / delete of GRN either).
-  grn_operator: { intent: R, po: R, grn: ['view', 'create', 'export'], transfer: R, imprest: R, consumption: R, dispatch: R, requisition: R, reports: R, admin: R },
+  // GRN Operator (Mother Warehouse receiving): creates / submits GRN only, and can see pending and authorized POs. Nothing else.
+  grn_operator: { po: R, grn: ['view', 'create', 'export'], reports: R },
   // Entry Operator: adds / edits Imprest In, Imprest Out, Consumption and E-Way Bills; views GRN; everything else is view-only.
   entry_operator: { intent: R, po: R, grn: R, transfer: R, imprest: W, consumption: W, dispatch: R, requisition: R, eway: W, reports: R, admin: R },
   // 'All': every warehouse, view + edit on all operational and master tabs. User/security administration stays with Admin / Super Admin.

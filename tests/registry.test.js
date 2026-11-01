@@ -26,3 +26,12 @@ test('slugify handles dashes and double spaces', () => {
   assert.equal(slugify('Purchase Order — Domestic'), 'purchase-order-domestic');
   assert.equal(slugify('GRN  MRN'), 'grn-mrn');
 });
+
+test('Mother Warehouse is split: GRN Operator does GRN only, Mother Warehouse Operator does Imprest / Consumption / Intent but no GRN', async () => {
+  const { can, actionsFor } = await import('../shared/permissions.js');
+  assert.ok(can('grn_operator', 'grn', 'create') && can('grn_operator', 'po', 'view'));
+  for (const st of ['intent', 'imprest', 'consumption', 'transfer', 'requisition']) assert.deepEqual(actionsFor('grn_operator', st), [], `grn_operator has no ${st}`);
+  assert.ok(!can('grn_operator', 'po', 'create') && !can('grn_operator', 'po', 'approve'));
+  assert.ok(can('mother_warehouse_operator', 'intent', 'create') && can('mother_warehouse_operator', 'imprest', 'create') && can('mother_warehouse_operator', 'consumption', 'create'));
+  assert.deepEqual(actionsFor('mother_warehouse_operator', 'grn'), []);
+});
