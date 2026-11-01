@@ -8,7 +8,7 @@ import { useToast } from '../components/Toast.jsx';
 
 const todayIST = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 const num = (v) => (v === '' || v === null || v === undefined ? 0 : Number(v) || 0);
-const TONE = { 'Pending Return': 'bg-amber-50 text-amber-800', 'Pending Consumption': 'bg-blue-50 text-blue-800', Closed: 'bg-green-50 text-green-800' };
+const TONE = { Open: 'bg-amber-50 text-amber-800', Closed: 'bg-green-50 text-green-800' };
 
 function Trail({ data }) {
   return (
@@ -34,7 +34,7 @@ export default function ImprestSettle() {
   const lines = (cur?.lines || []).filter((l) => l.balance > 0);
   const returned = (l) => Math.min(l.balance, Math.max(0, num(back[l.key])));
     const totR = lines.reduce((s, l) => s + returned(l), 0);
-  const [none, setNone] = useState(false);
+  const none = false;
   const over = lines.find((l) => num(back[l.key]) > l.balance);
 
   const submit = async (e) => {
@@ -54,7 +54,7 @@ export default function ImprestSettle() {
       <Link to="/imprest/pending" className="mb-1 inline-block text-sm text-brand-700 hover:underline">← Imprest In Pending</Link>
       <PageHeader title={`Imprest In — ${ref}`} subtitle={cur ? `${cur.hospital} · dispatched ${cur.dispatched}` : ''} />
       {err && <div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
-      {done && <div className="mb-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">{done.inDoc ? `Imprest In ${done.inDoc} saved: ${done.summary.returned} taken back. ` : 'Marked as nothing returned. '}{done.summary.toConsume > 0 && <>Remaining {done.summary.toConsume} is waiting in <Link className="underline" to="/consumption/pending">Consumption Pending</Link> for the consumption entry. </>}<Link className="underline" to="/imprest/pending">Back to Imprest In Pending</Link></div>}
+      {done && <div className="mb-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">{done.inDoc ? `Imprest In ${done.inDoc} saved: ${done.summary.returned} taken back. ` : 'Marked as nothing returned. '}{done.summary.toConsume > 0 && <>{done.summary.toConsume} is still open: it can be returned later (Imprest In again) or entered as consumption in <Link className="underline" to="/consumption/pending">Consumption Pending</Link>. </>}<Link className="underline" to="/imprest/pending">Back to Imprest In Pending</Link></div>}
       {cur && lines.length > 0 && !done && (
         <form onSubmit={submit} noValidate>
           <Card title="How much was taken back?">
@@ -73,14 +73,13 @@ export default function ImprestSettle() {
                 <tfoot><tr className="bg-slate-50 font-semibold"><td className="td" colSpan={5}>Total</td><td className="td text-right tabular-nums">{Math.round(totR * 1e6) / 1e6}</td></tr></tfoot>
               </table>
             </div>
-            <p className="mt-2 text-xs text-slate-500">Enter only the quantity taken back (e.g. 80 of 100). The remaining quantity is not posted here - it appears in <b>Consumption Pending</b>, where the consumption is entered manually.</p>
+            <p className="mt-2 text-xs text-slate-500">Enter only the quantity actually taken back (e.g. 50 of 100 now, the rest on another day, or all 100 at once). Nothing is consumed automatically; what the hospital used is entered in <b>Consumption Pending</b>.</p>
           </Card>
           <Card title="Date" className="mt-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div><label className="label" htmlFor="im-date">Date</label><input id="im-date" type="date" className="input" value={hdr.date} onChange={(e) => setHdr({ ...hdr, date: e.target.value })} /></div>
               <div className="lg:col-span-2"><label className="label" htmlFor="im-note">Narration</label><input id="im-note" className="input" value={hdr.narration} onChange={(e) => setHdr({ ...hdr, narration: e.target.value })} /></div>
             </div>
-            <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={none} onChange={(e) => setNone(e.target.checked)} /> Nothing was returned (everything goes to consumption)</label>
             <div className="mt-3 flex justify-end"><button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : none ? 'Save: nothing returned' : `Save Imprest In (${Math.round(totR * 1e6) / 1e6})`}</button></div>
           </Card>
         </form>

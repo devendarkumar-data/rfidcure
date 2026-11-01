@@ -180,8 +180,8 @@ Users with all-warehouse access get a **View warehouse** switcher in the top bar
 - The balance at the hospital is always Out - In - Consumed, read from the stock ledger.
 
 ## Imprest In / Consumption flow
-- **Imprest In — Pending**: Imprest Outs from your warehouse waiting for the quantity taken back (days open turns red after 30). Open one and enter ONLY the quantity **taken back** (e.g. 80 of 100) - that is the Imprest In. Tick "Nothing was returned" if none came back.
-- The remaining quantity (20) appears under **Consumption Pending → Awaiting consumption entry**, where the person enters the consumption **manually** (with Bill No/Date, or without and update the bill later). Every In / Consumption carries the `Imprest Ref` of the Out (trail: Out -> In -> Consumption). Status: Pending Return -> Pending Consumption -> Closed (no partial status).
+- **Imprest In — Pending**: open Imprest Outs from your warehouse (days open turns red after 30). Pick the Imprest Out document and enter the quantity **taken back** - in parts over several days or one lump sum. Nothing is consumed automatically.
+- **Consumption Pending**: the same open Imprest Outs; enter what the hospital actually consumed (any time, in parts), with Bill No/Date or later via Update bill. Every In / Consumption carries the `Imprest Ref` of its Out (trail: Out -> In(s) / Consumption(s)). Balance = dispatched - returned - consumed. Status: Open -> Closed when the balance is 0 (no partial status).
 - **Imprest In Register**: items taken back. **Imprest Out Register**: items dispatched with their settlement status.
 - **Consumption Pending**: consumption whose bill is not updated yet (`Bill Status` = Pending Bill). **Update bill** (Bill No required, Bill Date) moves it to the **Consumption Register** (`Bill Status` = Billed).
 

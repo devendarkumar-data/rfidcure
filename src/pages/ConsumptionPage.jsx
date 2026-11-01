@@ -38,9 +38,9 @@ export default function ConsumptionPage() {
   if (!rows) return <Spinner />;
   return (
     <>
-      <PageHeader title={pending ? 'Consumption Pending' : 'Consumption Register'} subtitle={pending ? 'Enter the consumption for imprest that was taken back (remaining quantity), then update the bill to move it to the Consumption Register.' : 'Consumption with its bill updated.'} />
+      <PageHeader title={pending ? 'Consumption Pending' : 'Consumption Register'} subtitle={pending ? 'Enter the quantity the hospital consumed against an Imprest Out (any time, in parts if needed), then update the bill to move it to the Consumption Register.' : 'Consumption with its bill updated.'} />
       {pending && (
-        <Card title="Awaiting consumption entry" className="mb-4">
+        <Card title="Open Imprest Outs — enter what the hospital consumed" className="mb-4">
           <div className="overflow-x-auto rounded-md border border-slate-200">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead><tr><th className="th">Imprest No.</th><th className="th">Date</th><th className="th">Hospital</th><th className="th text-right">Dispatched</th><th className="th text-right">Taken back</th><th className="th text-right">To consume</th><th className="th" /></tr></thead>
