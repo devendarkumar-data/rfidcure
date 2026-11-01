@@ -43,7 +43,7 @@ export function buildNav(meta) {
     it(has(rq, 'view'), '/requisitions?view=open', 'Issue / Receive (open requisitions)'),
     it(has(tables['stock-transfer'], 'view'), '/t/stock-transfer', 'Stock Transfer'),
   ]);
-  add('wh-grn', 'GRN (Purchase Receipt)', 'inbox', [
+  add('wh-grn', 'GRN / MRN', 'inbox', [
     it(has(grn, 'create'), '/grn/new', 'Create GRN'),
     it(has(grn, 'view'), '/grn', 'GRN Register'),
   ]);
