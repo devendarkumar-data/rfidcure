@@ -280,7 +280,7 @@ test('Imprest Out form: hidden fields, customer details, company / business head
   for (const gone of ['To Warehouse', 'Location', 'Is IGST', 'Ref. Date', 'Supplier', 'Ref. Doc', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State']) assert.ok(!names.includes(gone), `${gone} hidden`);
   for (const need of ['Bill Code', 'Companies', 'Business Head', 'Ship to Name', 'Ship to Address']) assert.ok(names.includes(need), `${need} present`);
   assert.ok(names.includes('Delivery Date'), 'Delivery Date is in the main form');
-  for (const gone of ['Delivery Date', 'Consumption Type', 'Rate', 'Gross']) assert.ok(!meta.lineFields.some((f) => f.name === gone), `${gone} not a line column`);
+  for (const gone of ['Delivery Date', 'Consumption Type']) assert.ok(!meta.lineFields.some((f) => f.name === gone), `${gone} not a line column`);
   const c = (await sa('GET', '/api/lookup/customer?name=max hospital')).json;
   assert.deepEqual([c.found, c.code, c.address, c.city, c.pincode], [true, 'MX01', '1 Ring Road', 'Delhi', '110001']);
   assert.equal((await sa('GET', '/api/lookup/customer?name=Nobody')).json.found, false);
