@@ -114,7 +114,7 @@ export const SPECS = [
   { tab: 'GRN  MRN', kind: 'doc', stage: 'grn', workflow: 'grn', prefix: 'GRN', post: 'grn', wh: ['Warehouse'], required: ['Date', 'Warehouse'],
     hideLines: ['PO Line', 'Ordered Qty', 'Received Qty', 'Accepted Qty', 'Rejected / Damaged Qty', 'Excess Decision', 'Short Close'],
     form: 'Update Stock:Checkbox|Raise Receipt:Checkbox|Attachment:Text',
-    lines: 'Items:Dropdown|PO No:Dropdown|Description:Autofill|Quantity:Number|Rate:Number|Batch:Text|Expiry Date:Date|Gross:Calculated|Other Discount:Number|Taxable Value:Number|CGST:Number|IGST:Number|Brand:Dropdown|Item Category:Dropdown|Item Group:Dropdown|Division:Dropdown|Ordered Qty:Number|Received Qty:Number|Accepted Qty:Number|Rejected / Damaged Qty:Number|Excess Decision:Dropdown:Amend PO,Reject Excess,Arrange Return|Short Close:Dropdown:Keep Open,Close Balance (authorized)|PO Line:Number' },
+    lines: 'Items:Dropdown|PO No:Dropdown|Description:Autofill|Quantity:Number|Rate:Number|Batch:Text|Expiry Date:Date|Gross:Calculated|Other Discount:Number|Taxable Value:Number|CGST:Number|IGST:Number|Brand:Dropdown|Item Category:Dropdown|Item Group:Dropdown|Division:Dropdown|Price Book Rate:Number|Special Rate:Number|MRP:Number|Price Type:Text|No. of PCS/Box:Number|Ordered Qty:Number|Received Qty:Number|Accepted Qty:Number|Rejected / Damaged Qty:Number|Excess Decision:Dropdown:Amend PO,Reject Excess,Arrange Return|Short Close:Dropdown:Keep Open,Close Balance (authorized)|PO Line:Number' },
 
   { tab: 'Imprest Out — New', kind: 'doc', stage: 'imprest', prefix: 'IIO', post: 'imprest-out', wh: ['To Warehouse'], required: ['Date'], form: IMH_OUT, lines: IML_OUT, hideLines: ['Rate', 'Gross'], hide: ['Return Closed', 'To Warehouse', 'Location', 'Is IGST', 'Ref. Date', 'Supplier', 'Ref. Doc', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State'] },
   { tab: 'Imprest Out Register', kind: 'list', stage: 'imprest', wh: ['To Warehouse'] },
@@ -146,8 +146,8 @@ export const SPECS = [
   { tab: 'RFID Deactivation', kind: 'log', stage: 'admin', required: ['RFID Tag'], form: 'Reason:Dropdown:Consumed,Expired,Damaged' },
 
   { tab: 'Material Consumption', kind: 'doc', stage: 'consumption', prefix: 'MC', post: 'consumption', wh: ['Warehouse'], required: ['Warehouse'],
-    form: 'Document No:Alphanumeric-Autogen|Customer Account:Dropdown|Location:Dropdown|Warehouse:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Narration / Notes:Text|Business Head:Text|Submit for Approval:Dropdown|Bill No:Text|Bill Date:Date|Imprest Ref:Text|Bill Status:Dropdown:Pending Bill,Billed',
-    lines: 'Consumption Type:Dropdown:Against Bill,Against Consumption|Item:Dropdown|Description:Autofill|Units:Text|Quantity:Number|Batch:Text|Expiry Date:Date|Rate:Number|Gross:Calculated' },
+    form: 'Document No:Alphanumeric-Autogen|Customer Account:Dropdown|Location:Dropdown|Warehouse:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Narration / Notes:Text|Business Head:Dropdown|Submit for Approval:Dropdown|Bill No:Text|Bill Date:Date|Imprest Ref:Text|Bill Status:Dropdown:Pending Bill,Billed',
+    lines: 'Consumption Type:Dropdown:Against Bill,Against Consumption|Item:Dropdown|Description:Autofill|Units:Text|Quantity:Number|Batch:Text|Expiry Date:Date|Rate:Number|Gross:Calculated|Posting:Text' },
 
   { tab: 'Master Mapping', kind: 'log', stage: 'admin', required: ['ERP Master'] },
   { tab: 'Voucher Posting', kind: 'list', stage: 'admin' },
