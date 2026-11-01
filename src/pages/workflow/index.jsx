@@ -298,7 +298,7 @@ function calc(type, hdr, lines) {
 }
 
 const poCols = (type) => (type === 'domestic' ? [
-  { k: 'Items', label: 'Items', type: 'item' }, { k: 'Description', label: 'Description', type: 'text' }, { k: 'Warehouse', label: 'Warehouse', type: 'ref', field: 'Warehouse' }, { k: 'Units', label: 'Units', type: 'text' },
+  { k: 'Items', label: 'Items', type: 'item' }, { k: 'Description', label: 'Description', type: 'text' }, { k: 'Units', label: 'Units', type: 'text' },
   { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' }, { k: 'Nos. of Pcs/Box', label: 'Nos. of Pcs/Box', type: 'number' },
   { k: 'Quantity', label: 'Quantity', type: 'number' }, { k: 'Rate', label: 'Rate', type: 'number' }, { k: 'SP Rate', label: 'SP Rate', type: 'number' },
   { k: 'Price Type', label: 'Price Type', type: 'select', options: ['', 'Price Book', 'Special Book'] }, { k: 'Price Book Rate', label: 'Price Book Rate', type: 'number' }, { k: 'Special Rate', label: 'Special Rate', type: 'number' }, { k: 'Last PO Rate', label: 'Last PO Rate', type: 'number' },
@@ -306,7 +306,7 @@ const poCols = (type) => (type === 'domestic' ? [
   { k: 'Other Discount', label: 'Discount', type: 'number' }, { k: 'GST %', label: 'GST %', type: 'number' },
   { k: 'Intent No', label: 'Intent', type: 'ro' }, { k: 'Intent Line', label: 'Int. line', type: 'ro' }, { k: 'Line Total', label: 'Line Total', type: 'ro', num: true },
 ] : [
-  { k: 'Items', label: 'Item', type: 'item' }, { k: 'Description', label: 'Description', type: 'text' }, { k: 'Warehouse', label: 'Warehouse', type: 'ref', field: 'Warehouse' }, { k: 'Units', label: 'Units', type: 'text' },
+  { k: 'Items', label: 'Item', type: 'item' }, { k: 'Description', label: 'Description', type: 'text' }, { k: 'Units', label: 'Units', type: 'text' },
   { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' }, { k: 'Nos. of Pcs/Box', label: 'Nos. of Pcs/Box', type: 'number' },
   { k: 'Intent No', label: 'Intent', type: 'ro' }, { k: 'Intent Line', label: 'Int. line', type: 'ro' },
   { k: 'Quantity', label: 'Quantity', type: 'number' },
@@ -366,7 +366,7 @@ export function PoForm() {
     if (!hdr['Vendor Account']) return setErr('Select a vendor');
     if (type === 'import' && !hdr.Currency) return setErr('Select the currency');
     if (type === 'import' && !(num(hdr['Exchange Rate']) > 0)) return setErr('Enter the exchange rate');
-    const out = c.lines.filter((l) => l['Item Code']).map(({ _k, _tax, _igst, ...l }) => Object.fromEntries(Object.entries(l).filter(([, v]) => !empty(v))));
+    const out = c.lines.filter((l) => l['Item Code']).map(({ _k, _tax, _igst, ...l }) => Object.fromEntries(Object.entries({ ...l, Warehouse: hdr.Location || l.Warehouse }).filter(([, v]) => !empty(v)))); // every line follows the header warehouse
     if (!out.length) return setErr('Add at least one item');
     for (const [i, l] of out.entries()) { if (!(num(l.Quantity) > 0)) return setErr(`Line ${i + 1}: enter a quantity`); if (!(num(l.Rate) > 0)) return setErr(`Line ${i + 1}: enter a rate`); }
     const header = Object.fromEntries(Object.entries(hdr).filter(([k, v]) => !empty(v) && !(type === 'domestic' && ['Exchange Rate', 'Currency'].includes(k)) && !(type === 'import' && ['Is IGST', 'Place of Supply', 'Payment Terms'].includes(k)) && !['Status', 'Document No.', 'Submit For Approval'].includes(k)));
