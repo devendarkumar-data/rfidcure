@@ -299,21 +299,22 @@ function calc(type, hdr, lines) {
 
 const poCols = (type) => (type === 'domestic' ? [
   { k: 'Items', label: 'Items', type: 'item' }, { k: 'Description', label: 'Description', type: 'text' }, { k: 'Units', label: 'Units', type: 'text' },
-  { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' }, { k: 'Nos. of Pcs/Box', label: 'Nos. of Pcs/Box', type: 'number' },
+  { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' },
   { k: 'Quantity', label: 'Quantity', type: 'number' }, { k: 'Rate', label: 'Rate', type: 'number' }, { k: 'SP Rate', label: 'SP Rate', type: 'number' },
   { k: 'Price Type', label: 'Price Type', type: 'select', options: ['', 'Price Book', 'Special Book'] }, { k: 'Price Book Rate', label: 'Price Book Rate', type: 'number' }, { k: 'Special Rate', label: 'Special Rate', type: 'number' }, { k: 'Last PO Rate', label: 'Last PO Rate', type: 'number' },
   { k: 'Brand', label: 'Brand', type: 'ref', field: 'Brand' }, { k: 'Item Group', label: 'Item Group', type: 'ref', field: 'Item Group' }, { k: 'Division', label: 'Division', type: 'ref', field: 'Division' },
   { k: 'Other Discount', label: 'Discount', type: 'number' }, { k: 'GST %', label: 'GST %', type: 'number' },
   { k: 'Intent No', label: 'L-Purchase Indent', type: 'ro' }, { k: 'Intent Line', label: 'Int. line', type: 'ro' }, { k: 'Line Total', label: 'Line Total', type: 'ro', num: true },
 ] : [
-  { k: 'Items', label: 'Item', type: 'item' }, { k: 'Description', label: 'Description', type: 'text' }, { k: 'Units', label: 'Units', type: 'text' },
-  { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' }, { k: 'Nos. of Pcs/Box', label: 'Nos. of Pcs/Box', type: 'number' },
-  { k: 'Intent No', label: 'L-Purchase Indent', type: 'ro' }, { k: 'Intent Line', label: 'Int. line', type: 'ro' },
+  { k: 'Items', label: 'Items', type: 'item' }, { k: 'Description', label: 'Description', type: 'text' }, { k: 'Units', label: 'Units', type: 'text' },
+  { k: 'Intent No', label: 'Intent', type: 'ro' }, { k: 'Intent Line', label: 'Int. line', type: 'ro' },
   { k: 'Quantity', label: 'Quantity', type: 'number' },
-  { k: 'Price Type', label: 'Price Type', type: 'select', options: ['', 'Price Book', 'Special Book'] }, { k: 'Price Book Rate', label: 'Price Book Rate', type: 'number' }, { k: 'Special Rate', label: 'Special Rate', type: 'number' }, { k: 'Last PO Rate', label: 'Last PO Rate', type: 'number' },
-  { k: 'Brand', label: 'Brand', type: 'ref', field: 'Brand' }, { k: 'Item Category', label: 'Item Category', type: 'ref', field: 'Item Category' }, { k: 'Item Group', label: 'Item Group', type: 'ref', field: 'Item Group' }, { k: 'Division', label: 'Division', type: 'ref', field: 'Division' },
-  { k: 'Rate', label: 'Rate (FX)', type: 'number' }, { k: 'Other Discount', label: 'Discount', type: 'number' },
-  { k: 'PKG Charges', label: 'PKG Charges', type: 'number' }, { k: 'Line Total', label: 'Line Total', type: 'ro', num: true },
+  { k: 'Price Type', label: 'Price Type', type: 'select', options: ['', 'Price Book', 'Special Book'] }, { k: 'Price Book Type', label: 'Price Book Type', type: 'text', w: 'min-w-[7rem]' }, { k: 'Special Rate', label: 'Special Rate', type: 'number' },
+  { k: 'Rate', label: 'Rate (FX)', type: 'number' }, { k: 'Gross', label: 'Gross', type: 'ro', num: true },
+  { k: 'PKG Charges', label: 'PKG Charges', type: 'number' }, { k: 'Other Discount', label: 'Other Discount', type: 'number' },
+  { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' }, { k: 'Last PO Rate', label: 'Last PO Rate', type: 'number' },
+  { k: 'Brand', label: 'Brand', type: 'ref', field: 'Brand' }, { k: 'Item Category', label: 'Item Category', type: 'ref', field: 'Item Category' }, { k: 'Division', label: 'Division', type: 'ref', field: 'Division' }, { k: 'Item Group', label: 'Item Group', type: 'ref', field: 'Item Group' },
+  { k: 'Line Total', label: 'Line Total', type: 'ro', num: true },
 ]);
 
 export function PoForm() {
