@@ -212,3 +212,14 @@ test('Import PO is worked out wholly in its own currency (no exchange rate)', as
   assert.equal(c.lines[0].Gross, 50); assert.equal(c.lines[0]['Line Total'], 51); assert.equal(c.lines[0]['Rate (INR)'], undefined);
   assert.deepEqual([c.subtotal, c.grandTotal], [51, 51], 'totals stay in the PO currency; any stray exchange rate is ignored');
 });
+
+test('PO warehouse dropdown and stock panel list real warehouses only, never hospitals', async (t) => {
+  const { makeApp } = await import('./helpers.js');
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  await app.store.append('Warehouse Master', [{ 'Master Id': 'W9', 'Warehouse Name': 'CITY CARE HOSPITAL', 'Warehouse Type': 'Virtual', Status: 'Active' }]);
+  const d = (await sa('GET', '/api/wf/pos/defaults')).json;
+  assert.equal(d.location, 'MWH'); assert.ok(d.warehouses.includes('MWH') && !d.warehouses.includes('CITY CARE HOSPITAL'), d.warehouses.join());
+  const info = (await sa('GET', '/api/wf/pos/item-info?code=A1&warehouse=MWH')).json;
+  assert.ok(!info.byWarehouse.some((w) => /HOSPITAL/i.test(w.warehouse)));
+});

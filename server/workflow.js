@@ -10,7 +10,7 @@ import { audit } from './audit.js';
 import { getSettings } from './auth.js';
 import { CURRENCIES } from '../shared/po-options.js';
 import * as poseries from './poseries.js';
-import { itemCatalog, nextDocNo, stripInternal, validateHeader, validateLines, warehouseList } from './crud.js';
+import { itemCatalog, nextDocNo, stripInternal, validateHeader, validateLines, assignableWarehouses } from './crud.js';
 import { loadStock } from './stock.js';
 import { COMPANY } from '../shared/company.js';
 import { HttpError, motherWarehouse, bad, conflict, forbidden, istParts, normDate, notFound, round2, sstr, today, toNum, unprocessable, withLock } from './util.js';
@@ -609,7 +609,7 @@ export async function getPo(ctx, id) {
 
 export async function poDefaults(ctx) {
   const def = await defaultLocation(ctx.store);
-  const all = await warehouseList(ctx.store);
+  const all = await assignableWarehouses(ctx.store);
   const mine = ctx.user.scope.mode === 'assigned' ? ctx.user.scope.warehouses : null;
   const warehouses = mine ? all.filter((w) => mine.includes(w.toUpperCase())) : all;
   const location = warehouses.find((w) => w.toUpperCase() === 'MWH') || (mine ? (mine[0] || '') : def); // Mother Warehouse unless the user may not use it
@@ -629,7 +629,7 @@ export async function poItemInfo(ctx, q = {}) {
   const it = (await itemCatalog(ctx.store)).get(code) || {};
   const stockOf = await currentStockMap(ctx);
   // physical warehouses only (hospital / imprest locations are not stock warehouses): Opening Stock + GRN/MRN - Imprest Out + Imprest In - Consumption, as the stock engine posts it
-  const whs = await warehouseList(ctx.store);
+  const whs = await assignableWarehouses(ctx.store);
   const byWarehouse = whs.map((w) => ({ warehouse: w, qty: stockOf(w, code) }));
   return { lastRate: last?.rate || 0, reorderLevel: it.minStock || 0, brand: it.brand || '', unit: it.unit || '', currentStock: stockOf(sstr(q.warehouse), code), name: it.name || '', byWarehouse, total: Math.round(byWarehouse.reduce((a, x) => a + x.qty, 0) * 1e6) / 1e6 };
 }
