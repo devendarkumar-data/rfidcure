@@ -74,7 +74,7 @@ const isSecure = (req) => config().prod || req.headers['x-forwarded-proto'] === 
 function fieldMeta(ctx, f) {
   const acc = fieldAccess(ctx.user.role, f.name);
   const ref = REFS[f.name];
-  return { name: f.name, type: f.type, options: f.options, yesNo: f.yesNo || undefined, lookup: ref ? f.name : undefined, special: ref?.special, readonly: f.readonly || f.type === 'calc' || f.type === 'auto' || acc !== 'w', hidden: acc === 'n' };
+  return { name: f.name, type: f.type, options: f.options, yesNo: f.yesNo || undefined, lookup: ref ? f.name : undefined, special: ref?.special, multi: f.multi || undefined, readonly: f.readonly || f.type === 'calc' || f.type === 'auto' || acc !== 'w', hidden: acc === 'n' };
 }
 function tableMeta(ctx, t) {
   const acts = actionsForTab(ctx.user.role, t.stage, t.tab);

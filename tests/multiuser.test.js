@@ -530,3 +530,17 @@ test('GRN form drops Place of Supply / Submit For Approval / Destination; attach
   const found = (await wm('GET', '/api/t/grn-mrn?q=INV-7788')).json;
   assert.equal(found.rows.length, 1); assert.equal(found.rows[0]['Receipt Type'], 'MRN');
 });
+
+test('Vendor Master: Vendor Name required, Default Currency hidden, Allowed Currency is a multi-select from the Currency Master', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  const meta = (await sa('GET', '/api/meta')).json.modules.flatMap((m) => m.tables).find((x) => x.slug === 'vendor-master');
+  assert.ok(meta.required.includes('Vendor Name') && meta.required.includes('Sup ID'));
+  const names = meta.fields.map((f) => f.name);
+  assert.ok(!names.includes('Default Currency') && names.includes('Allowed Currency'));
+  const ac = meta.fields.find((f) => f.name === 'Allowed Currency'); assert.equal(ac.multi, true); assert.equal(ac.lookup, 'Allowed Currency');
+  const opts = (await sa('GET', '/api/lookup?field=Allowed Currency')).json.options.map((o) => o.value);
+  assert.ok(opts.includes('USD') && opts.includes('EUR'));
+  assert.equal((await sa('POST', '/api/t/vendor-master', { header: { 'Sup ID': 'V9', 'Allowed Currency': 'USD, EUR' } })).status, 400);
+  assert.equal((await sa('POST', '/api/t/vendor-master', { header: { 'Sup ID': 'V9', 'Vendor Name': 'Globex', 'Allowed Currency': 'USD, EUR' } })).status, 201);
+});

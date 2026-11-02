@@ -95,7 +95,7 @@ export function coerce(f, v, where) {
 }
 
 async function refCheck(ctx, f, value, where) {
-  if (isBlank(value) || !f.ref || ['item', 'company', 'bhead', 'po'].includes(f.ref.special)) return;
+  if (isBlank(value) || !f.ref || ['item', 'company', 'bhead', 'po', 'currency'].includes(f.ref.special)) return;
   const cache = (ctx.cache ||= new Map());
   const ck = f.ref.master ? `m:${f.ref.master}:${f.ref.col}` : `s:${f.ref.special}`;
   if (!cache.has(ck)) cache.set(ck, f.ref.master ? await masterValues(ctx.store, f.ref) : (await warehouseList(ctx.store)));
@@ -495,6 +495,10 @@ export async function lookup(ctx, field, q, limit = 30, scopeOnly = false, extra
     const { openPoList } = await import('./workflow.js');
     const list = await openPoList(ctx);
     return { options: list.filter((p) => !needle || `${p.no} ${p.vendor}`.toLowerCase().includes(needle)).slice(0, 60).map((p) => ({ value: p.no, label: `${p.no} · ${p.vendor} · ${p.warehouse}` })) };
+  }
+  if (ref.special === 'currency') { // Currency Master (seeded on first use)
+    const { currencies } = await import('./poseries.js');
+    return { options: (await currencies(ctx.store)).filter((c) => !needle || `${c.code} ${c.name}`.toLowerCase().includes(needle)).map((c) => ({ value: c.code, label: `${c.code} – ${c.name}` })) };
   }
   if (ref.special === 'bhead') { // Sales Executive Master rows typed "Business Head"; if none are typed, every salesperson is offered
     const { rows } = await ctx.store.read('Sales Executive Master');

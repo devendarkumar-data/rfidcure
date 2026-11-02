@@ -37,7 +37,7 @@ export const REFS = {
   Location: M('Warehouse Location Master', 'Name'),
   'Preferred Vendor': M('Vendor Master', 'Vendor Name'),
   Supplier: M('Vendor Master', 'Vendor Name'),
-  Companies: { special: 'company' }, 'Business Head': { special: 'bhead' },
+  'Allowed Currency': { special: 'currency', multi: true }, Companies: { special: 'company' }, 'Business Head': { special: 'bhead' },
 };
 for (const f of WAREHOUSE_FIELDS) REFS[f] = { special: 'warehouse' };
 REFS.Items = REFS.Item = { special: 'item' };
@@ -77,7 +77,7 @@ function decorate(f, tableOpts = {}) {
   if (FIXED_OPTIONS[field.name] && !field.options) { field.options = FIXED_OPTIONS[field.name]; field.type = 'select'; }
   if (field.name === 'Indent Type' && !field.options) { field.options = ['In-house', 'Dealer']; field.type = 'select'; }
   if (field.name === 'Status' && tableOpts.indentStatus) { field.options = INDENT_STATUS; field.type = 'select'; }
-  if (REFS[field.name] && field.type !== 'calc' && field.type !== 'auto') { field.ref = REFS[field.name]; field.type = 'select'; }
+  if (REFS[field.name] && field.type !== 'calc' && field.type !== 'auto') { field.ref = REFS[field.name]; field.type = 'select'; if (field.ref.multi) field.multi = true; }
   if (field.type === 'bool' || field.options?.join() === YN.join()) field.yesNo = true;
   return field;
 }
@@ -97,6 +97,7 @@ const RFID_LINES = null;
 export const SPECS = [
   { tab: 'Opening Stock', kind: 'stockdata', stage: 'reports', wh: ['Warehouse'] },
   { tab: 'Stock Ledger', kind: 'audit', stage: 'reports', wh: ['Warehouse'], sort: { col: 'Date', dir: 'desc' } },
+  { tab: 'Vendor Master', kind: 'master', stage: 'admin', required: ['Vendor Name'], hide: ['Default Currency'] }, // Default Currency is dropped from the form: a vendor's first Allowed Currency is the default
   { tab: 'Attachment Store', kind: 'log', stage: 'admin', hide: ['Data'] },
   { tab: 'Activity Log', kind: 'audit', stage: 'admin', sort: { col: 'Created_Date', dir: 'desc' } },
   { tab: 'Login Sessions', kind: 'audit', stage: 'admin', sort: { col: 'Created_Date', dir: 'desc' } },
@@ -196,7 +197,7 @@ function buildTable(t) {
     slug: slugify(t.tab), tab: t.tab, module: t.module, moduleName: t.moduleName, kind: spec.kind, stage: spec.stage,
     headers, fields, idCol, prefix: spec.prefix || null, suffix: spec.suffix || null, post: spec.post || null, wh: spec.wh || [],
     required: spec.master || spec.kind === 'master'
-      ? [headers[1]].concat(t.tab === 'Item Master' ? ['Code'] : [])
+      ? [...new Set([headers[1], ...(t.tab === 'Item Master' ? ['Code'] : []), ...(spec.required || [])])]
       : spec.required || [],
     lineFields, itemField, hide: spec.hide || [], hideLines: spec.hideLines || [], hasLines: headers.includes('Lines'), sort: spec.sort || null,
     writable: spec.kind === 'doc' || spec.kind === 'master' || spec.kind === 'log' || spec.kind === 'settings' || !!spec.writable,

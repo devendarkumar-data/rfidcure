@@ -1,5 +1,6 @@
 import Combobox from './Combobox.jsx';
 import AttachmentInput from './Attachments.jsx';
+import MultiSelect from './MultiSelect.jsx';
 
 const baseId = (n) => `f-${String(n).replace(/[^a-z0-9]+/gi, '-')}`;
 
@@ -11,6 +12,8 @@ export default function Field({ field, value, onChange, required, disabled, erro
   let control;
   if (field.type === 'auto' || field.type === 'calc') {
     control = <input id={id} className="input" value={v} disabled placeholder={field.type === 'auto' ? 'Generated on save' : 'Calculated'} />;
+  } else if (field.multi && field.lookup) {
+    control = <MultiSelect id={id} field={field.lookup} value={v} disabled={ro} onChange={onChange} />;
   } else if (field.type === 'upload') {
     control = <AttachmentInput id={id} value={v} disabled={ro} onChange={onChange} />;
   } else if (field.options || field.type === 'bool' || field.yesNo) {
