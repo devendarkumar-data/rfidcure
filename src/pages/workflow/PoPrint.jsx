@@ -22,6 +22,13 @@ export function rupeesInWords(amount) {
   return `${out} Rupees`.replace(/^ Rupees$/, 'Zero');
 }
 
+export function numberInWords(amount) {
+  const total = Math.round(Math.abs(num(amount)) * 100); let whole = Math.floor(total / 100); const cents = total % 100;
+  if (!whole && !cents) return 'Zero';
+  const parts = []; for (const [size, name] of [[1e9, 'Billion'], [1e6, 'Million'], [1e3, 'Thousand']]) { const n = Math.floor(whole / size); whole %= size; if (n) parts.push(`${below1000(n)} ${name}`); }
+  if (whole) parts.push(below1000(whole));
+  return `${parts.join(' ')}${cents ? `${parts.length ? ' and ' : ''}${cents}/100` : ''}`;
+}
 const HEAD = '#b98f8d';
 const box = { border: '1px solid #000' };
 const th = { ...box, background: HEAD, fontWeight: 700, fontSize: 10, padding: '3px 2px', textAlign: 'center', verticalAlign: 'middle' };
@@ -43,6 +50,7 @@ export default function PoPrint() {
   const qtyTotal = rows.reduce((a, r) => a + num(r.l.Quantity), 0);
   const totalValue = rows.reduce((a, r) => a + r.total, 0); const rounded = Math.round(totalValue);
   const imp = poType === 'import'; const cur = imp ? money(0, header.Currency).replace(/[\d.,\s]/g, '') || header.Currency : '₹'; // currency sign 
+  const curName = (() => { try { return new Intl.DisplayNames(['en'], { type: 'currency' }).of(header.Currency) || header.Currency; } catch { return header.Currency; } })();
   const cityLine = [vendor.city].filter(Boolean).join(', ');
   const lbl = { fontWeight: 700, fontSize: 10 }; const val = { fontSize: 10 };
 
@@ -75,7 +83,7 @@ export default function PoPrint() {
             <tr><td style={{ ...box, background: HEAD, ...lbl, padding: '3px 4px' }}>DELIVERY PERIOD :</td><td style={{ ...box, ...val, padding: '3px 4px' }}>{header['Terms of Delivery'] || header['Terms Of Delivery'] || ''}</td></tr>
             <tr><td style={{ ...box, background: HEAD, ...lbl, padding: '3px 4px' }}>PAYMENT TERM :</td><td style={{ ...box, ...val, padding: '3px 4px' }}>{header['Payment Terms']}</td></tr>
             <tr><td style={{ ...box, background: HEAD, ...lbl, padding: '3px 4px' }}>WARRANTY PERIOD :</td><td style={{ ...box, ...val, padding: '3px 4px' }}>{header['Warranty Period'] || ''}</td></tr>
-            <tr><td style={{ ...box, padding: '9px 4px' }} /><td style={{ ...box }} /></tr>
+            {imp ? <tr><td style={{ ...box, background: HEAD, ...lbl, padding: '3px 4px' }}>CURRENCY :</td><td style={{ ...box, ...val, padding: '3px 4px' }}>{header.Currency}</td></tr> : <tr><td style={{ ...box, padding: '9px 4px' }} /><td style={{ ...box }} /></tr>}
           </tbody>
         </table>
         <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
@@ -92,10 +100,48 @@ export default function PoPrint() {
                 <div style={{ ...val, marginTop: 3 }}><span style={lbl}>STATE NAME :</span> {vendor.state}</div>
                 <div style={{ ...val, marginTop: 3 }}><span style={lbl}>DRUG LIC :</span> {vendor.drugLic}</div>
                 <div style={{ ...val, marginTop: 3 }}><span style={lbl}>GSTIN :</span> {vendor.gstin}</div>
+                {imp && <div style={{ ...val, marginTop: 3 }}><span style={lbl}>Currency :</span> {curName}</div>}
               </td>
             </tr>
           </tbody>
         </table>
+        {imp ? (
+          <>
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+              <colgroup>{['5%', '16%', '31%', '6%', '6%', '10%', '10%', '7%', '9%'].map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
+              <thead><tr>{['S.NO', 'ITEM CODE', 'DESCRIPTION OF GOODS', 'QTY', 'UOM', `RATE ${cur}`, `GROSS ${cur}`, `OTH DISC ${cur}`, `TOTAL ${cur}`].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
+              <tbody>
+                {rows.map(({ l, gross, disc, total }, i) => (
+                  <tr key={i} style={{ pageBreakInside: 'avoid' }}>
+                    <td style={{ ...td, textAlign: 'center' }}>{i + 1}</td>
+                    <td style={{ ...td, wordBreak: 'break-all' }}>{l['Item Code']}</td>
+                    <td style={td}>{l.Description || l.Items}</td>
+                    <td style={{ ...td, textAlign: 'center' }}>{fq(l.Quantity)}</td>
+                    <td style={{ ...td, textAlign: 'center' }}>{l.Units || 'NOS'}</td>
+                    <td style={{ ...td, textAlign: 'right' }}>{num(l.Rate) ? f2(l.Rate) : ''}</td>
+                    <td style={{ ...td, textAlign: 'right' }}>{gross ? f2(gross) : ''}</td>
+                    <td style={{ ...td, textAlign: 'right' }}>{disc ? f2(disc) : ''}</td>
+                    <td style={{ ...td, textAlign: 'right' }}>{total ? f2(total) : ''}</td>
+                  </tr>))}
+                <tr style={{ height: 14 }}>{Array.from({ length: 9 }).map((_, i) => <td key={i} style={td} />)}</tr>
+                <tr>
+                  <td colSpan={3} style={{ ...box, fontWeight: 700, fontSize: 10, padding: '3px 4px', textAlign: 'center' }}>Page Total</td>
+                  <td style={{ ...box, fontWeight: 700, fontSize: 10, textAlign: 'center' }}>{fq(qtyTotal)}</td>
+                  <td colSpan={3} style={box} />
+                  <td style={{ ...box, fontWeight: 700, fontSize: 10, textAlign: 'right', padding: '3px 4px' }}>{f2(rows.reduce((a, r) => a + r.gross, 0))}</td>
+                  <td style={{ ...box, fontWeight: 700, fontSize: 10, textAlign: 'right', padding: '3px 4px' }}>{f2(totalValue)}</td>
+                </tr>
+              </tbody>
+            </table>
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+              <tbody><tr>
+                <td style={{ ...box, verticalAlign: 'top', padding: 6, width: '73%', minHeight: 40 }}><span style={lbl}>NARRATION :</span> <span style={val}>{header['Narration-Notes']}</span></td>
+                <td style={{ ...box, ...lbl, padding: '3px 4px', width: '14%' }}>Total Value ({header.Currency})</td><td style={{ ...box, ...val, textAlign: 'right', padding: '3px 4px', width: '13%' }}>{money(totalValue, header.Currency)}</td>
+              </tr></tbody>
+            </table>
+          </>
+        ) : (
+          <>
         <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
           <colgroup>{['4%', '12%', '21%', '5%', '5%', '7%', '8%', '6%', '8%', '5%', '5%', '5%', '9%'].map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
           <thead>
@@ -138,7 +184,9 @@ export default function PoPrint() {
             <tr><td style={{ ...box, ...lbl, padding: '3px 4px' }}>Total Value (Rounded)</td><td style={{ ...box, ...val, textAlign: 'right', padding: '3px 4px' }}>{f2(rounded)}</td></tr>
           </tbody>
         </table>
-        <div style={{ ...box, borderTop: 'none', padding: '5px 6px', fontSize: 10 }}>{imp ? <><b>INVOICE VALUE ( {header.Currency} ) :</b> &nbsp; {money(totalValue, header.Currency)}</> : <><b>INVOICE VALUE ( IN WORD ₹ ) :</b> &nbsp; {rupeesInWords(rounded)} Only</>}</div>
+          </>
+        )}
+        <div style={{ ...box, borderTop: 'none', padding: '5px 6px', fontSize: 10 }}>{imp ? <><b>INVOICE VALUE ( IN WORD ) :</b> &nbsp; {numberInWords(totalValue)} only</> : <><b>INVOICE VALUE ( IN WORD ₹ ) :</b> &nbsp; {rupeesInWords(rounded)} Only</>}</div>
         <div style={{ ...box, borderTop: 'none', padding: 6, fontSize: 10, minHeight: 120, position: 'relative' }}>
           <div style={{ fontWeight: 700 }}>TERMS &amp; CONDITIONS :</div>
           <div style={{ marginTop: 8 }}>{(co.terms || []).map((t, i) => <div key={i}>{t}</div>)}</div>

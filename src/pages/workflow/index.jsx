@@ -425,7 +425,7 @@ export function PoForm() {
               <div className="min-w-[5.5rem] rounded border border-slate-300 bg-slate-100 px-2 py-1"><div className="text-[11px] text-slate-500">All warehouses</div><div className="font-semibold tabular-nums">{n2(stockInfo.total)}</div></div></div>
             <p className="mt-1 text-[11px] text-slate-500">Available = Opening Stock + GRN/MRN − Imprest Out + Imprest In − Consumption. Hospital (imprest) locations are not counted.</p>
           </div>)}
-        <Grid cols={poCols(type)} lines={c.lines} onChange={setLines} onItem={onItem} extra={<button type="button" className="btn btn-sm btn-primary" onClick={() => setPicker(true)}>+ Add from approved intents</button>} />
+        <Grid cols={type === 'import' && hdr.Currency ? poCols(type).map((x) => (['Rate', 'Gross', 'Other Discount', 'PKG Charges', 'Line Total', 'Special Rate', 'Last PO Rate', 'Price Book Rate'].includes(x.k) ? { ...x, label: `${x.label} (${money(0, hdr.Currency).replace(/[\d.,\s]/g, '') || hdr.Currency})` } : x)) : poCols(type)} lines={c.lines} onChange={setLines} onItem={onItem} extra={<button type="button" className="btn btn-sm btn-primary" onClick={() => setPicker(true)}>+ Add from approved intents</button>} />
         <dl className="mt-4 ml-auto grid max-w-xs grid-cols-2 gap-1 text-sm">
           {(() => { const imp = type === 'import'; const cur = imp ? (hdr.Currency || 'INR') : 'INR'; const f = (v) => (imp ? money(v, cur) : inr(v)); return (<>
             <dt className="text-slate-500">Subtotal</dt><dd className="text-right tabular-nums">{f(c.subtotal)}</dd>
