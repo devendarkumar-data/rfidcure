@@ -220,3 +220,9 @@ Inventory > **Stock Master**: opening quantity and live quantity per warehouse /
 - **Mother Warehouse Manager** (new role): indent, PO, transfer, imprest, consumption, requisition and read-only everywhere else.
 - Left menu GRN / MRN: Manual GRN, Manual MRN, GRN Register, GRN-only and MRN-only registers.
 - Imprest forms default Companies to "Cure Surgicals" and Place of Supply to Delhi.
+
+### Role update (approver, GRN split)
+- **Approver**: decides indent / PO / requisition queues; view-only on GRN, transfer, imprest, consumption, dispatch, E-Way and all reports; creates nothing and has no RFID / label access.
+- **GRN Operator (MWH)**: creates GRN / MRN, views pending and authorized POs and all reports.
+- **GRN Special Operator (MWH, new)**: GRN / MRN view + create + edit permission and all warehouse operations (transfer, imprest, consumption, requisition). Posted stock documents stay locked by the stock rule.
+- **Entry Operator (MWH)**: everything except creating GRN / MRN - indent, stock transfer, requisition, imprest out/in, consumption, E-Way; GRN is view-only.

@@ -240,7 +240,7 @@ test('GRN Operator and Entry Operator permissions', async (t) => {
   assert.equal((await g('GET', '/api/admin/users')).status, 403);
   assert.equal((await g('GET', '/api/stock/balances')).status, 200, 'opening stock / inventory visible');
   // Entry Operator: no GRN create, can view GRN; Imprest and Consumption add; consumption deducts stock
-  assert.equal((await e('GET', '/api/t/grn-mrn')).status, 403, 'Entry Operator: GRN hidden');
+  assert.equal((await e('GET', '/api/t/grn-mrn')).status, 200, 'Entry Operator: GRN view only');
   for (const tb of ['rfid-generation', 'master-mapping', 'item-master', 'vendor-master', 'configuration']) { assert.equal((await e('GET', `/api/t/${tb}`)).status, 403, `entry op ${tb}`); assert.equal((await g('GET', `/api/t/${tb}`)).status, 403, `grn op ${tb}`); }
   assert.equal((await g('GET', '/api/t/purchase-indent')).status, 403, 'GRN person: no purchasing');
   assert.equal((await e('GET', '/api/wf/pos?view=pending-auth')).status, 403, 'Entry Operator: no PO');
@@ -602,4 +602,22 @@ test('any warehouse user can see every warehouse stock for an item (read-only), 
   assert.equal(r.total, Math.round(r.rows.reduce((a, w) => a + w.qty, 0) * 1e6) / 1e6);
   assert.equal((await app.anon('GET', '/api/stock/item-warehouses?code=A1')).status, 401);
   const wh = (await (await app.as('sa'))('GET', '/api/lookup?field=Warehouse')).json.options.map((o) => o.value); assert.equal(wh[0], 'MWH');
+});
+
+test('Approver views operations but creates nothing; GRN Special Operator does GRN edit + warehouse ops', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const pw = 'Op@Strong2026x';
+  await app.store.append('Users', [
+    { 'User ID': 'apr', 'User Name': 'apr', Role: 'Approver', Branch: 'MWH', Status: 'Active', Password: pw },
+    { 'User ID': 'gsp', 'User Name': 'gsp', Role: 'GRN Special Operator', Branch: 'MWH', Status: 'Active', Password: pw },
+  ]);
+  const a = await app.as('apr', pw); const g = await app.as('gsp', pw);
+  for (const tb of ['material-consumption', 'imprest-out-new', 'stock-transfer']) assert.equal((await a('GET', `/api/t/${tb}`)).status, 200, `approver views ${tb}`);
+  assert.equal((await a('POST', '/api/t/material-consumption', { header: { Warehouse: 'MWH' }, lines: [{ 'Item Code': 'A1', Quantity: 1, Batch: 'B-LATE' }] })).status, 403);
+  assert.equal((await a('POST', '/api/wf/intents', { header: { Date: '2026-10-27' }, lines: [{ 'Item Code': 'A1', Quantity: 1 }], submit: false })).status, 403);
+  assert.equal((await a('GET', '/api/t/rfid-generation')).status, 403, 'approver: no labels');
+  const mk = await g('POST', '/api/t/grn-mrn', grn('MWH', [{ 'Item Code': 'A1', Quantity: 2, Rate: 10, Batch: 'GS-1', 'Expiry Date': '2031-01-01' }]));
+  assert.equal(mk.status, 201, mk.text);
+  assert.equal((await g('PUT', `/api/t/grn-mrn/record?id=${encodeURIComponent(mk.json.id || mk.json['Document No.'])}`, { header: { 'Narration-Notes': 'x' } })).status, 409, 'special has edit permission (posted GRN stays locked by the stock rule, not by role)');
+  assert.equal((await g('POST', '/api/t/material-consumption', { header: { Warehouse: 'MWH' }, lines: [{ 'Item Code': 'A1', Quantity: 1, Batch: 'GS-1' }] })).status, 201, 'special does warehouse ops');
 });

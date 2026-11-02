@@ -37,14 +37,17 @@ export const ROLE_STAGE_ACTIONS = {
   // Works the authorization queues (intents, POs, requisitions); does not raise documents.
   // E-Way Bill person: raises and maintains E-Way Bills (outward / inward); sees dispatches (view only) so they know what needs one.
   eway_operator: { transfer: R, imprest: R, requisition: R, eway: [...W, 'delete'], reports: R },
-  approver: { intent: AP, po: AP, requisition: AP, reports: R },
+  // Approver: decides the indent / PO / requisition queues and can VIEW every warehouse operation and report. Creates nothing (no indent, PO, imprest, consumption, labels).
+  approver: { intent: AP, po: AP, requisition: AP, grn: R, transfer: R, imprest: R, consumption: R, dispatch: R, eway: R, reports: R },
   sales: { dispatch: W, billing: W, reports: R },
   finance: { billing: W, reports: R },
   auditor: { reports: R },
   // GRN Operator (Mother Warehouse receiving): creates / submits GRN only, and can see pending and authorized POs. Nothing else.
   grn_operator: { po: R, grn: ['view', 'create', 'export'], reports: R },
+  // Special GRN / MRN person at the Mother Warehouse: GRN / MRN view + create + edit, and every warehouse operation view + edit.
+  grn_special: { po: R, grn: W, transfer: W, imprest: W, consumption: W, requisition: W, dispatch: R, eway: R, reports: R },
   // Entry Operator: adds / edits Imprest In, Imprest Out, Consumption and E-Way Bills; views GRN; everything else is view-only.
-  entry_operator: { intent: W, transfer: R, imprest: W, consumption: W, dispatch: R, requisition: W, eway: W, reports: R, admin: R },
+  entry_operator: { intent: W, po: R, grn: R, transfer: W, imprest: W, consumption: W, dispatch: R, requisition: W, eway: W, reports: R, admin: R },
   // 'All': every warehouse, view + edit on all operational and master tabs. User/security administration stays with Admin / Super Admin.
   all: { intent: [...W, 'delete'], po: [...W, 'delete'], grn: ALL, transfer: ALL, imprest: ALL, consumption: ALL, dispatch: ALL, billing: ALL, requisition: ALL, eway: ALL, reports: ALL, admin: WA },
   data_entry: { intent: W, transfer: R, imprest: W, consumption: W, dispatch: R, requisition: W, eway: W, reports: R, admin: R }, // same work as the Entry Operator
@@ -53,14 +56,14 @@ export const ROLE_STAGE_ACTIONS = {
 export const ROLE_LABELS = {
   super_admin: 'Super Admin', admin: 'Admin', purchase_manager: 'Purchase Manager', mother_warehouse_operator: 'Mother Warehouse Operator', mother_warehouse_manager: 'Mother Warehouse Manager', warehouse_operator: 'Warehouse Operator',
   approver: 'Approver', warehouse_manager: 'Warehouse Manager', purchase: 'Purchase Team',
-  sales: 'Sales Team', finance: 'Finance Team', auditor: 'Auditor', data_entry: 'Data Entry Operator', all: 'All', grn_operator: 'GRN Operator', entry_operator: 'Entry Operator', eway_operator: 'E-Way Bill Operator',
+  sales: 'Sales Team', finance: 'Finance Team', auditor: 'Auditor', data_entry: 'Data Entry Operator', all: 'All', grn_operator: 'GRN Operator', grn_special: 'GRN Special Operator', entry_operator: 'Entry Operator', eway_operator: 'E-Way Bill Operator',
 };
 
 // Warehouse-wise access. all = every warehouse, read+write (as far as the stage allows).
 // all-readonly = every warehouse but never write (Auditor "View Only"). assigned = only warehouses listed in Users.Branch.
 export const ROLE_SCOPE = {
   super_admin: 'all', admin: 'all', all: 'all', finance: 'all', auditor: 'all-readonly', purchase_manager: 'all', approver: 'all', mother_warehouse_operator: 'assigned', mother_warehouse_manager: 'assigned', warehouse_operator: 'assigned',
-  warehouse_manager: 'assigned', purchase: 'assigned', sales: 'assigned', data_entry: 'assigned', grn_operator: 'assigned', entry_operator: 'assigned', eway_operator: 'assigned',
+  warehouse_manager: 'assigned', purchase: 'assigned', sales: 'assigned', data_entry: 'assigned', grn_operator: 'assigned', grn_special: 'assigned', entry_operator: 'assigned', eway_operator: 'assigned',
 };
 
 // Field-wise control. Groups = headings of the matrix. w = read+write, r = read only, n = hidden.
@@ -69,6 +72,7 @@ export const ROLE_SCOPE = {
 const w = 'w', r = 'r', n = 'n';
 export const FIELD_GROUPS = ['item', 'batch', 'expiry', 'quantity', 'customer', 'tax', 'status'];
 export const ROLE_FIELD_ACCESS = {
+  grn_special:       { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: w, status: w },
   grn_operator:      { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: n, status: w },
   eway_operator:     { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   entry_operator:    { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
@@ -104,6 +108,7 @@ export function roleKey(label) {
   const s = String(label || '').toLowerCase().replace(/[^a-z]+/g, ' ').trim();
   if (!s) return null;
   if (s === 'all') return 'all';
+  if (s.startsWith('grn special') || s.startsWith('special grn')) return 'grn_special';
   if (s.startsWith('grn operator')) return 'grn_operator';
   if (s.startsWith('entry operator')) return 'entry_operator';
   if (s.startsWith('e way') || s.startsWith('eway')) return 'eway_operator';
@@ -143,12 +148,14 @@ const DEFAULT_NONE = {
   all: new Set(SENSITIVE),
   grn_operator: new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS, ...MASTER_TABS, ...PURCHASING_TABS]),
   eway_operator: new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS, ...MASTER_TABS, ...PURCHASING_TABS, ...PO_TABS, 'GRN  MRN', 'Material Consumption', 'Branch Receipt', 'Actual Stock', 'Material Requisition', 'Material Issue', 'Dealer Indent', 'Indent Register']),
-  entry_operator: new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS, ...MASTER_TABS, ...PO_TABS, 'GRN  MRN', 'Stock Transfer', 'Branch Receipt', 'Actual Stock', 'Material Requisition', 'Material Issue', 'Dealer Indent', 'Indent Register', 'Purchase Requisition']),
+  entry_operator: new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS, ...MASTER_TABS, ...PO_TABS, 'Branch Receipt', 'Actual Stock', 'Material Issue', 'Dealer Indent', 'Indent Register']),
+  grn_special: new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS, ...MASTER_TABS, ...PURCHASING_TABS]),
+  approver: new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS]),
 };
 // Purchase Team reads every master and the stock ledger, but not users / security / RFID / Tally.
 DEFAULT_NONE.purchase = new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS]);
 // Roles that may VIEW stock and reports of every warehouse (they still write only in their own warehouse).
-export const VIEW_ALL_STOCK = new Set(['grn_operator', 'mother_warehouse_operator', 'mother_warehouse_manager', 'purchase', 'entry_operator', 'data_entry']);
+export const VIEW_ALL_STOCK = new Set(['grn_operator', 'grn_special', 'mother_warehouse_operator', 'mother_warehouse_manager', 'purchase', 'entry_operator', 'data_entry']);
 let MATRIX = {};
 export const setAccessMatrix = (m) => { MATRIX = m || {}; };
 export const explicitLevel = (role, tab) => MATRIX[role]?.[tab] || null;
