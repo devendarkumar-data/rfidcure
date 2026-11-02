@@ -3,7 +3,7 @@ import { MODULE_NAMES, TABLES, TABLE_BY_SLUG, REFS, FIELD_LABELS } from '../shar
 import { actionsFor, actionsForTab, ROLE_LABELS } from '../shared/permissions.js';
 import * as accessMatrix from './access-matrix.js';
 import { mayRaiseIntent } from './workflow.js';
-import { fieldAccess, STAGE_LABELS } from '../shared/permissions.js';
+import { fieldAccess, STAGE_LABELS, VIEW_ALL_STOCK, roleKey } from '../shared/permissions.js';
 import { config } from './config.js';
 import { getStore } from './store/index.js';
 import { HttpError, bad, forbidden, notFound, today } from './util.js';
@@ -147,11 +147,13 @@ export default async function handler(req, res) {
       throw e;
     }
     await accessMatrix.loadAccessMatrix(store);
-    const ctx = { store, user: auth.user };
+    let ctx = { store, user: auth.user };
     // Administrators (scope "all") may look at one warehouse at a time: the browser sends X-View-Warehouse and the user is
     // treated as assigned to just that warehouse for this request.
     const vw = String(req.headers['x-view-warehouse'] || '').trim().toUpperCase();
     if (vw && /^[A-Z0-9_-]{1,20}$/.test(vw) && auth.user.scope.mode === 'all') ctx.user = { ...auth.user, scope: { mode: 'assigned', warehouses: [vw], viewing: vw } };
+    // Some roles may VIEW stock and reports of every warehouse (they still write only in their own).
+    if (req.method === 'GET' && ctx.user.scope.mode === 'assigned' && VIEW_ALL_STOCK.has(roleKey(ctx.user.role)) && /^(stock|reports|dashboard)(\/|$)/.test(path)) ctx = { ...ctx, user: { ...ctx.user, scope: { mode: 'all-readonly', warehouses: [] } } };
     const outHeaders = auth.refreshed ? { 'Set-Cookie': sessionCookie(auth.refreshed.token, auth.refreshed.minutes, secure) } : {};
     const ok = (body, status = 200, extra = {}) => send(res, status, body, { ...outHeaders, ...extra });
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { api, idemKey } from '../../api.js';
 import { BASE_CURRENCY, CURRENCIES, PURCHASE_TYPES } from '../../../shared/po-options.js';
 import { useAuth } from '../../auth.jsx';
@@ -668,6 +668,7 @@ export function GrnForm() {
 
 export function GrnRegister() {
   const nav = useNavigate(); const { tables } = useAuth(); const [range, setRange] = useState({ from: '', to: '' }); const t = tables['grn-mrn'];
+  const rtype = new URLSearchParams(useLocation().search).get('type'); // GRN | MRN register view from the left menu
   // every GRN column from the sheet (field-level access still applies), key ones first and relabelled
   const LABEL = { 'Document No.': 'GRN No.', 'Supplier Ref No': 'PO No.', 'Vendor Account': 'Vendor' };
   const FIRST = ['Document No.', 'Receipt Type', 'Date', 'Supplier Ref No', 'Vendor Account', 'Type Of Purchase', 'Warehouse', 'Invoice No.', 'Invoice Date', 'Invoice Value'];
@@ -676,12 +677,12 @@ export function GrnRegister() {
   const canCreate = t?.actions.includes('create');
   return (
     <>
-      <PageHeader title="GRN Register" actions={t?.actions.includes('create') && <Link className="btn btn-primary" to="/grn/new">+ Create GRN</Link>} />
+      <PageHeader title={rtype === 'MRN' ? 'MRN Register' : rtype === 'GRN' ? 'GRN Register (against PO)' : 'GRN Register'} actions={t?.actions.includes('create') && <Link className="btn btn-primary" to="/grn/new">+ Create GRN</Link>} />
       <FilterBar onReset={() => setRange({ from: '', to: '' })}>
         <FilterItem label="From"><input type="date" className="input" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></FilterItem>
         <FilterItem label="To"><input type="date" className="input" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></FilterItem>
       </FilterBar>
-      <DataTable endpoint="/api/t/grn-mrn" columns={columns} searchPlaceholder="Search invoice no., PO no., linked PO, item, vendor…" params={range} exportable={t?.actions.includes('export')} exportName="grn" defaultSort={{ col: 'Date', dir: 'desc' }}
+      <DataTable endpoint="/api/t/grn-mrn" columns={columns} searchPlaceholder="Search invoice no., PO no., linked PO, item, vendor…" params={rtype ? { ...range, 'f.Receipt Type': rtype } : range} exportable={t?.actions.includes('export')} exportName="grn" defaultSort={{ col: 'Date', dir: 'desc' }}
         rowKey={(r) => r['Document No.']} onRowClick={(r) => nav(`/grn/${encodeURIComponent(r['Document No.'])}`)}
         rowActions={(r) => (
           <div className="flex justify-end gap-1">

@@ -4,7 +4,7 @@ export const COMPANY = {
   name: 'Cure Surgicals',
   address: 'S-25, Green Park Extension',
   city: 'DELHI',
-  state: '',
+  state: 'Delhi',
   pin: '110016',
   tel: '',
   email: 'curesurg@curesurgical.com',

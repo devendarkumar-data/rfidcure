@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, idemKey } from '../api.js';
+import { COMPANY } from '../../shared/company.js';
 import Field from '../components/Field.jsx';
 import ItemStockPanel from '../components/ItemStockPanel.jsx';
 import LinesEditor from '../components/LinesEditor.jsx';
@@ -18,6 +19,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
   const [values, setValues] = useState(() => {
     const v = { ...(initial?.header || {}) };
     if (mode === 'create' && table.fields.some((f) => f.name === 'Date' && !f.readonly) && !v.Date) v.Date = todayIST();
+    if (mode === 'create' && ['imprest-out-new', 'imprest-in-new'].includes(table.slug)) { if (!v.Companies) v.Companies = COMPANY.name; if (!v['Place of Supply']) v['Place of Supply'] = COMPANY.state; } // our own company; place of supply is our state
     return v;
   });
   const [lines, setLines] = useState(() => (initial?.lines || []).map((l, i) => ({ ...l, _k: `i${i}` })));

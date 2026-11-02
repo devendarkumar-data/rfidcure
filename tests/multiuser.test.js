@@ -253,7 +253,23 @@ test('GRN Operator and Entry Operator permissions', async (t) => {
   { const io = await e('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-27', 'To Warehouse': 'MAX HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 1, Batch: 'B-LATE' }] }); assert.equal(io.status, 201, io.text); }
   assert.equal((await e('POST', '/api/t/imprest-in-new', { header: { Date: '2026-10-27', 'To Warehouse': 'MWH' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 1, Batch: 'B-LATE', 'Expiry Date': '2030-01-01' }] })).status < 500, true);
   assert.equal((await e('DELETE', `/api/t/material-consumption/record?id=${encodeURIComponent(c.json.id || '')}`)).status, 403, 'no delete');
-  assert.equal((await e('POST', '/api/wf/intents', { header: { Date: '2026-10-27' }, lines: [{ 'Item Code': 'A1', Quantity: 1 }], submit: false })).status, 403);
+  assert.equal((await e('POST', '/api/wf/intents', { header: { Date: '2026-10-27' }, lines: [{ 'Item Code': 'A1', Quantity: 1 }], submit: false })).status, 201, 'Entry Operator raises purchase indent');
+});
+
+test('view-all-stock roles read other warehouses; Mother Warehouse Manager exists; defaults', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const pw = 'Op@Strong2026x';
+  await app.store.append('Users', [
+    { 'User ID': 'dwop', 'User Name': 'dwop', Role: 'Entry Operator', Branch: 'DWH', Status: 'Active', Password: pw },
+    { 'User ID': 'mwm', 'User Name': 'mwm', Role: 'Mother Warehouse Manager', Branch: 'MWH', Status: 'Active', Password: pw },
+  ]);
+  const d = await app.as('dwop', pw); const m = await app.as('mwm', pw); const sa = await app.as('sa');
+  const all = (await sa('GET', '/api/stock/balances?pageSize=500')).json.rows.length;
+  const seen = (await d('GET', '/api/stock/balances?pageSize=500')).json.rows.length;
+  assert.equal(seen, all, 'data entry operator sees stock of every warehouse');
+  assert.equal((await m('GET', '/api/stock/balances')).status, 200);
+  assert.equal((await m('GET', '/api/wf/pos?view=pending-auth')).status, 200, 'MWH manager sees POs');
+  assert.equal((await d('POST', '/api/t/material-consumption', { header: { Warehouse: 'MWH' }, lines: [{ 'Item Code': 'A1', Quantity: 1, Batch: 'B-LATE' }] })).status, 403, 'but cannot post in another warehouse');
 });
 
 test('GRN can be raised against a PO that is still Pending Authorization; approval later keeps receipt status', async (t) => {

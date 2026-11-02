@@ -213,3 +213,10 @@ Inventory > **Stock Master**: opening quantity and live quantity per warehouse /
 ## PO: stock panel and purchase-type links
 - Selecting an item on a PO shows its available quantity in every warehouse (Opening Stock + GRN/MRN − Imprest Out + Imprest In − Consumption; hospital / imprest locations are not counted). The Closing Stock column shows the header warehouse (default MWH) and follows it when it changes.
 - Vendor Master's `Allowed Purchase Type` column is shown as **Purchase Type Linked With Vendor** (a multi-select of purchase types; the sheet header is unchanged). On a PO, choosing Type Of Purchase limits the Vendor list to linked vendors, and choosing a vendor limits the Type Of Purchase list; a vendor with none linked is open to all. The words Domestic / Import / Both in that column still restrict the PO kind.
+
+## Roles: stock visibility and Mother Warehouse Manager
+- GRN Operator, Mother Warehouse Operator, Mother Warehouse Manager, Purchase, Entry Operator and Data Entry Operator can **view** stock and reports of every warehouse; they can post only in their own warehouse.
+- Purchase Team creates POs and reads all masters and the stock ledger. Entry / Data Entry Operators raise indents and requisitions, do Imprest Out/In, Consumption and E-Way Bill.
+- **Mother Warehouse Manager** (new role): indent, PO, transfer, imprest, consumption, requisition and read-only everywhere else.
+- Left menu GRN / MRN: Manual GRN, Manual MRN, GRN Register, GRN-only and MRN-only registers.
+- Imprest forms default Companies to "Cure Surgicals" and Place of Supply to Delhi.

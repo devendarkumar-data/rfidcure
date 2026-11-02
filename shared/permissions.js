@@ -23,14 +23,17 @@ export const ROLE_STAGE_ACTIONS = {
   super_admin: { intent: ALL, po: ALL, grn: ALL, transfer: ALL, imprest: ALL, consumption: ALL, dispatch: ALL, billing: ALL, requisition: ALL, eway: ALL, reports: ALL, admin: ALL },
   admin: { intent: WA, po: WA, grn: WA, transfer: WA, imprest: WA, consumption: WA, dispatch: WA, requisition: WA, eway: WA, reports: WA, admin: ALL }, // Billing: "-"
   warehouse_manager: { intent: W, grn: WA, transfer: WA, imprest: WA, consumption: WA, dispatch: WA, requisition: WA, reports: R },        // PO: "-", Billing: "-"
-  purchase: { intent: R, po: W, grn: W, requisition: R, reports: R },
+  // Purchase Team: creates POs, views every master, the stock ledger and stock in all warehouses.
+  purchase: { intent: R, po: W, grn: R, requisition: R, reports: R, admin: R },
   // Purchase Indents and POs are approved / rejected / authorised ONLY by Super Admin, Admin and Approver. Everyone else who raises them has W (no 'approve').
 // Added for the Purchase Intent / PO authorization workflow (not in the original matrix image - please confirm):
   purchase_manager: { intent: W, po: W, grn: R, requisition: R, reports: R },
   warehouse_operator: { intent: W, grn: ['view', 'create'], requisition: W, reports: R },
   // Central stock operations at the Mother Warehouse: raises indents, receives goods, approves and dispatches requisitions.
   // Mother Warehouse is split in two people: this one raises Purchase Intents and runs Imprest Out / In and Consumption (no GRN); the GRN Operator does GRN only.
-  mother_warehouse_operator: { intent: W, transfer: W, imprest: W, consumption: W, requisition: WA, reports: R },
+  mother_warehouse_operator: { intent: W, transfer: W, imprest: W, consumption: W, requisition: WA, eway: W, dispatch: R, reports: R },
+  // Mother Warehouse Manager: runs the whole mother warehouse - raises indents, creates POs, transfers, requisitions and sees all warehouse activity.
+  mother_warehouse_manager: { intent: W, po: W, grn: R, transfer: W, imprest: W, consumption: W, dispatch: R, requisition: WA, eway: R, reports: R },
   // Works the authorization queues (intents, POs, requisitions); does not raise documents.
   // E-Way Bill person: raises and maintains E-Way Bills (outward / inward); sees dispatches (view only) so they know what needs one.
   eway_operator: { transfer: R, imprest: R, requisition: R, eway: [...W, 'delete'], reports: R },
@@ -41,14 +44,14 @@ export const ROLE_STAGE_ACTIONS = {
   // GRN Operator (Mother Warehouse receiving): creates / submits GRN only, and can see pending and authorized POs. Nothing else.
   grn_operator: { po: R, grn: ['view', 'create', 'export'], reports: R },
   // Entry Operator: adds / edits Imprest In, Imprest Out, Consumption and E-Way Bills; views GRN; everything else is view-only.
-  entry_operator: { intent: R, po: R, grn: R, transfer: R, imprest: W, consumption: W, dispatch: R, requisition: R, eway: W, reports: R, admin: R },
+  entry_operator: { intent: W, transfer: R, imprest: W, consumption: W, dispatch: R, requisition: W, eway: W, reports: R, admin: R },
   // 'All': every warehouse, view + edit on all operational and master tabs. User/security administration stays with Admin / Super Admin.
   all: { intent: [...W, 'delete'], po: [...W, 'delete'], grn: ALL, transfer: ALL, imprest: ALL, consumption: ALL, dispatch: ALL, billing: ALL, requisition: ALL, eway: ALL, reports: ALL, admin: WA },
-  data_entry: { grn: ['view', 'create'] },                                                                   // Reports: "-"
+  data_entry: { intent: W, transfer: R, imprest: W, consumption: W, dispatch: R, requisition: W, eway: W, reports: R, admin: R }, // same work as the Entry Operator
 };
 
 export const ROLE_LABELS = {
-  super_admin: 'Super Admin', admin: 'Admin', purchase_manager: 'Purchase Manager', mother_warehouse_operator: 'Mother Warehouse Operator', warehouse_operator: 'Warehouse Operator',
+  super_admin: 'Super Admin', admin: 'Admin', purchase_manager: 'Purchase Manager', mother_warehouse_operator: 'Mother Warehouse Operator', mother_warehouse_manager: 'Mother Warehouse Manager', warehouse_operator: 'Warehouse Operator',
   approver: 'Approver', warehouse_manager: 'Warehouse Manager', purchase: 'Purchase Team',
   sales: 'Sales Team', finance: 'Finance Team', auditor: 'Auditor', data_entry: 'Data Entry Operator', all: 'All', grn_operator: 'GRN Operator', entry_operator: 'Entry Operator', eway_operator: 'E-Way Bill Operator',
 };
@@ -56,7 +59,7 @@ export const ROLE_LABELS = {
 // Warehouse-wise access. all = every warehouse, read+write (as far as the stage allows).
 // all-readonly = every warehouse but never write (Auditor "View Only"). assigned = only warehouses listed in Users.Branch.
 export const ROLE_SCOPE = {
-  super_admin: 'all', admin: 'all', all: 'all', finance: 'all', auditor: 'all-readonly', purchase_manager: 'all', approver: 'all', mother_warehouse_operator: 'assigned', warehouse_operator: 'assigned',
+  super_admin: 'all', admin: 'all', all: 'all', finance: 'all', auditor: 'all-readonly', purchase_manager: 'all', approver: 'all', mother_warehouse_operator: 'assigned', mother_warehouse_manager: 'assigned', warehouse_operator: 'assigned',
   warehouse_manager: 'assigned', purchase: 'assigned', sales: 'assigned', data_entry: 'assigned', grn_operator: 'assigned', entry_operator: 'assigned', eway_operator: 'assigned',
 };
 
@@ -80,6 +83,7 @@ export const ROLE_FIELD_ACCESS = {
   data_entry:        { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: n, status: n },
   purchase_manager:  { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: w, status: w },
   warehouse_operator: { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: n, status: w },
+  mother_warehouse_manager: { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: w, status: w },
   mother_warehouse_operator: { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: n, status: w },
   approver:          { item: r, batch: r, expiry: r, quantity: r, customer: n, tax: r, status: r },
 };
@@ -107,6 +111,7 @@ export function roleKey(label) {
   if (s.startsWith('admin')) return 'admin';
   if (s.startsWith('purchase manager')) return 'purchase_manager';
   if (s.startsWith('purchase')) return 'purchase';
+  if (s.startsWith('mother warehouse manager')) return 'mother_warehouse_manager';
   if (s.startsWith('mother warehouse')) return 'mother_warehouse_operator';
   if (s.startsWith('approver')) return 'approver';
   if (s.startsWith('warehouse operator')) return 'warehouse_operator';
@@ -138,8 +143,12 @@ const DEFAULT_NONE = {
   all: new Set(SENSITIVE),
   grn_operator: new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS, ...MASTER_TABS, ...PURCHASING_TABS]),
   eway_operator: new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS, ...MASTER_TABS, ...PURCHASING_TABS, ...PO_TABS, 'GRN  MRN', 'Material Consumption', 'Branch Receipt', 'Actual Stock', 'Material Requisition', 'Material Issue', 'Dealer Indent', 'Indent Register']),
-  entry_operator: new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS, ...MASTER_TABS, ...PURCHASING_TABS, ...PO_TABS, 'GRN  MRN', 'Stock Transfer', 'Branch Receipt', 'Actual Stock', 'Material Requisition', 'Material Issue', 'Dealer Indent', 'Indent Register', 'Purchase Requisition']),
+  entry_operator: new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS, ...MASTER_TABS, ...PO_TABS, 'GRN  MRN', 'Stock Transfer', 'Branch Receipt', 'Actual Stock', 'Material Requisition', 'Material Issue', 'Dealer Indent', 'Indent Register', 'Purchase Requisition']),
 };
+// Purchase Team reads every master and the stock ledger, but not users / security / RFID / Tally.
+DEFAULT_NONE.purchase = new Set([...ADMIN_TABS, ...RFID_TABS, ...TALLY_TABS]);
+// Roles that may VIEW stock and reports of every warehouse (they still write only in their own warehouse).
+export const VIEW_ALL_STOCK = new Set(['grn_operator', 'mother_warehouse_operator', 'mother_warehouse_manager', 'purchase', 'entry_operator', 'data_entry']);
 let MATRIX = {};
 export const setAccessMatrix = (m) => { MATRIX = m || {}; };
 export const explicitLevel = (role, tab) => MATRIX[role]?.[tab] || null;
