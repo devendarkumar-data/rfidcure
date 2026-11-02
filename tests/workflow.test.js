@@ -61,7 +61,7 @@ test('Purchase Intent -> PO authorization -> GRN workflow', async (t) => {
     assert.equal(r.json.header.Location, 'MWH'); assert.equal(r.json.header.Destination, 'MWH'); // configurable default, destination follows location
     assert.equal(r.json.status.Status, 'Draft');
     // 5*100=500 @12% = 60 ; 5*40=200 @12% = 24 -> sub 700 tax 84 grand 784
-    assert.deepEqual(r.json.totals, { subtotal: 700, taxTotal: 84, grandTotal: 784 });
+    assert.deepEqual(r.json.totals, { subtotal: 700, taxTotal: 84, grandTotal: 784, subtotalFx: 700, grandTotalFx: 784 });
     assert.equal(r.json.lines[0].CGST, 30); assert.equal(r.json.lines[0].SGST, 30);
     const dup = await pm('POST', '/api/wf/pos', { ...poBody([line(1, 'A1', 5, 100)]), submit: false }, { 'idempotency-key': 'po-key-12345678' });
     assert.equal(dup.json.id, ctx.po); assert.equal(dup.json.duplicate, true);
@@ -204,4 +204,18 @@ test('PO defaults: every user gets a warehouse dropdown with MWH pre-selected; P
   assert.equal(d.canChooseWarehouse, true); assert.equal(d.location, 'MWH'); assert.ok(d.warehouses.includes('MWH'));
   const pos = (await sa('GET', '/api/lookup?field=Place of Supply')).json.options.map((o) => o.value);
   assert.ok(pos.includes('Delhi') && pos.length > 20, 'states offered even when the State Master is empty');
+});
+
+test('Import PO is worked out in the PO currency with an INR equivalent; live exchange rate is fetched, cached and falls back cleanly', async () => {
+  const { calcPoLines } = await import('../server/workflow.js');
+  const c = calcPoLines('import', { Currency: 'USD', 'Exchange Rate': 80 }, [{ Quantity: 10, Rate: 5, 'PKG Charges': 2, 'Other Discount': 1 }]);
+  assert.equal(c.lines[0].Gross, 50); assert.equal(c.lines[0]['Line Total'], 51); assert.equal(c.lines[0]['Rate (INR)'], 400);
+  assert.deepEqual([c.subtotalFx, c.grandTotalFx, c.grandTotal], [51, 51, 4080]);
+  const fx = await import('../server/fx.js');
+  let calls = 0; const ok = async () => { calls++; return { ok: true, json: async () => ({ rates: { INR: 83.456789 }, time_last_update_utc: 'Mon, 02 Nov 2026 00:00:01 +0000' }) }; };
+  const a = await fx.rate('eur', ok); assert.equal(a.rate, 83.4568); assert.equal(a.currency, 'EUR');
+  await fx.rate('EUR', ok); assert.equal(calls, 1, 'second call is served from the cache');
+  assert.equal((await fx.rate('INR')).rate, 1);
+  await assert.rejects(fx.rate('GBP', async () => { throw new Error('offline'); }), /manually/);
+  await assert.rejects(fx.rate('1'), /required/);
 });

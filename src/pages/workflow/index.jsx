@@ -20,6 +20,8 @@ import { useToast } from '../../components/Toast.jsx';
 export const todayIST = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 export const num = (v) => (v === '' || v === null || v === undefined ? 0 : Number(v) || 0);
 export const n2 = (v) => Number(v || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+// amount in the PO's own currency (falls back to a plain number if the code is unknown)
+export const money = (v, code) => { try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: code || 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v || 0)); } catch { return `${code || ''} ${n2(v)}`; } };
 const inr = (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const r2 = (v) => Math.round((v + Number.EPSILON) * 100) / 100;
 const empty = (v) => v === '' || v === null || v === undefined;
@@ -287,10 +289,10 @@ const PO_STATUSES = ['Draft', 'Pending Authorization', 'Returned for Correction'
 
 // client-side mirror of server calcPoLines, for live totals only (the server recalculates)
 function calc(type, hdr, lines) {
-  const igst = /^yes$/i.test(hdr['Is IGST'] || ''); const fx = type === 'import' ? num(hdr['Exchange Rate']) || 1 : 1;
+  const igst = /^yes$/i.test(hdr['Is IGST'] || '');
   let sub = 0, tax = 0, grand = 0;
   const out = lines.map((l) => {
-    const gross = r2(num(l.Quantity) * num(l.Rate) * fx), taxable = r2(Math.max(0, gross - num(l['Other Discount'])));
+    const gross = r2(num(l.Quantity) * num(l.Rate)), taxable = r2(Math.max(0, gross - num(l['Other Discount'])));
     if (type === 'domestic') { const t = r2(taxable * num(l['GST %']) / 100); sub += taxable; tax += t; grand += taxable + t; return { ...l, Gross: gross, 'Taxable Value': taxable, 'Line Total': r2(taxable + t), _tax: t, _igst: igst }; }
     const tot = r2(taxable + num(l['PKG Charges'])); sub += tot; grand += tot; return { ...l, Gross: gross, 'Line Total': tot };
   });
@@ -329,6 +331,13 @@ export function PoForm() {
     if (editId || !hdr['Vendor Account']) { setVinfo(null); setVErr(''); return; }
     api.get('/api/wf/pos/vendor', { vendor: hdr['Vendor Account'], type, date: hdr.Date }).then((r) => { setVinfo(r); setVErr(''); setHdr((h) => (type === 'import' && !r.vendor.currencies.some((c) => c.code === h.Currency) ? { ...h, Currency: r.vendor.currencies.some((c) => c.code === r.vendor.defaultCurrency) ? r.vendor.defaultCurrency : (r.vendor.currencies[0]?.code || '') } : h)); }).catch((e) => { setVinfo(null); setVErr(e.message); });
   }, [hdr['Vendor Account'], type, hdr.Date, editId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [fxNote, setFxNote] = useState(''); const [fxBusy, setFxBusy] = useState(false);
+  const pullRate = useCallback(async (cur) => { // current INR-per-unit rate for the chosen currency; the user can still overwrite it
+    if (!cur) return; setFxBusy(true); setFxNote('');
+    try { const r = await api.get('/api/wf/pos/fx', { currency: cur }); setHdr((h) => (h.Currency === cur ? { ...h, 'Exchange Rate': r.rate } : h)); setFxNote(`Live rate 1 ${cur} = ₹${r.rate}${r.asOf ? ` · ${r.asOf.slice(0, 16)}` : ''}`); }
+    catch (e) { setFxNote(e.message); } finally { setFxBusy(false); }
+  }, []);
+  useEffect(() => { if (type === 'import' && !editId && hdr.Currency) pullRate(hdr.Currency); }, [type, hdr.Currency, editId, pullRate]);
   const [picker, setPicker] = useState(false); const [override, setOverride] = useState(''); const [needOverride, setNeedOverride] = useState(false);
   const canOverride = ['super_admin', 'admin', 'purchase_manager'].includes(user?.role) || user?.actions?.includes?.('po:approve');
 
@@ -400,7 +409,8 @@ export function PoForm() {
             <div><label className="label">Terms of delivery</label><textarea rows={1} maxLength={120} className="input h-9 min-h-0 resize-y py-1.5" value={hdr['Terms of Delivery']} onChange={(e) => setH('Terms of Delivery', e.target.value)} /></div>
           </>) : (<>
             <div><label className="label">Currency <span className="text-red-600">*</span></label><select className="input" value={hdr.Currency} onChange={(e) => setH('Currency', e.target.value)}><option value="">Select…</option>{(vinfo?.vendor.currencies?.length ? vinfo.vendor.currencies.map((c) => [c.code, c.name]) : CURRENCIES).map(([c, n]) => <option key={c} value={c}>{c} – {n}</option>)}</select></div>
-            <div><label className="label">Exchange rate (INR per {hdr.Currency || 'unit'}) <span className="text-red-600">*</span></label><input className="input" type="number" min="0" step="any" value={hdr['Exchange Rate']} onChange={(e) => setH('Exchange Rate', e.target.value)} /></div>
+            <div><label className="label">Exchange rate (INR per {hdr.Currency || 'unit'}) <span className="text-red-600">*</span></label><input className="input" type="number" min="0" step="any" value={hdr['Exchange Rate']} onChange={(e) => setH('Exchange Rate', e.target.value)} />
+              <div className="mt-0.5 flex items-center gap-2 text-[11px] text-slate-500"><span className="truncate">{fxBusy ? 'Fetching live rate…' : fxNote}</span>{hdr.Currency && <button type="button" className="shrink-0 text-brand-700 underline" disabled={fxBusy} onClick={() => pullRate(hdr.Currency)}>Refresh</button>}</div></div>
             <div><label className="label">Terms of delivery</label><textarea rows={1} maxLength={120} className="input h-9 min-h-0 resize-y py-1.5" value={hdr['Terms Of Delivery'] || ''} onChange={(e) => setH('Terms Of Delivery', e.target.value)} /></div>
           </>)}
           <div className="sm:col-span-2 lg:col-span-4"><label className="label">Notes</label><textarea rows={1} className="input h-9 min-h-0 resize-y py-1.5" value={hdr['Narration-Notes']} onChange={(e) => setH('Narration-Notes', e.target.value)} /></div>
@@ -409,10 +419,12 @@ export function PoForm() {
       <Card title="Items" className="mb-4">
         <Grid cols={poCols(type)} lines={c.lines} onChange={setLines} onItem={onItem} extra={<button type="button" className="btn btn-sm btn-primary" onClick={() => setPicker(true)}>+ Add from approved intents</button>} />
         <dl className="mt-4 ml-auto grid max-w-xs grid-cols-2 gap-1 text-sm">
-          <dt className="text-slate-500">Subtotal</dt><dd className="text-right tabular-nums">{inr(c.subtotal)}</dd>
-          {type === 'domestic' && <><dt className="text-slate-500">{/^yes$/i.test(hdr['Is IGST']) ? 'IGST' : 'CGST + SGST'}</dt><dd className="text-right tabular-nums">{inr(c.tax)}</dd></>}
-          {type === 'import' && num(hdr['Exchange Rate']) > 0 && <><dt className="text-slate-500">Total in {hdr.Currency || 'foreign currency'}</dt><dd className="text-right tabular-nums">{n2(c.grand / num(hdr['Exchange Rate']))}</dd></>}
-          <dt className="font-semibold">Grand total (INR){type === 'import' ? ' equivalent' : ''}</dt><dd className="text-right font-semibold tabular-nums">{inr(c.grand)}</dd>
+          {(() => { const imp = type === 'import'; const cur = imp ? (hdr.Currency || 'INR') : 'INR'; const f = (v) => (imp ? money(v, cur) : inr(v)); const rate = num(hdr['Exchange Rate']); return (<>
+            <dt className="text-slate-500">Subtotal</dt><dd className="text-right tabular-nums">{f(c.subtotal)}</dd>
+            {type === 'domestic' && <><dt className="text-slate-500">{/^yes$/i.test(hdr['Is IGST']) ? 'IGST' : 'CGST + SGST'}</dt><dd className="text-right tabular-nums">{inr(c.tax)}</dd></>}
+            <dt className="font-semibold">Grand total{imp ? ` (${cur})` : ' (INR)'}</dt><dd className="text-right font-semibold tabular-nums">{f(c.grand)}</dd>
+            {imp && rate > 0 && <><dt className="text-slate-500">INR equivalent @ {rate}</dt><dd className="text-right tabular-nums">{inr(c.grand * rate)}</dd></>}
+          </>); })()}
         </dl>
       </Card>
       {needOverride && canOverride && (
@@ -537,7 +549,11 @@ export function PoDetail() {
               <td className="td text-right tabular-nums">{n2(l['Line Total'])}</td><td className="td text-right tabular-nums">{n2(l['Received Qty'])}</td><td className="td text-right tabular-nums">{n2(l['Balance Qty'])}</td>
               {authorizing && <td className="td"><input type="checkbox" aria-label={`Remove line ${l['Line No']}`} checked={!!e.remove} onChange={(ev) => setEdit({ ...edit, [l['Line No']]: { ...e, remove: ev.target.checked } })} /></td>}
             </tr>); })}</tbody></table></div>
-        <dl className="ml-auto grid max-w-xs grid-cols-2 gap-1 p-4 text-sm"><dt className="text-slate-500">Subtotal</dt><dd className="text-right tabular-nums">{inr(totals.subtotal)}</dd>{poType === 'domestic' && <><dt className="text-slate-500">Tax</dt><dd className="text-right tabular-nums">{inr(totals.taxTotal)}</dd></>}<dt className="font-semibold">Grand total</dt><dd className="text-right font-semibold tabular-nums">{inr(totals.grandTotal)}</dd></dl>
+        <dl className="ml-auto grid max-w-xs grid-cols-2 gap-1 p-4 text-sm">{poType === 'import' && header.Currency ? (<>
+          <dt className="text-slate-500">Subtotal</dt><dd className="text-right tabular-nums">{money(totals.subtotalFx, header.Currency)}</dd>
+          <dt className="font-semibold">Grand total ({header.Currency})</dt><dd className="text-right font-semibold tabular-nums">{money(totals.grandTotalFx, header.Currency)}</dd>
+          <dt className="text-slate-500">INR equivalent @ {header['Exchange Rate']}</dt><dd className="text-right tabular-nums">{inr(totals.grandTotal)}</dd></>) : (<>
+          <dt className="text-slate-500">Subtotal</dt><dd className="text-right tabular-nums">{inr(totals.subtotal)}</dd>{poType === 'domestic' && <><dt className="text-slate-500">Tax</dt><dd className="text-right tabular-nums">{inr(totals.taxTotal)}</dd></>}<dt className="font-semibold">Grand total</dt><dd className="text-right font-semibold tabular-nums">{inr(totals.grandTotal)}</dd></>)}</dl>
       </Card>
       {authorizing && (
         <Card title="PO authorization" className="mb-4">

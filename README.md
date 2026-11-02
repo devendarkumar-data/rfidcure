@@ -204,3 +204,7 @@ Inventory > **Stock Master**: opening quantity and live quantity per warehouse /
 - Place of Supply, Submit For Approval and Destination are no longer on the GRN form (the sheet columns stay).
 - Supporting documents (PDF / PNG / JPG, 1.5 MB each, 5 per GRN) are stored in the new `Attachment Store` tab as base64 chunks. Sheet cells are small, so for larger files move this to object storage.
 - The GRN register search covers invoice no., PO no. and the PO linked on each line.
+
+## Import PO currency
+- The Import PO is worked out in the chosen currency: rates, gross, line totals, subtotal and grand total (form, detail and print), with the INR equivalent shown underneath. Stored totals (PO list, dashboard) stay in INR.
+- Picking a currency pulls the current rate (INR per unit) from the free open.er-api.com feed (cached 1 hour); the field stays editable and has a Refresh link. If the feed is unreachable you type the rate.

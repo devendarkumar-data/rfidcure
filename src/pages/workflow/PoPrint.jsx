@@ -42,6 +42,7 @@ export default function PoPrint() {
   const sum = (k) => rows.reduce((a, r) => a + num(r.l[k]), 0);
   const qtyTotal = rows.reduce((a, r) => a + num(r.l.Quantity), 0);
   const totalValue = rows.reduce((a, r) => a + r.total, 0); const rounded = Math.round(totalValue);
+  const imp = poType === 'import'; const cur = imp ? (header.Currency || '') : '₹'; const fxRate = num(header['Exchange Rate']); const totalInr = imp && fxRate > 0 ? Math.round(totalValue * fxRate) : rounded;
   const cityLine = [vendor.city].filter(Boolean).join(', ');
   const lbl = { fontWeight: 700, fontSize: 10 }; const val = { fontSize: 10 };
 
@@ -98,7 +99,7 @@ export default function PoPrint() {
         <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
           <colgroup>{['4%', '12%', '21%', '5%', '5%', '7%', '8%', '6%', '8%', '5%', '5%', '5%', '9%'].map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
           <thead>
-            <tr><th style={th} rowSpan={2}>S.NO</th><th style={th} rowSpan={2}>ITEM CODE</th><th style={th} rowSpan={2}>DESCRIPTION OF GOODS</th><th style={th} rowSpan={2}>QTY</th><th style={th} rowSpan={2}>UOM</th><th style={th} rowSpan={2}>RATE ₹</th><th style={th} rowSpan={2}>GROSS ₹</th><th style={th} rowSpan={2}>OTH DISC (₹)</th><th style={th} rowSpan={2}>TAXABLE AMOUNT (₹)</th><th style={th} colSpan={3}>GST %</th><th style={th} rowSpan={2}>TOTAL AMOUNT</th></tr>
+            <tr><th style={th} rowSpan={2}>S.NO</th><th style={th} rowSpan={2}>ITEM CODE</th><th style={th} rowSpan={2}>DESCRIPTION OF GOODS</th><th style={th} rowSpan={2}>QTY</th><th style={th} rowSpan={2}>UOM</th><th style={th} rowSpan={2}>RATE {cur}</th><th style={th} rowSpan={2}>GROSS {cur}</th><th style={th} rowSpan={2}>OTH DISC ({cur})</th><th style={th} rowSpan={2}>TAXABLE AMOUNT ({cur})</th><th style={th} colSpan={3}>GST %</th><th style={th} rowSpan={2}>TOTAL AMOUNT</th></tr>
             <tr><th style={th}>CGST</th><th style={th}>SGST</th><th style={th}>IGST</th></tr>
           </thead>
           <tbody>
@@ -137,7 +138,7 @@ export default function PoPrint() {
             <tr><td style={{ ...box, ...lbl, padding: '3px 4px' }}>Total Value (Rounded)</td><td style={{ ...box, ...val, textAlign: 'right', padding: '3px 4px' }}>{f2(rounded)}</td></tr>
           </tbody>
         </table>
-        <div style={{ ...box, borderTop: 'none', padding: '5px 6px', fontSize: 10 }}><b>INVOICE VALUE ( IN WORD ₹ ) :</b> &nbsp; {rupeesInWords(rounded)} Only</div>
+        <div style={{ ...box, borderTop: 'none', padding: '5px 6px', fontSize: 10 }}><b>INVOICE VALUE ( IN WORD ₹ ) :</b> &nbsp; {rupeesInWords(totalInr)} Only{imp && fxRate > 0 && <span> &nbsp;(equivalent of {header.Currency} {f2(totalValue)} @ ₹{fxRate} per {header.Currency})</span>}</div>
         <div style={{ ...box, borderTop: 'none', padding: 6, fontSize: 10, minHeight: 120, position: 'relative' }}>
           <div style={{ fontWeight: 700 }}>TERMS &amp; CONDITIONS :</div>
           <div style={{ marginTop: 8 }}>{(co.terms || []).map((t, i) => <div key={i}>{t}</div>)}</div>

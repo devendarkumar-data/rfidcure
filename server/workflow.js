@@ -340,11 +340,12 @@ export async function openIntents(ctx, q = {}) {
 
 // ---- Purchase Order -----------------------------------------------------------------------------------------------------
 export function calcPoLines(type, header, lines) {
+  // Import POs are worked out in the PO currency (line amounts and subtotal); the stored totals stay in INR (x exchange rate) so lists and the dashboard keep one unit.
   const igst = /^yes$/i.test(sstr(header['Is IGST'])); const fx = type === 'import' ? toNum(header['Exchange Rate']) || 1 : 1;
   let subtotal = 0, tax = 0, grand = 0;
   const out = lines.map((l) => {
     const qty = toNum(l.Quantity), rate = toNum(l.Rate), disc = toNum(l['Other Discount']);
-    const gross = round2(qty * rate * fx), taxable = round2(Math.max(0, gross - disc));
+    const gross = round2(qty * rate), taxable = round2(Math.max(0, gross - disc));
     const o = { ...l, Gross: gross };
     if (type === 'domestic') {
       const pct = toNum(l['GST %']); const t = round2(taxable * pct / 100);
@@ -356,7 +357,7 @@ export function calcPoLines(type, header, lines) {
     }
     return o;
   });
-  return { lines: out, subtotal: round2(subtotal), taxTotal: round2(tax), grandTotal: round2(grand) };
+  return { lines: out, subtotal: round2(subtotal * fx), taxTotal: round2(tax * fx), grandTotal: round2(grand * fx), subtotalFx: round2(subtotal), grandTotalFx: round2(grand) };
 }
 
 function poCan(ctx, st) {
@@ -599,7 +600,7 @@ export async function getPo(ctx, id) {
   const { __row, ...st } = x.s; void __row;
   const calc = calcPoLines(x.t.poType, x.r, x.lines);
   return {
-    id, poType: x.t.poType, header: maskRow(ctx, x.r), vendor: await vendorOf(ctx.store, x.r['Vendor Account']), company: await companyOf(ctx.store), lines: maskLines(ctx, lines), status: st, totals: { subtotal: calc.subtotal, taxTotal: calc.taxTotal, grandTotal: calc.grandTotal },
+    id, poType: x.t.poType, header: maskRow(ctx, x.r), vendor: await vendorOf(ctx.store, x.r['Vendor Account']), company: await companyOf(ctx.store), lines: maskLines(ctx, lines), status: st, totals: { subtotal: calc.subtotal, taxTotal: calc.taxTotal, grandTotal: calc.grandTotal, subtotalFx: calc.subtotalFx, grandTotalFx: calc.grandTotalFx },
     grns: x.grns, grnStatus: poGrnStatus(x), history: await historyOf(ctx, PO, id), can: poCan(ctx, x.s), defaultLocation: await defaultLocation(ctx.store),
   };
 }
