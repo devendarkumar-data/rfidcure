@@ -32,7 +32,7 @@ export async function vendorInfo(ctx, name) {
   return {
     id: sstr(v['Sup ID']) || sstr(v['Master Id']), name: sstr(v['Vendor Name']), active: active(v.Status), prefix: sstr(v['Custom PO Prefix']).toUpperCase(),
     types: { domestic: !pt || /domestic|both/.test(pt), import: !pt || /import|both/.test(pt) },
-    defaultCurrency: codes.has(def) ? def : (allowed[0] || 'INR'), currencies: all.filter((c) => allowed.includes(c.code)),
+    defaultCurrency: codes.has(def) ? def : (allowed[0] || 'INR'), currencies: all.filter((c) => allowed.includes(c.code)), hasCurrency: allowedRaw.length > 0 || !!def,
   };
 }
 

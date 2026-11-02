@@ -341,7 +341,7 @@ export async function openIntents(ctx, q = {}) {
 // ---- Purchase Order -----------------------------------------------------------------------------------------------------
 export function calcPoLines(type, header, lines) {
   // Import POs are worked out in the PO currency (line amounts and subtotal); the stored totals stay in INR (x exchange rate) so lists and the dashboard keep one unit.
-  const igst = /^yes$/i.test(sstr(header['Is IGST'])); const fx = type === 'import' ? toNum(header['Exchange Rate']) || 1 : 1;
+  const igst = /^yes$/i.test(sstr(header['Is IGST'])); const fx = 1; // an Import PO is worked out wholly in its own currency (no exchange rate)
   let subtotal = 0, tax = 0, grand = 0;
   const out = lines.map((l) => {
     const qty = toNum(l.Quantity), rate = toNum(l.Rate), disc = toNum(l['Other Discount']);
@@ -352,7 +352,7 @@ export function calcPoLines(type, header, lines) {
       Object.assign(o, { 'Taxable Value': taxable, CGST: igst ? 0 : round2(t / 2), SGST: igst ? 0 : round2(t - round2(t / 2)), IGST: igst ? t : 0, 'Line Total': round2(taxable + t) });
       subtotal += taxable; tax += t; grand += taxable + t;
     } else {
-      const pkg = toNum(l['PKG Charges']); o['Rate (INR)'] = round2(rate * fx); o['Line Total'] = round2(taxable + pkg);
+      const pkg = toNum(l['PKG Charges']); o['Line Total'] = round2(taxable + pkg);
       subtotal += taxable + pkg; grand += taxable + pkg;
     }
     return o;
@@ -428,11 +428,11 @@ export async function savePo(ctx, body, id, idem) {
     }
     if (poType === 'domestic') { hdr.Location = sstr(hdr.Location) || def; hdr.Destination = hdr.Location; } // Destination is not user-editable on a Domestic PO
     else { hdr.Location = sstr(hdr.Location) || def; hdr.Destination = sstr(hdr.Destination) || hdr.Location; }
-    if (poType === 'domestic') { delete hdr.Currency; delete hdr['Exchange Rate']; } // Domestic POs are always in INR
+    delete hdr['Exchange Rate']; if (poType === 'domestic') delete hdr.Currency; // Domestic POs are always in INR
     const header = await validateHeader(ctx, t, hdr);
     const date = header.Date || today();
     need(sstr(header['Vendor Account']), 'Vendor is required');
-    if (poType === 'import') { const vi = await poseries.vendorInfo(ctx, header['Vendor Account']); need(vi.currencies.some((c) => c.code === sstr(header.Currency)), `Currency is required and must be one allowed for ${vi.name}: ${vi.currencies.map((c) => c.code).join(', ')}`); need(toNum(header['Exchange Rate']) > 0, 'Exchange Rate is required for an Import PO'); }
+    if (poType === 'import') { const vi = await poseries.vendorInfo(ctx, header['Vendor Account']); need(vi.currencies.length && vi.hasCurrency !== false, `No currency is defined for vendor ${vi.name} - set its Allowed Currency in Vendor Master`); need(vi.currencies.some((c) => c.code === sstr(header.Currency)), `Currency is required and must be one allowed for ${vi.name}: ${vi.currencies.map((c) => c.code).join(', ')}`); }
     const stock = await loadStock(ctx.store, { fresh: true });
     const catalog = await itemCatalog(ctx.store, stock);
     let lines = await validateLines(ctx, t, cleanLines(body?.lines), catalog, { strictItems: true });
@@ -568,7 +568,7 @@ export async function listPos(ctx, q = {}) {
       'Document No.': r[t.idCol], Date: d, 'PO Type': t.poType === 'import' ? 'Import' : 'Domestic', 'Vendor Account': r['Vendor Account'], 'Source Purchase Intent': intents.join(', '),
       'Item Summary': lines.slice(0, 2).map((l) => l.Items).join(', ') + (lines.length > 2 ? ` +${lines.length - 2} more` : ''), Lines: lines.length,
       'Total Quantity': ordered, 'Approved Quantity': ['Approved', 'Partially Received', 'Completed', 'Closed'].includes(s.Status) ? ordered : 0, 'Received Quantity': received, 'Balance Quantity': round2(Math.max(0, ordered - received)),
-      'Grand Total': toNum(s['Grand Total']), 'Created By': s['Created By'], 'Submitted At': s['Submitted At'], Status: s.Status, 'GRN Status': poGrnStatus(x), 'GRN Count': x.grns.length,
+      'Grand Total': toNum(s['Grand Total']), Currency: sstr(r.Currency), 'Created By': s['Created By'], 'Submitted At': s['Submitted At'], Status: s.Status, 'GRN Status': poGrnStatus(x), 'GRN Count': x.grns.length,
       'Authorized By': s['Reviewed By'], 'Authorized At': s['Reviewed At'], Location: r.Location, actions: poCan(ctx, s),
     });
   }

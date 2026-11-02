@@ -50,7 +50,7 @@ export { PURCHASE_TYPES, CURRENCIES };
 const FIXED_OPTIONS = {
   'Type Of Purchase': PURCHASE_TYPES, Currency: CURRENCIES.map(([c]) => c),
   'Submit For Approval': YN, 'Submit for Approval': YN, 'Is IGST': YN,
-  Status: ['Active', 'Inactive'],
+  Status: ['Active', 'Inactive'], 'Vendor Category': ['Domestic', 'International'],
 };
 
 // ---- tiny DSL (taken from the approved prototype's screen definitions) ----------------------------
@@ -97,7 +97,7 @@ const RFID_LINES = null;
 export const SPECS = [
   { tab: 'Opening Stock', kind: 'stockdata', stage: 'reports', wh: ['Warehouse'] },
   { tab: 'Stock Ledger', kind: 'audit', stage: 'reports', wh: ['Warehouse'], sort: { col: 'Date', dir: 'desc' } },
-  { tab: 'Vendor Master', kind: 'master', stage: 'admin', required: ['Vendor Name', 'Custom PO Prefix'], optional: ['Sup ID'], hide: ['Default Currency'] }, // Default Currency is dropped from the form: a vendor's first Allowed Currency is the default
+  { tab: 'Vendor Master', kind: 'master', stage: 'admin', required: ['Vendor Name'], optional: ['Sup ID'], hide: ['Default Currency'] }, // Default Currency is dropped from the form: a vendor's first Allowed Currency is the default
   { tab: 'Attachment Store', kind: 'log', stage: 'admin', hide: ['Data'] },
   { tab: 'Activity Log', kind: 'audit', stage: 'admin', sort: { col: 'Created_Date', dir: 'desc' } },
   { tab: 'Login Sessions', kind: 'audit', stage: 'admin', sort: { col: 'Created_Date', dir: 'desc' } },

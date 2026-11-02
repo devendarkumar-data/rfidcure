@@ -206,5 +206,6 @@ Inventory > **Stock Master**: opening quantity and live quantity per warehouse /
 - The GRN register search covers invoice no., PO no. and the PO linked on each line.
 
 ## Import PO currency
-- The Import PO is worked out in the chosen currency: rates, gross, line totals, subtotal and grand total (form, detail and print), with the INR equivalent shown underneath. Stored totals (PO list, dashboard) stay in INR.
-- Picking a currency pulls the current rate (INR per unit) from the free open.er-api.com feed (cached 1 hour); the field stays editable and has a Refresh link. If the feed is unreachable you type the rate.
+- No exchange rate: an Import PO is created and printed wholly in the chosen currency (rates, gross, line totals, subtotal, grand total) with the currency sign. The PO list shows its value in that currency too.
+- The currency must be one of the vendor's **Allowed Currency** values in Vendor Master; a vendor with no currency defined cannot be used for an Import PO.
+- Vendor Category is a Domestic / International dropdown. Custom PO Prefix is optional (no prefix = the shared `PO` series).

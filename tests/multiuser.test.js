@@ -166,7 +166,7 @@ test('"All" group sees every warehouse; admin can view one warehouse at a time',
   assert.ok((filtered.json.rows || filtered.json.balances || []).every((x) => (x.warehouse || x.Warehouse) === one));
 });
 
-test('PO: warehouse locked to the assigned one, Type of Purchase list, import needs currency + rate', async (t) => {
+test('PO: warehouse locked to the assigned one, Type of Purchase list, import needs a currency (no exchange rate)', async (t) => {
   const app = await makeApp(); t.after(() => app.close());
   const sa = await app.as('sa'); const wm = await app.as('wm');
   await sa('PUT', '/api/admin/access', { tab: 'Purchase Order — Domestic', role: 'warehouse_manager', level: 'Edit' });
@@ -183,8 +183,8 @@ test('PO: warehouse locked to the assigned one, Type of Purchase list, import ne
   const noCur = await sa('POST', '/api/wf/pos', { poType: 'import', header: { ...base, Location: 'MWH' }, lines: line.map((l) => ({ ...l, 'GST %': undefined })), submit: false });
   assert.ok([400, 422].includes(noCur.status), noCur.text);
   const imp = await sa('POST', '/api/wf/pos', { poType: 'import', header: { ...base, Location: 'MWH', Currency: 'USD', 'Exchange Rate': 83 }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10 }], submit: false });
-  assert.equal(imp.status, 201, imp.text); assert.equal(imp.json.status.Status, 'Draft'); assert.equal(imp.json.totals.grandTotal, 830);
-  const dom = await sa('POST', '/api/wf/pos', { header: { ...base, Location: 'MWH', Currency: 'USD', 'Exchange Rate': 83 }, lines: line, submit: false });
+  assert.equal(imp.status, 201, imp.text); assert.equal(imp.json.status.Status, 'Draft'); assert.equal(imp.json.totals.grandTotal, 10);
+  const dom = await sa('POST', '/api/wf/pos', { header: { ...base, Location: 'MWH', Currency: 'USD' }, lines: line, submit: false });
   assert.equal(dom.status, 201); assert.ok(!dom.json.header.Currency && !dom.json.header['Exchange Rate'], 'domestic ignores currency / rate');
 });
 
@@ -487,7 +487,7 @@ test('Vendor-wise PO numbering: custom prefix / DEFAULT series, DOM / IMP, finan
   const gone = await dom('Gone Ltd'); assert.ok(gone.status >= 400 && gone.status < 500, 'inactive vendor: ' + gone.text);
   const series = (await sa('GET', '/api/t/po-series-config?pageSize=50')).json.rows; assert.ok(series.some((r) => r['Vendor ID'] === 'VND001' && r['Last Sequence'] === 1002)); assert.ok(series.some((r) => r['Vendor ID'] === 'DEFAULT' && r['Last Sequence'] === 1002));
   // import: allowed currency only; same running sequence as Domestic (no DOM / IMP in the number)
-  const imp = (cur, v = 'ABC Medical') => sa('POST', '/api/wf/pos', { poType: 'import', header: { Date: '2026-10-27', 'Vendor Account': v, Location: 'MWH', Destination: 'MWH', Currency: cur, 'Exchange Rate': 83 }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10 }], submit: false });
+  const imp = (cur, v = 'ABC Medical') => sa('POST', '/api/wf/pos', { poType: 'import', header: { Date: '2026-10-27', 'Vendor Account': v, Location: 'MWH', Destination: 'MWH', Currency: cur }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10 }], submit: false });
   const bad = await imp('EUR'); assert.equal(bad.status >= 400, true, 'EUR is not allowed for ABC');
   const pv = await sa('GET', '/api/wf/pos/vendor?vendor=ABC%20Medical&type=import&date=2026-10-27'); assert.equal(pv.status, 200, pv.text); assert.equal(pv.json.next, 'ABC/26-27/1003'); assert.deepEqual(pv.json.vendor.currencies.map((c) => c.code).sort(), ['INR', 'USD']);
   // concurrent creation never duplicates a number
@@ -535,7 +535,8 @@ test('Vendor Master: Vendor Name required, Default Currency hidden, Allowed Curr
   const app = await makeApp(); t.after(() => app.close());
   const sa = await app.as('sa');
   const meta = (await sa('GET', '/api/meta')).json.modules.flatMap((m) => m.tables).find((x) => x.slug === 'vendor-master');
-  assert.ok(meta.required.includes('Vendor Name') && meta.required.includes('Custom PO Prefix') && !meta.required.includes('Sup ID'));
+  assert.ok(meta.required.includes('Vendor Name') && !meta.required.includes('Custom PO Prefix') && !meta.required.includes('Sup ID'));
+  assert.deepEqual(meta.fields.find((f) => f.name === 'Vendor Category').options, ['Domestic', 'International']);
   const names = meta.fields.map((f) => f.name);
   assert.ok(!names.includes('Default Currency') && names.includes('Allowed Currency'));
   const ac = meta.fields.find((f) => f.name === 'Allowed Currency'); assert.equal(ac.multi, true); assert.equal(ac.lookup, 'Allowed Currency');
@@ -543,5 +544,13 @@ test('Vendor Master: Vendor Name required, Default Currency hidden, Allowed Curr
   assert.ok(opts.includes('USD') && opts.includes('EUR'));
   assert.equal((await sa('POST', '/api/t/vendor-master', { header: { 'Sup ID': 'V9', 'Custom PO Prefix': 'GLB', 'Allowed Currency': 'USD, EUR' } })).status, 400);
   assert.equal((await sa('POST', '/api/t/vendor-master', { header: { 'Vendor Name': 'Globex', 'Custom PO Prefix': 'GLB', 'Allowed Currency': 'USD, EUR' } })).status, 201); // Sup ID is optional
-  assert.equal((await sa('POST', '/api/t/vendor-master', { header: { 'Vendor Name': 'NoPrefix Co' } })).status, 400, 'Custom PO Prefix is required');
+  assert.equal((await sa('POST', '/api/t/vendor-master', { header: { 'Vendor Name': 'NoPrefix Co', 'Vendor Category': 'Domestic' } })).status, 201, 'Custom PO Prefix is optional');
+});
+
+test('Import PO needs a currency defined on the vendor (Allowed Currency in Vendor Master)', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  assert.equal((await sa('POST', '/api/t/vendor-master', { header: { 'Vendor Name': 'No Cur Intl', 'Vendor Category': 'International', 'Custom PO Prefix': 'NCI' } })).status, 201);
+  const r = await sa('POST', '/api/wf/pos', { poType: 'import', header: { Date: '2026-10-27', 'Vendor Account': 'No Cur Intl', Location: 'MWH', Currency: 'USD' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10 }], submit: false });
+  assert.equal(r.status, 400, r.text); assert.match(r.json.error, /Allowed Currency in Vendor Master/);
 });

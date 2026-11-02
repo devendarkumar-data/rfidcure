@@ -13,7 +13,6 @@ import * as crud from './crud.js';
 import * as imprest from './imprest.js';
 import * as eway from './eway.js';
 import * as attachments from './attachments.js';
-import * as fx from './fx.js';
 import * as poseries from './poseries.js';
 import * as admin from './admin.js';
 import * as reports from './reports.js';
@@ -216,7 +215,6 @@ export default async function handler(req, res) {
       if (r2 === 'pos' && req.method === 'GET') { const r = await wf.listPos(ctx, q); return q.export ? csv(r, 'purchase-orders') : ok(r); }
       if (r2 === 'pos/get' && req.method === 'GET') return ok(await wf.getPo(ctx, q.id));
       if (r2 === 'pos/defaults' && req.method === 'GET') return ok(await wf.poDefaults(ctx));
-      if (r2 === 'pos/fx' && req.method === 'GET') { if (!actionsFor(ctx.user.role, 'po').includes('view')) throw forbidden(); return ok(await fx.rate(q.currency)); }
       if (r2 === 'pos/item-info' && req.method === 'GET') return ok(await wf.poItemInfo(ctx, q));
       if (r2 === 'pos/vendor' && req.method === 'GET') { assertCan(ctx, TABLE_BY_SLUG['purchase-order-domestic'], 'view'); return ok(await poseries.preview(ctx, q.vendor, q.type === 'import' ? 'import' : 'domestic', q.date || today())); }
       if (r2 === 'pos/open' && req.method === 'GET') return ok(await wf.openPos(ctx, q));
