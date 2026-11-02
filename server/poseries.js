@@ -1,11 +1,13 @@
 // Vendor-wise PO numbering. Everything is read from the masters (Vendor Master, PO Series Config, Currency Master); nothing is hardcoded.
-//   number = PREFIX/FY/SEQ(5)/SUFFIX   prefix = vendor's Custom PO Prefix, else PO (DEFAULT series shared by all such vendors)
+//   number = PREFIX/FY/SEQ  (e.g. MIS/26-27/1001), one running series per vendor and year for Domestic and Import together; first number is 1001.
+//   prefix = vendor's Custom PO Prefix, else PO (DEFAULT series shared by all such vendors)
 import { CURRENCIES } from '../shared/po-options.js';
 import { HttpError, bad, fyOf, sstr, toNum, unprocessable, withLock } from './util.js';
 import { nextMasterId } from './crud.js';
 
 const VENDOR = 'Vendor Master', SERIES = 'PO Series Config', CURR = 'Currency Master';
-const SUFFIX = { domestic: 'DOM', import: 'IMP' }; const TYPE = { domestic: 'Domestic', import: 'Import' };
+const START = 1000; // the first PO of a series is START + 1 = 1001
+const TYPE = { domestic: 'All', import: 'All' }; // no Domestic / Import split in the number any more
 const active = (v) => !sstr(v) || /^active$/i.test(sstr(v));
 const list = (v) => sstr(v).split(/[,;/|]+/).map((x) => x.trim().toUpperCase()).filter(Boolean);
 
@@ -34,13 +36,13 @@ export async function vendorInfo(ctx, name) {
   };
 }
 
-const fmt = (prefix, fy, seq, type) => `${prefix}/${fy}/${String(seq).padStart(5, '0')}/${SUFFIX[type]}`;
+const fmt = (prefix, fy, seq) => `${prefix}/${fy}/${seq}`;
 
 // Preview only (nothing is reserved).
 export async function preview(ctx, name, type, date) {
   const v = await vendorInfo(ctx, name); checkVendor(v, type);
   const fy = fyOf(date); const { series } = await findSeries(ctx.store, v, type, fy);
-  return { vendor: v, financialYear: fy, prefix: v.prefix || 'PO', next: fmt(v.prefix || 'PO', fy, (series ? toNum(series['Last Sequence']) : 0) + 1, type) };
+  return { vendor: v, financialYear: fy, prefix: v.prefix || 'PO', next: fmt(v.prefix || 'PO', fy, Math.max(series ? toNum(series['Last Sequence']) : 0, START) + 1) };
 }
 
 function checkVendor(v, type) {
@@ -60,17 +62,17 @@ export function allocate(ctx, { vendor, type, date, existingNos }) {
     const v = await vendorInfo(ctx, vendor); checkVendor(v, type);
     const fy = fyOf(date); const prefix = v.prefix || 'PO';
     const { vid, series, inactive } = await findSeries(ctx.store, v, type, fy);
-    if (inactive) throw unprocessable(`PO series ${prefix}/${fy}/${SUFFIX[type]} is inactive - activate it in PO Series Config`);
+    if (inactive) throw unprocessable(`PO series ${prefix}/${fy} is inactive - activate it in PO Series Config`);
     const taken = new Set(existingNos.map((n) => sstr(n).toUpperCase()));
-    let last = series ? toNum(series['Last Sequence']) : 0;
+    let last = Math.max(series ? toNum(series['Last Sequence']) : 0, START);
     // a new series continues after numbers already issued with the same prefix / year / suffix (never reuses a number)
-    const head = `${prefix}/${fy}/`.toUpperCase(); const tail = `/${SUFFIX[type]}`;
-    for (const n of taken) if (n.startsWith(head) && n.endsWith(tail)) last = Math.max(last, parseInt(n.slice(head.length), 10) || 0);
-    let seq = last + 1; while (taken.has(fmt(prefix, fy, seq, type).toUpperCase())) seq += 1;
-    const no = fmt(prefix, fy, seq, type);
+    const head = `${prefix}/${fy}/`.toUpperCase();
+    for (const n of taken) if (n.startsWith(head)) last = Math.max(last, parseInt(n.slice(head.length), 10) || 0);
+    let seq = last + 1; while (taken.has(fmt(prefix, fy, seq).toUpperCase())) seq += 1;
+    const no = fmt(prefix, fy, seq);
     const store = ctx.store;
     if (series) await store.updateRow(SERIES, series.__row, { 'Last Sequence': seq }, { col: 'Series ID', val: series['Series ID'] });
-    else await store.append(SERIES, [{ 'Master Id': await nextMasterId(store, { tab: SERIES }), 'Series ID': `${vid}-${SUFFIX[type]}-${fy}`, 'Vendor ID': vid, 'PO Prefix': prefix, 'Purchase Type': TYPE[type], 'Financial Year': fy, 'Last Sequence': seq, Suffix: SUFFIX[type], Status: 'Active' }]);
+    else await store.append(SERIES, [{ 'Master Id': await nextMasterId(store, { tab: SERIES }), 'Series ID': `${vid}-${fy}`, 'Vendor ID': vid, 'PO Prefix': prefix, 'Purchase Type': TYPE[type], 'Financial Year': fy, 'Last Sequence': seq, Suffix: '', Status: 'Active' }]);
     return { no, prefix, fy, seq, seriesVendorId: vid, vendor: v };
   });
 }

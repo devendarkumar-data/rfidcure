@@ -76,7 +76,7 @@ test('master import: validate, all-or-nothing, skip existing, export xlsx', asyn
   const app = await makeApp(); t.after(() => app.close());
   const sa = await app.as('sa');
   const csv = (rows) => Buffer.from(rows.join('\n')).toString('base64');
-  const good = csv(['Sup ID,Vendor Name,Supp Contact,Address,City,GSTIN', 'VE1,ACME ORTHO,9999,Plot 1,RAJKOT,24AAAAA0000A1Z5', 'VE2,BETA MEDI,8888,Plot 2,SURAT,']);
+  const good = csv(['Sup ID,Vendor Name,Supp Contact,Address,City,GSTIN,Custom PO Prefix', 'VE1,ACME ORTHO,9999,Plot 1,RAJKOT,24AAAAA0000A1Z5,ACM', 'VE2,BETA MEDI,8888,Plot 2,SURAT,,BET']);
   const check = await sa('POST', '/api/t/vendor-master/import', { filename: 'v.csv', content: good }); assert.equal(check.status, 200, check.text);
   assert.equal(check.json.committed, false); assert.equal(check.json.counts.rows, 2); assert.equal(check.json.counts.errors, 0);
   const done = await sa('POST', '/api/t/vendor-master/import', { filename: 'v.csv', content: good, confirm: true }); assert.equal(done.json.committed, true, done.text);
@@ -142,9 +142,9 @@ test('Access Control matrix grants and removes tab access per group; Super Admin
   let r = await sa('PUT', '/api/admin/access', { tab: 'Vendor Master', role: 'warehouse_manager', level: 'View' });
   assert.equal(r.status, 200, r.text);
   assert.equal((await wm('GET', '/api/t/vendor-master')).status, 200);
-  assert.equal((await wm('POST', '/api/t/vendor-master', { 'Vendor Name': 'X Ltd', 'Sup ID': 'S9' })).status, 403, 'View is read-only');
+  assert.equal((await wm('POST', '/api/t/vendor-master', { 'Vendor Name': 'X Ltd', 'Sup ID': 'S9', 'Custom PO Prefix': 'XLT' })).status, 403, 'View is read-only');
   r = await sa('PUT', '/api/admin/access', { tab: 'Vendor Master', role: 'warehouse_manager', level: 'Edit' });
-  assert.equal((await wm('POST', '/api/t/vendor-master', { 'Vendor Name': 'X Ltd', 'Sup ID': 'S9' })).status, 201);
+  assert.equal((await wm('POST', '/api/t/vendor-master', { 'Vendor Name': 'X Ltd', 'Sup ID': 'S9', 'Custom PO Prefix': 'XLT' })).status, 201);
   r = await sa('PUT', '/api/admin/access', { tab: 'GRN  MRN', role: 'warehouse_manager', level: 'None' });
   assert.equal((await wm('GET', '/api/t/grn-mrn')).status, 403);
   const meta = await wm('GET', '/api/meta'); assert.ok(!meta.json.modules.flatMap((m) => m.tables).some((x) => x.title === 'GRN  MRN'));
@@ -480,21 +480,21 @@ test('Vendor-wise PO numbering: custom prefix / DEFAULT series, DOM / IMP, finan
   const sa = await app.as('sa');
   const mk = (vendor, extra = {}) => sa('POST', '/api/wf/pos', { header: { Date: '2026-10-27', 'Vendor Account': vendor, Location: 'MWH', Destination: 'MWH', ...extra.header }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 2, Rate: 100, 'GST %': 12 }], submit: false, ...extra.body }, extra.url);
   const dom = (v) => sa('POST', '/api/wf/pos', { header: { Date: '2026-10-27', 'Vendor Account': v, Location: 'MWH', Destination: 'MWH' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 2, Rate: 100, 'GST %': 12 }], submit: false });
-  assert.equal((await dom('ABC Medical')).json.id, 'ABC/26-27/00001/DOM');
-  assert.equal((await dom('ABC Medical')).json.id, 'ABC/26-27/00002/DOM');
-  assert.equal((await dom('PQR Healthcare')).json.id, 'PO/26-27/00001/DOM');
-  assert.equal((await dom('PQR Healthcare')).json.id, 'PO/26-27/00002/DOM', 'DEFAULT series is shared');
+  assert.equal((await dom('ABC Medical')).json.id, 'ABC/26-27/1001');
+  assert.equal((await dom('ABC Medical')).json.id, 'ABC/26-27/1002');
+  assert.equal((await dom('PQR Healthcare')).json.id, 'PO/26-27/1001');
+  assert.equal((await dom('PQR Healthcare')).json.id, 'PO/26-27/1002', 'DEFAULT series is shared');
   const gone = await dom('Gone Ltd'); assert.ok(gone.status >= 400 && gone.status < 500, 'inactive vendor: ' + gone.text);
-  const series = (await sa('GET', '/api/t/po-series-config?pageSize=50')).json.rows; assert.ok(series.some((r) => r['Vendor ID'] === 'VND001' && r['Last Sequence'] === 2)); assert.ok(series.some((r) => r['Vendor ID'] === 'DEFAULT' && r['Last Sequence'] === 2));
-  // import: allowed currency only; separate IMP sequence
+  const series = (await sa('GET', '/api/t/po-series-config?pageSize=50')).json.rows; assert.ok(series.some((r) => r['Vendor ID'] === 'VND001' && r['Last Sequence'] === 1002)); assert.ok(series.some((r) => r['Vendor ID'] === 'DEFAULT' && r['Last Sequence'] === 1002));
+  // import: allowed currency only; same running sequence as Domestic (no DOM / IMP in the number)
   const imp = (cur, v = 'ABC Medical') => sa('POST', '/api/wf/pos', { poType: 'import', header: { Date: '2026-10-27', 'Vendor Account': v, Location: 'MWH', Destination: 'MWH', Currency: cur, 'Exchange Rate': 83 }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10 }], submit: false });
   const bad = await imp('EUR'); assert.equal(bad.status >= 400, true, 'EUR is not allowed for ABC');
-  const pv = await sa('GET', '/api/wf/pos/vendor?vendor=ABC%20Medical&type=import&date=2026-10-27'); assert.equal(pv.status, 200, pv.text); assert.equal(pv.json.next, 'ABC/26-27/00001/IMP'); assert.deepEqual(pv.json.vendor.currencies.map((c) => c.code).sort(), ['INR', 'USD']);
+  const pv = await sa('GET', '/api/wf/pos/vendor?vendor=ABC%20Medical&type=import&date=2026-10-27'); assert.equal(pv.status, 200, pv.text); assert.equal(pv.json.next, 'ABC/26-27/1003'); assert.deepEqual(pv.json.vendor.currencies.map((c) => c.code).sort(), ['INR', 'USD']);
   // concurrent creation never duplicates a number
   const many = await Promise.all([1, 2, 3, 4].map(() => dom('ABC Medical'))); const ids = many.map((r) => r.json.id); assert.equal(new Set(ids).size, 4, ids.join());
-  // new financial year starts again at 00001
+  // new financial year starts again at 1001
   const ny = await sa('POST', '/api/wf/pos', { header: { Date: '2027-04-02', 'Vendor Account': 'ABC Medical', Location: 'MWH', Destination: 'MWH' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10, 'GST %': 12 }], submit: false });
-  assert.equal(ny.json.id, 'ABC/27-28/00001/DOM');
+  assert.equal(ny.json.id, 'ABC/27-28/1001');
 });
 
 test('Stock Master shows opening + live quantity; hospitals are left out of the live stock views', async (t) => {
@@ -535,12 +535,13 @@ test('Vendor Master: Vendor Name required, Default Currency hidden, Allowed Curr
   const app = await makeApp(); t.after(() => app.close());
   const sa = await app.as('sa');
   const meta = (await sa('GET', '/api/meta')).json.modules.flatMap((m) => m.tables).find((x) => x.slug === 'vendor-master');
-  assert.ok(meta.required.includes('Vendor Name') && meta.required.includes('Sup ID'));
+  assert.ok(meta.required.includes('Vendor Name') && meta.required.includes('Custom PO Prefix') && !meta.required.includes('Sup ID'));
   const names = meta.fields.map((f) => f.name);
   assert.ok(!names.includes('Default Currency') && names.includes('Allowed Currency'));
   const ac = meta.fields.find((f) => f.name === 'Allowed Currency'); assert.equal(ac.multi, true); assert.equal(ac.lookup, 'Allowed Currency');
   const opts = (await sa('GET', '/api/lookup?field=Allowed Currency')).json.options.map((o) => o.value);
   assert.ok(opts.includes('USD') && opts.includes('EUR'));
-  assert.equal((await sa('POST', '/api/t/vendor-master', { header: { 'Sup ID': 'V9', 'Allowed Currency': 'USD, EUR' } })).status, 400);
-  assert.equal((await sa('POST', '/api/t/vendor-master', { header: { 'Sup ID': 'V9', 'Vendor Name': 'Globex', 'Allowed Currency': 'USD, EUR' } })).status, 201);
+  assert.equal((await sa('POST', '/api/t/vendor-master', { header: { 'Sup ID': 'V9', 'Custom PO Prefix': 'GLB', 'Allowed Currency': 'USD, EUR' } })).status, 400);
+  assert.equal((await sa('POST', '/api/t/vendor-master', { header: { 'Vendor Name': 'Globex', 'Custom PO Prefix': 'GLB', 'Allowed Currency': 'USD, EUR' } })).status, 201); // Sup ID is optional
+  assert.equal((await sa('POST', '/api/t/vendor-master', { header: { 'Vendor Name': 'NoPrefix Co' } })).status, 400, 'Custom PO Prefix is required');
 });

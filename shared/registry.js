@@ -97,7 +97,7 @@ const RFID_LINES = null;
 export const SPECS = [
   { tab: 'Opening Stock', kind: 'stockdata', stage: 'reports', wh: ['Warehouse'] },
   { tab: 'Stock Ledger', kind: 'audit', stage: 'reports', wh: ['Warehouse'], sort: { col: 'Date', dir: 'desc' } },
-  { tab: 'Vendor Master', kind: 'master', stage: 'admin', required: ['Vendor Name'], hide: ['Default Currency'] }, // Default Currency is dropped from the form: a vendor's first Allowed Currency is the default
+  { tab: 'Vendor Master', kind: 'master', stage: 'admin', required: ['Vendor Name', 'Custom PO Prefix'], optional: ['Sup ID'], hide: ['Default Currency'] }, // Default Currency is dropped from the form: a vendor's first Allowed Currency is the default
   { tab: 'Attachment Store', kind: 'log', stage: 'admin', hide: ['Data'] },
   { tab: 'Activity Log', kind: 'audit', stage: 'admin', sort: { col: 'Created_Date', dir: 'desc' } },
   { tab: 'Login Sessions', kind: 'audit', stage: 'admin', sort: { col: 'Created_Date', dir: 'desc' } },
@@ -109,9 +109,9 @@ export const SPECS = [
   { tab: 'Purchase Requisition', kind: 'doc', stage: 'requisition', workflow: 'req', prefix: 'PR', wh: ['Requesting Warehouse', 'Issuing Warehouse'], required: ['Date', 'Requesting Warehouse'],
     form: 'Priority:Dropdown:Low,Normal,High,Urgent',
     lines: 'Items:Dropdown|Units:Text|Current Stock:Number|Mother Stock:Number|Quantity:Number|Approved Qty:Number|Reason:Text|Line No:Number' },
-  { tab: 'Purchase Order — Domestic', kind: 'doc', stage: 'po', workflow: 'po', poType: 'domestic', prefix: 'PO', suffix: 'DOM', required: ['Date', 'Vendor Account'],
+  { tab: 'Purchase Order — Domestic', kind: 'doc', stage: 'po', workflow: 'po', poType: 'domestic', prefix: 'PO', required: ['Date', 'Vendor Account'],
     lines: 'Items:Dropdown|Description:Text|Warehouse:Dropdown|Units:Text|Current Stock:Number|Reorder Level:Number|Quantity:Number|Rate:Number|SP Rate:Number|Price Type:Dropdown:Price Book,Special Book|Price Book Rate:Number|Special Rate:Number|Last PO Rate:Number|Brand:Dropdown|Item Group:Dropdown|Division:Dropdown|Other Discount:Number|GST %:Number|Gross:Calculated|Taxable Value:Calculated|CGST:Calculated|SGST:Calculated|IGST:Calculated|Line Total:Calculated|Intent No:Text|Intent Line:Number|Line No:Number' },
-  { tab: 'Purchase Order — Import', kind: 'doc', stage: 'po', workflow: 'po', poType: 'import', prefix: 'PO', suffix: 'IMP', required: ['Date', 'Vendor Account'],
+  { tab: 'Purchase Order — Import', kind: 'doc', stage: 'po', workflow: 'po', poType: 'import', prefix: 'PO', required: ['Date', 'Vendor Account'],
     lines: 'Items:Dropdown|Description:Text|Warehouse:Dropdown|Units:Text|Current Stock:Number|Reorder Level:Number|Quantity:Number|Price Type:Dropdown:Price Book,Special Book|Price Book Type:Text|Special Rate:Number|L-Imprest Out:Text|Last PO Rate:Number|Brand:Dropdown|Item Category:Dropdown|Item Group:Dropdown|Division:Dropdown|Rate:Number|Rate (INR):Calculated|PKG Charges:Number|Other Discount:Number|Gross:Calculated|Line Total:Calculated|Intent No:Text|Intent Line:Number|Line No:Number' },
   { tab: 'GRN  MRN', kind: 'doc', stage: 'grn', workflow: 'grn', prefix: 'GRN', post: 'grn', wh: ['Warehouse'], required: ['Date', 'Warehouse'],
     hideLines: ['PO Line', 'Ordered Qty', 'Received Qty', 'Accepted Qty', 'Rejected / Damaged Qty', 'Excess Decision', 'Short Close'],
@@ -197,7 +197,7 @@ function buildTable(t) {
     slug: slugify(t.tab), tab: t.tab, module: t.module, moduleName: t.moduleName, kind: spec.kind, stage: spec.stage,
     headers, fields, idCol, prefix: spec.prefix || null, suffix: spec.suffix || null, post: spec.post || null, wh: spec.wh || [],
     required: spec.master || spec.kind === 'master'
-      ? [...new Set([headers[1], ...(t.tab === 'Item Master' ? ['Code'] : []), ...(spec.required || [])])]
+      ? [...new Set([headers[1], ...(t.tab === 'Item Master' ? ['Code'] : []), ...(spec.required || [])])].filter((c) => !(spec.optional || []).includes(c))
       : spec.required || [],
     lineFields, itemField, hide: spec.hide || [], hideLines: spec.hideLines || [], hasLines: headers.includes('Lines'), sort: spec.sort || null,
     writable: spec.kind === 'doc' || spec.kind === 'master' || spec.kind === 'log' || spec.kind === 'settings' || !!spec.writable,

@@ -399,7 +399,7 @@ export function PoForm() {
           <div><label className="label">Date</label><input type="date" className="input" value={hdr.Date} onChange={(e) => setH('Date', e.target.value)} /></div>
           <div><label className="label">Vendor <span className="text-red-600">*</span></label><Combobox field="Vendor Account" value={hdr['Vendor Account']} onChange={(v) => setH('Vendor Account', v)} /></div>
           {<div><label className="label">Warehouse / Location</label><select className="input" value={hdr.Location} onChange={(e) => setH('Location', e.target.value)}>{!hdr.Location && <option value="">Select…</option>}{[...new Set([hdr.Location, ...whList].filter(Boolean))].map((w) => <option key={w}>{w}</option>)}</select></div>}
-          <div><label className="label">PO No. (generated on save){vinfo ? ` · FY ${vinfo.financialYear}` : ''}</label><input className="input bg-slate-50" readOnly value={vinfo ? vinfo.next : `PREFIX/YY-YY/#####/${type === 'import' ? 'IMP' : 'DOM'}`} title="Generated automatically from the vendor's series; cannot be edited" /></div>
+          <div><label className="label">PO No. (generated on save){vinfo ? ` · FY ${vinfo.financialYear}` : ''}</label><input className="input bg-slate-50" readOnly value={vinfo ? vinfo.next : 'PREFIX/YY-YY/1001'} title="Generated automatically from the vendor's series; cannot be edited" /></div>
           <div><label className="label">Supplier reference</label><input className="input" value={hdr['Supplier Ref No']} onChange={(e) => setH('Supplier Ref No', e.target.value)} /></div>
           {type === 'domestic' ? (<>
             <div><label className="label">Currency</label><input className="input bg-slate-50" readOnly value={`${BASE_CURRENCY[0]} – ${BASE_CURRENCY[1]}`} /></div>
