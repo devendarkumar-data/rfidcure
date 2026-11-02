@@ -67,3 +67,6 @@ export function constantTimeEq(a, b) {
 
 // The Mother Warehouse is the only warehouse that raises Purchase Indents (to purchase from vendors).
 export const motherWarehouse = () => String(process.env.MOTHER_WAREHOUSE || 'MWH').toUpperCase();
+
+// Warehouse ordering used everywhere: the Mother Warehouse (MWH) first, then alphabetical.
+export const whOrder = (a, b) => (String(a).toUpperCase() === 'MWH' ? -1 : String(b).toUpperCase() === 'MWH' ? 1 : String(a).localeCompare(String(b)));

@@ -577,3 +577,13 @@ test('PO: stock by warehouse for the selected item, Purchase Type Linked With Ve
   assert.ok(Array.isArray(info.byWarehouse) && info.byWarehouse.length >= 1 && info.byWarehouse.every((w) => typeof w.qty === 'number'));
   assert.equal(info.total, Math.round(info.byWarehouse.reduce((a, w) => a + w.qty, 0) * 1e6) / 1e6);
 });
+
+test('any warehouse user can see every warehouse stock for an item (read-only), MWH is listed first', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sl = await app.as('wm'); // a warehouse-assigned user
+  const r = (await sl('GET', '/api/stock/item-warehouses?code=A1')).json;
+  assert.equal(r.rows[0].warehouse, 'MWH', 'MWH first'); assert.ok(r.rows.length >= 3 && r.rows.some((w) => w.warehouse === 'CWH'), 'sees other warehouses too');
+  assert.equal(r.total, Math.round(r.rows.reduce((a, w) => a + w.qty, 0) * 1e6) / 1e6);
+  assert.equal((await app.anon('GET', '/api/stock/item-warehouses?code=A1')).status, 401);
+  const wh = (await (await app.as('sa'))('GET', '/api/lookup?field=Warehouse')).json.options.map((o) => o.value); assert.equal(wh[0], 'MWH');
+});

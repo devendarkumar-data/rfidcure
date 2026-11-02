@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, idemKey } from '../api.js';
 import Field from '../components/Field.jsx';
+import ItemStockPanel from '../components/ItemStockPanel.jsx';
 import LinesEditor from '../components/LinesEditor.jsx';
 import { useToast } from '../components/Toast.jsx';
 
@@ -87,6 +88,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
       {table.hasLines && (
         <div className="mt-3">
           <h3 className="mb-1 text-sm font-semibold">Line items</h3>
+          {(isOut || isIn || isCons) && <ItemStockPanel codes={lines.map((l) => l['Item Code'])} highlight={isIn ? values['To Warehouse'] : isCons ? values.Warehouse : lines[0]?.Warehouse} />}
           <LinesEditor lineFields={table.lineFields} itemField={table.itemField} lines={lines} onChange={setLines} readOnly={readOnly}
             batchMode={table.posts && !INWARD.has(table.slug) ? 'pick' : 'enter'} getWarehouse={getWarehouse}
             autoBatch={!!stockMode} stockPick={stockMode} stockWh={isOut ? (l) => l.Warehouse : isIn ? () => values['To Warehouse'] : isCons ? () => values.Warehouse : null} scopeWarehouse={isOut || isIn} lineDefaults={(isOut || isIn) && defWh ? { Warehouse: defWh } : isCons ? { 'Consumption Type': 'Against Bill' } : null} />

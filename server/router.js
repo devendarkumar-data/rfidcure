@@ -254,6 +254,7 @@ export default async function handler(req, res) {
     if (path === 'imprest/consume' && req.method === 'POST') return ok(await imprest.consume(ctx, await readBody(req), req.headers['idempotency-key']), 201);
     if (path === 'imprest/consumption-queue' && req.method === 'GET') return ok(await imprest.consumptionQueue(ctx));
     if (path === 'lookup/customer' && req.method === 'GET') return ok(await crud.customerDetails(ctx, q.name));
+    if (path === 'stock/item-warehouses' && req.method === 'GET') return ok(await wf.itemWarehouseStock(ctx, q));
     if (path === 'stock/balances' && req.method === 'GET') {
       const r = await reports.stockBalances(ctx, q);
       if (q.export) { await audit(store, { user: ctx.user, module: 'Stock', action: 'Export', remarks: `${r.total} rows` }); const cols = Object.keys(r.rows[0] || { Warehouse: 1 }); return send(res, 200, toCsv(cols, r.rows), { ...outHeaders, 'Content-Disposition': 'attachment; filename="stock.csv"' }); }

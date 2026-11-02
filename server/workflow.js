@@ -731,3 +731,13 @@ export async function workflowCounts(ctx, { from, to, warehouse } = {}) {
   }
   return out;
 }
+
+// Stock of one item in every real warehouse - read-only information shown beside Indent / PO / Imprest Out entry, so a user can see what other warehouses hold.
+export async function itemWarehouseStock(ctx, q = {}) {
+  if (!['intent', 'po', 'grn', 'imprest', 'consumption', 'requisition', 'transfer'].some((st) => can(ctx.user.role, st, 'view'))) throw forbidden();
+  const code = sstr(q.code); if (!code) throw bad('code is required');
+  const it = (await itemCatalog(ctx.store)).get(code) || {};
+  const stockOf = await currentStockMap(ctx);
+  const rows = (await assignableWarehouses(ctx.store)).map((w) => ({ warehouse: w, qty: stockOf(w, code) }));
+  return { code, name: it.name || '', unit: it.unit || '', rows, total: Math.round(rows.reduce((a, x) => a + x.qty, 0) * 1e6) / 1e6 };
+}

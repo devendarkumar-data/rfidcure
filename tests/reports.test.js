@@ -68,7 +68,7 @@ test('dashboard cards come from live data', async (t) => {
   const sa = await app.as('sa'), wm = await app.as('wm');
   await app.store.append('Warehouse Master', [{ 'Master Id': 'W-1', 'Warehouse Name': 'MAX HOSPITAL', 'Warehouse Type': 'Hospital' }]);
   let d = (await sa('GET', '/api/dashboard')).json.cards;
-  assert.equal(d.currentStock.qty, 32); assert.equal(d.openingStock.qty, 32); assert.equal(d.virtualStock.qty, 0); assert.deepEqual(d.warehouses.map((w) => w.warehouse), ['CWH', 'DWH', 'MWH']);
+  assert.equal(d.currentStock.qty, 32); assert.equal(d.openingStock.qty, 32); assert.equal(d.virtualStock.qty, 0); assert.deepEqual(d.warehouses.map((w) => w.warehouse), ['MWH', 'CWH', 'DWH']); // MWH first
   await wm('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-26', 'To Warehouse': 'MAX HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 4, Batch: 'B-LATE' }] });
   await sa('POST', '/api/t/material-consumption', { header: { Warehouse: 'MAX HOSPITAL' }, lines: [{ 'Item Code': 'A1', Quantity: 1, Batch: 'B-LATE' }] });
   const full = (await sa('GET', '/api/dashboard?from=2020-01-01&to=2099-01-01')).json; d = full.cards;

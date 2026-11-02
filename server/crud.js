@@ -5,7 +5,7 @@ import { assertCan, assertWarehouses, canWriteField, inScope, maskLines, maskRow
 import { audit } from './audit.js';
 import { POSTERS, writeWarehouses } from './posting.js';
 import { StockView, buildCatalog, findNegatives, loadStock } from './stock.js';
-import { HttpError, bad, conflict, forbidden, fyOf, isBlank, isDate, normDate, notFound, round2, sstr, today, toNum, unprocessable, withLock } from './util.js';
+import { HttpError, bad, conflict, forbidden, fyOf, isBlank, isDate, normDate, notFound, round2, sstr, today, toNum, unprocessable, whOrder, withLock } from './util.js';
 
 const MAX_LINES = 300;
 const clean = (s) => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim();
@@ -28,7 +28,7 @@ export async function warehouseList(store) {
   for (const r of rows) { const n = sstr(r['Warehouse Name']); if (n) set.set(n.toUpperCase(), n); }
   const { balances } = await loadStock(store);
   for (const e of balances.values()) if (e.warehouse && !/^TRANSIT-/.test(e.warehouse) && !set.has(e.warehouse)) set.set(e.warehouse, e.warehouse); // in-transit locations are system-managed, never selectable
-  return [...set.values()].sort();
+  return [...set.values()].sort(whOrder);
 }
 // Warehouses a user can be assigned to: real stock locations only (hospital / imprest virtual warehouses are system-managed).
 export async function assignableWarehouses(store) {

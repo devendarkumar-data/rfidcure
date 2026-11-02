@@ -6,7 +6,7 @@ import { hospitalSet, itemCatalog } from './crud.js';
 import { StockView, computeBalances, loadStock, locations, scanOpeningStock } from './stock.js';
 import { reqCounts } from './requisition.js';
 import { workflowCounts } from './workflow.js';
-import { bad, forbidden, istParts, normDate, round2, sstr, today, toNum } from './util.js';
+import { bad, forbidden, istParts, normDate, round2, sstr, today, toNum, whOrder } from './util.js';
 
 export const needReports = (ctx) => { if (!can(ctx.user.role, 'reports', 'view')) throw forbidden('Your role cannot view reports'); };
 export const needStockFields = (ctx) => {
@@ -75,7 +75,7 @@ export async function stockSummary(ctx, q = {}) {
   const total = rows.length;
   const pageSize = Math.min(100, Math.max(1, parseInt(q.pageSize, 10) || 20));
   const page = Math.max(1, parseInt(q.page, 10) || 1);
-  return { warehouses: [...whs].sort(), rows: rows.slice((page - 1) * pageSize, page * pageSize), total, page, pageSize, pages: Math.max(1, Math.ceil(total / pageSize)) };
+  return { warehouses: [...whs].sort(whOrder), rows: rows.slice((page - 1) * pageSize, page * pageSize), total, page, pageSize, pages: Math.max(1, Math.ceil(total / pageSize)) };
 }
 
 // FEFO-ordered batches of one item in one warehouse, for the line-item pickers in forms.
@@ -132,7 +132,7 @@ export async function dashboard(ctx, q = {}) {
   out.kpis = { stockValue: round2(live.reduce((s, e) => s + e.value, 0)), batchesInStock: live.filter((e) => e.qty > 0).length };
   if (qtyOk) out.kpis.totalQuantity = round2(live.reduce((s, e) => s + e.qty, 0));
   if (itemOk) out.kpis.distinctItems = new Set(live.filter((e) => e.qty > 0).map((e) => e.itemCode)).size;
-  out.byWarehouse = [...byWh.values()].map((w) => (qtyOk ? w : { warehouse: w.warehouse, value: w.value, batches: w.batches })).sort((a, b) => b.value - a.value);
+  out.byWarehouse = [...byWh.values()].map((w) => (qtyOk ? w : { warehouse: w.warehouse, value: w.value, batches: w.batches })).sort((a, b) => whOrder(a.warehouse, b.warehouse));
 
   const expiring = live.filter((e) => e.qty > 0 && e.expiry && e.expiry >= t && e.expiry <= addDays(t, 90));
   const expired = live.filter((e) => e.qty > 0 && e.expiry && e.expiry < t);
@@ -185,7 +185,7 @@ export async function dashboard(ctx, q = {}) {
   const imCount = (await ctx.store.read('Item Master')).rows.filter((r) => sstr(r.Code)).length;
   cards.totalItems = Math.max(imCount, new Set(live.map((e) => e.itemCode)).size);
   const pw = new Map(); for (const e of phys) { const o = pw.get(e.warehouse) || pw.set(e.warehouse, { warehouse: e.warehouse, qty: 0, value: 0 }).get(e.warehouse); o.qty = round2(o.qty + e.qty); o.value = round2(o.value + e.value); }
-  cards.warehouses = [...pw.values()].sort((a, b) => a.warehouse.localeCompare(b.warehouse));
+  cards.warehouses = [...pw.values()].sort((a, b) => whOrder(a.warehouse, b.warehouse));
   const vt = live.filter((e) => kind(e.warehouse) === 'Hospital / virtual'); const tr = live.filter((e) => kind(e.warehouse) === 'In transit');
   cards.virtualStock = { qty: round2(vt.reduce((a, e) => a + e.qty, 0)), locations: new Set(vt.map((e) => e.warehouse)).size };
   cards.inTransit = { qty: round2(tr.reduce((a, e) => a + e.qty, 0)) };

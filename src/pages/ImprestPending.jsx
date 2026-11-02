@@ -30,7 +30,7 @@ export default function ImprestPending() {
                   <td className="td font-medium"><Link className="text-brand-700 hover:underline" to={`/imprest/settle/${encodeURIComponent(r.ref)}`}>{r.ref}</Link></td><td className="td">{r.date}</td><td className="td">{r.hospital}</td>
                   <td className="td text-right tabular-nums">{r.dispatched}</td>
                   <td className="td text-right tabular-nums">{r.returned}</td><td className="td text-right tabular-nums">{r.consumed}</td><td className="td text-right tabular-nums font-semibold">{r.balance}</td>
-                  <td className="td"><span className={`rounded px-1.5 py-0.5 text-xs ${TONE[r.status] || ''}`}>{r.status}</span></td>
+                  <td className="td"><span className={`rounded px-1.5 py-0.5 text-xs ${TONE[r.status] || ''}`}>{r.status === 'Open' ? 'Pending' : r.status}</span></td>
                   <td className={`td text-right tabular-nums ${d > OVERDUE_DAYS ? 'font-semibold text-red-600' : ''}`} title={d > OVERDUE_DAYS ? `Open for more than ${OVERDUE_DAYS} days` : ''}>{d}</td>
                   <td className="td text-right"><Link className="btn btn-sm btn-primary" to={`/imprest/settle/${encodeURIComponent(r.ref)}`}>Enter Imprest In</Link></td>
                 </tr>); })}

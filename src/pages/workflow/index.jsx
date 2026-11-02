@@ -10,6 +10,7 @@ import FilterBar, { FilterItem } from '../../components/FilterBar.jsx';
 import ItemPicker from '../../components/ItemPicker.jsx';
 import Modal from '../../components/Modal.jsx';
 import AttachmentInput, { AttachmentLinks } from '../../components/Attachments.jsx';
+import ItemStockPanel from '../../components/ItemStockPanel.jsx';
 import PageHeader from '../../components/PageHeader.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
@@ -174,7 +175,7 @@ export function IntentForm() {
           <div className="sm:col-span-3"><label className="label">Notes</label><textarea className="input min-h-[3.5rem]" value={hdr['Narration-Notes']} maxLength={1000} onChange={(e) => setHdr({ ...hdr, 'Narration-Notes': e.target.value })} /></div>
         </div>
       </Card>
-      <Card title="Items" className="mb-4"><Grid cols={cols} lines={shown} onChange={setLines} /><p className="mt-2 text-xs text-slate-500">Unit comes from the item (UOM column in Item Master; NOS if not set). Current stock is live from the stock ledger for the requesting warehouse{myWh.length ? ` (you are assigned to ${myWh.join(', ')})` : ''}.</p></Card>
+      <Card title="Items" className="mb-4"><ItemStockPanel codes={lines.map((l) => l['Item Code'])} highlight={hdr['Requesting Warehouse']} /><Grid cols={cols} lines={shown} onChange={setLines} /><p className="mt-2 text-xs text-slate-500">Unit comes from the item (UOM column in Item Master; NOS if not set). Current stock is live from the stock ledger for the requesting warehouse{myWh.length ? ` (you are assigned to ${myWh.join(', ')})` : ''}.</p></Card>
       <div className="flex flex-wrap justify-end gap-2">
         <button className="btn" disabled={busy} onClick={() => nav(-1)}>Cancel</button>
         <button className="btn" disabled={busy} onClick={() => save(false)}>Save draft</button>
@@ -293,31 +294,37 @@ function calc(type, hdr, lines) {
   let sub = 0, tax = 0, grand = 0;
   const out = lines.map((l) => {
     const gross = r2(num(l.Quantity) * num(l.Rate)), taxable = r2(Math.max(0, gross - num(l['Other Discount'])));
-    if (type === 'domestic') { const t = r2(taxable * num(l['GST %']) / 100); sub += taxable; tax += t; grand += taxable + t; return { ...l, Gross: gross, 'Taxable Value': taxable, 'Line Total': r2(taxable + t), _tax: t, _igst: igst }; }
+    if (type === 'domestic') { const t = r2(taxable * num(l['GST %']) / 100); sub += taxable; tax += t; grand += taxable + t; return { ...l, Gross: gross, 'Taxable Value': taxable, CGST: igst ? 0 : r2(t / 2), IGST: igst ? t : 0, 'Line Total': r2(taxable + t), _tax: t, _igst: igst }; }
     const tot = r2(taxable + num(l['PKG Charges'])); sub += tot; grand += tot; return { ...l, Gross: gross, 'Line Total': tot };
   });
   return { lines: out, subtotal: r2(sub), tax: r2(tax), grand: r2(grand) };
 }
 
-const poCols = (type) => (type === 'domestic' ? [
-  { k: 'Items', label: 'Items', type: 'item' }, { k: 'Description', label: 'Description', type: 'text' }, { k: 'Units', label: 'Units', type: 'text' },
-  { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' },
-  { k: 'Quantity', label: 'Quantity', type: 'number' }, { k: 'Rate', label: 'Rate', type: 'number' }, { k: 'SP Rate', label: 'SP Rate', type: 'number' },
-  { k: 'Price Type', label: 'Price Type', type: 'select', options: ['', 'Price Book', 'Special Book'] }, { k: 'Price Book Rate', label: 'Price Book Rate', type: 'number' }, { k: 'Special Rate', label: 'Special Rate', type: 'number' }, { k: 'Last PO Rate', label: 'Last PO Rate', type: 'number' },
-  { k: 'Brand', label: 'Brand', type: 'ref', field: 'Brand' }, { k: 'Item Group', label: 'Item Group', type: 'ref', field: 'Item Group' }, { k: 'Division', label: 'Division', type: 'ref', field: 'Division' },
-  { k: 'Other Discount', label: 'Discount', type: 'number' }, { k: 'GST %', label: 'GST %', type: 'number' },
-  { k: 'Intent No', label: 'L-Purchase Indent', type: 'ro' }, { k: 'Intent Line', label: 'Int. line', type: 'ro' }, { k: 'Line Total', label: 'Line Total', type: 'ro', num: true },
-] : [
-  { k: 'Items', label: 'Items', type: 'item' }, { k: 'Description', label: 'Description', type: 'text' }, { k: 'Units', label: 'Units', type: 'text' },
-  { k: 'Intent No', label: 'Intent', type: 'ro' }, { k: 'Intent Line', label: 'Int. line', type: 'ro' },
-  { k: 'Quantity', label: 'Quantity', type: 'number' },
-  { k: 'Price Type', label: 'Price Type', type: 'select', options: ['', 'Price Book', 'Special Book'] }, { k: 'Price Book Type', label: 'Price Book Type', type: 'text', w: 'min-w-[7rem]' }, { k: 'Special Rate', label: 'Special Rate', type: 'number' }, { k: 'L-Imprest Out', label: 'L-Imprest Out', type: 'text', w: 'min-w-[8rem]' },
-  { k: 'Rate', label: 'Rate', type: 'number' }, { k: 'Gross', label: 'Gross', type: 'ro', num: true },
-  { k: 'PKG Charges', label: 'PKG Charges', type: 'number' }, { k: 'Other Discount', label: 'Other Discount', type: 'number' },
-  { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' }, { k: 'Last PO Rate', label: 'Last PO Rate', type: 'number' },
-  { k: 'Brand', label: 'Brand', type: 'ref', field: 'Brand' }, { k: 'Item Category', label: 'Item Category', type: 'ref', field: 'Item Category' }, { k: 'Division', label: 'Division', type: 'ref', field: 'Division' }, { k: 'Item Group', label: 'Item Group', type: 'ref', field: 'Item Group' },
-  { k: 'Line Total', label: 'Line Total', type: 'ro', num: true },
-]);
+// Columns in the order of the shared field list (Domestic / Import). Price Book Rate / Price Book Type show only when a line is on "Price Book", Special Rate only when a line is on "Special Book".
+const PRICE_TYPES = ['', 'Price Book', 'Special Book'];
+const poCols = (type, lines = []) => {
+  const has = (v) => lines.some((l) => l['Price Type'] === v);
+  const pb = has('Price Book'), sp = has('Special Book');
+  const cols = type === 'domestic' ? [
+    { k: 'Items', label: 'Items', type: 'item' }, { k: 'Description', label: 'Description', type: 'text' }, { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' },
+    { k: 'Units', label: 'Units', type: 'text', w: 'min-w-[5rem]' }, { k: 'SP Rate', label: 'SP Rate', type: 'number' }, { k: 'Quantity', label: 'Quantity', type: 'number' },
+    { k: 'Price Type', label: 'Price Type', type: 'select', options: PRICE_TYPES }, ...(pb ? [{ k: 'Price Book Rate', label: 'Price Book Rate', type: 'number' }] : []), ...(sp ? [{ k: 'Special Rate', label: 'Special Rate', type: 'number' }] : []),
+    { k: 'Intent No', label: 'L-Purchase Indent', type: 'ro' }, { k: 'Rate', label: 'Rate', type: 'number' }, { k: 'Last PO Rate', label: 'Last PO Rate', type: 'number' }, { k: 'Gross', label: 'Gross', type: 'ro', num: true },
+    { k: 'Other Discount', label: 'Other Discount', type: 'number' }, { k: 'GST %', label: 'GST %', type: 'number' }, { k: 'Taxable Value', label: 'Taxable Value', type: 'ro', num: true },
+    { k: 'CGST', label: 'CGST', type: 'ro', num: true }, { k: 'IGST', label: 'IGST', type: 'ro', num: true },
+    { k: 'Brand', label: 'Brand', type: 'ref', field: 'Brand' }, { k: 'Item Group', label: 'Item Group', type: 'ref', field: 'Item Group' }, { k: 'Division', label: 'Division', type: 'ref', field: 'Division' },
+    { k: 'Line Total', label: 'Line Total', type: 'ro', num: true },
+  ] : [
+    { k: 'Items', label: 'Items', type: 'item' }, { k: 'Description', label: 'Description', type: 'text' }, { k: 'Quantity', label: 'Quantity', type: 'number' },
+    { k: 'Price Type', label: 'Price Type', type: 'select', options: PRICE_TYPES }, ...(pb ? [{ k: 'Price Book Type', label: 'Price Book Type', type: 'text', w: 'min-w-[7rem]' }] : []), ...(sp ? [{ k: 'Special Rate', label: 'Special Rate', type: 'number' }] : []),
+    { k: 'L-Imprest Out', label: 'L-Imprest Out', type: 'text', w: 'min-w-[8rem]' }, { k: 'Rate', label: 'Rate', type: 'number' }, { k: 'Gross', label: 'Gross', type: 'ro', num: true },
+    { k: 'PKG Charges', label: 'PKG Charges', type: 'number' }, { k: 'Other Discount', label: 'Other Discount', type: 'number' },
+    { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' }, { k: 'Last PO Rate', label: 'Last PO Rate', type: 'number' },
+    { k: 'Brand', label: 'Brand', type: 'ref', field: 'Brand' }, { k: 'Item Category', label: 'Item Category', type: 'ref', field: 'Item Category' }, { k: 'Division', label: 'Division', type: 'ref', field: 'Division' }, { k: 'Item Group', label: 'Item Group', type: 'ref', field: 'Item Group' },
+    { k: 'Line Total', label: 'Line Total', type: 'ro', num: true },
+  ];
+  return cols;
+};
 
 export function PoForm() {
   const nav = useNavigate(); const toast = useToast(); const { user } = useAuth(); const [sp] = useSearchParams(); const editId = sp.get('edit'); const intentParam = sp.get('intent');
@@ -425,7 +432,7 @@ export function PoForm() {
               <div className="min-w-[5.5rem] rounded border border-slate-300 bg-slate-100 px-2 py-1"><div className="text-[11px] text-slate-500">All warehouses</div><div className="font-semibold tabular-nums">{n2(stockInfo.total)}</div></div></div>
             <p className="mt-1 text-[11px] text-slate-500">Available = Opening Stock + GRN/MRN − Imprest Out + Imprest In − Consumption. Hospital (imprest) locations are not counted.</p>
           </div>)}
-        <Grid cols={type === 'import' && hdr.Currency ? poCols(type).map((x) => (['Rate', 'Gross', 'Other Discount', 'PKG Charges', 'Line Total', 'Special Rate', 'Last PO Rate', 'Price Book Rate'].includes(x.k) ? { ...x, label: `${x.label} (${money(0, hdr.Currency).replace(/[\d.,\s]/g, '') || hdr.Currency})` } : x)) : poCols(type)} lines={c.lines} onChange={setLines} onItem={onItem} extra={<button type="button" className="btn btn-sm btn-primary" onClick={() => setPicker(true)}>+ Add from approved intents</button>} />
+        <Grid cols={type === 'import' && hdr.Currency ? poCols(type, lines).map((x) => (['Rate', 'Gross', 'Other Discount', 'PKG Charges', 'Line Total', 'Special Rate', 'Last PO Rate', 'Price Book Rate'].includes(x.k) ? { ...x, label: `${x.label} (${money(0, hdr.Currency).replace(/[\d.,\s]/g, '') || hdr.Currency})` } : x)) : poCols(type, lines)} lines={c.lines} onChange={setLines} onItem={onItem} extra={<button type="button" className="btn btn-sm btn-primary" onClick={() => setPicker(true)}>+ Add from approved intents</button>} />
         <dl className="mt-4 ml-auto grid max-w-xs grid-cols-2 gap-1 text-sm">
           {(() => { const imp = type === 'import'; const cur = imp ? (hdr.Currency || 'INR') : 'INR'; const f = (v) => (imp ? money(v, cur) : inr(v)); return (<>
             <dt className="text-slate-500">Subtotal</dt><dd className="text-right tabular-nums">{f(c.subtotal)}</dd>
@@ -481,20 +488,19 @@ export function PoRegister() {
   const act = async (id, action, remarks) => { try { await api.post(`/api/wf/pos/action?id=${encodeURIComponent(id)}`, { action, remarks }); toast.success(`PO ${id}: ${action === 'approve' ? 'authorized' : 'rejected'}`); setRk((n) => n + 1); } catch (e) { toast.error(e.message); throw e; } };
   const columns = [
     { name: 'Document No.', label: 'PO No.', render: (v) => <span className="font-medium text-brand-700">{v}</span> }, { name: 'Date' }, { name: 'PO Type', sortable: false }, { name: 'Vendor Account', label: 'Vendor' },
-    { name: 'Source Purchase Intent', label: 'L-Purchase Indent', sortable: false }, { name: 'Item Summary', sortable: false }, { name: 'Total Quantity', label: 'Qty', type: 'number', sortable: false },
+    { name: 'Item Summary', sortable: false }, { name: 'Total Quantity', label: 'Qty', type: 'number', sortable: false },
     ...(view === 'pending-auth' || view === 'all' ? [{ name: 'Created By', sortable: false }, { name: 'Submitted At', label: 'Submitted', sortable: false, render: (v) => (v ? String(v).slice(0, 16).replace('T', ' ') : '—') }] : []),
     ...(view !== 'pending-auth' ? [{ name: 'Received Quantity', label: 'Received', type: 'number', sortable: false }, { name: 'Balance Quantity', label: 'Balance', type: 'number', sortable: false }, { name: 'GRN Status', sortable: false }] : []),
     { name: 'Grand Total', label: 'Value', type: 'number', render: (v, r) => (r?.Currency ? money(v, r.Currency) : inr(v)) }, { name: 'Status', render: (v) => <StatusBadge value={poLabel(v)} /> },
   ];
   return (
     <>
-      <PageHeader title={PO_VIEWS[view]} actions={t?.actions.includes('create') && <Link className="btn btn-primary" to="/purchasing/po/new">+ Create PO</Link>} />
+      <PageHeader title={view === 'all' && f.type ? `${f.type === 'import' ? 'Import' : 'Domestic'} Purchase Orders` : PO_VIEWS[view]} actions={t?.actions.includes('create') && <Link className="btn btn-primary" to="/purchasing/po/new">+ Create PO</Link>} />
       <FilterBar onReset={() => setSp({ view }, { replace: true })}>
         {view === 'all' && <FilterItem label="Status"><select className="input" value={f.status} onChange={(e) => setF({ status: e.target.value })}><option value="">All</option>{PO_STATUSES.map((s) => <option key={s} value={s}>{poLabel(s)}</option>)}</select></FilterItem>}
         <FilterItem label="From"><input type="date" className="input" value={f.from} onChange={(e) => setF({ from: e.target.value })} /></FilterItem>
         <FilterItem label="To"><input type="date" className="input" value={f.to} onChange={(e) => setF({ to: e.target.value })} /></FilterItem>
         <FilterItem label="Vendor"><input className="input" value={f.vendor} onChange={(e) => setF({ vendor: e.target.value })} /></FilterItem>
-        <FilterItem label="Intent no."><input className="input" value={f.intent} onChange={(e) => setF({ intent: e.target.value })} /></FilterItem>
         <FilterItem label="Type"><select className="input" value={f.type} onChange={(e) => setF({ type: e.target.value })}><option value="">All</option><option value="domestic">Domestic</option><option value="import">Import</option></select></FilterItem>
       </FilterBar>
       <DataTable key={view} endpoint="/api/wf/pos" columns={columns} params={f} refreshKey={rk} exportable exportName={`purchase-orders-${view}`} searchPlaceholder="Search PO, vendor, item, intent…" defaultSort={{ col: 'Date', dir: 'desc' }}
@@ -520,6 +526,7 @@ export function PoDetail() {
   if (err) return <><Back to="/purchasing/po">Purchase Orders</Back><ErrorBox msg={err} /></>;
   if (!data) return <Spinner />;
   const { header, lines, status, can, history, totals, grns, poType } = data; const authorizing = can.approve;
+  const cm = (v) => (poType === 'import' && header.Currency ? money(v, header.Currency) : n2(v)); // amounts in the PO's own currency
   const run = async (action, remarks, body = {}) => { await api.post(`/api/wf/pos/action?id=${encodeURIComponent(id)}`, { action, remarks, ...body }); toast.success(`PO ${id}: ${action} done`); setDlg(null); setMsg(''); reload(); };
   const approve = async () => {
     setMsg('');
@@ -552,8 +559,8 @@ export function PoDetail() {
               <td className="td text-xs">{l['Intent No'] ? `${l['Intent No']} / ${l['Intent Line']}` : '—'}</td><td className="td text-right tabular-nums">{n2(l['Current Stock'])}</td>
               {poType === 'domestic' && <><td className="td text-right tabular-nums">{n2(l['Reorder Level'])}</td><td className="td">{l.Brand}</td><td className="td">{l['Item Group']}</td><td className="td">{l.Division}</td><td className="td text-right tabular-nums">{n2(l['Last PO Rate'])}</td><td className="td">{l['Price Type']}</td></>}
               <td className="td text-right">{authorizing ? <input className="input w-24 text-right" type="number" min="0" step="any" aria-label={`Quantity line ${l['Line No']}`} value={e.quantity ?? ''} disabled={e.remove} onChange={(ev) => setEdit({ ...edit, [l['Line No']]: { ...e, quantity: ev.target.value } })} /> : <span className="tabular-nums">{n2(l.Quantity)}</span>}</td>
-              <td className="td text-right tabular-nums">{n2(l.Rate)}</td><td className="td text-right tabular-nums">{n2(l['Other Discount'])}</td><td className="td text-right tabular-nums">{n2(poType === 'domestic' ? l['GST %'] : l['PKG Charges'])}</td>
-              <td className="td text-right tabular-nums">{n2(l['Line Total'])}</td><td className="td text-right tabular-nums">{n2(l['Received Qty'])}</td><td className="td text-right tabular-nums">{n2(l['Balance Qty'])}</td>
+              <td className="td text-right tabular-nums">{cm(l.Rate)}</td><td className="td text-right tabular-nums">{cm(l['Other Discount'])}</td><td className="td text-right tabular-nums">{poType === 'domestic' ? n2(l['GST %']) : cm(l['PKG Charges'])}</td>
+              <td className="td text-right tabular-nums">{cm(l['Line Total'])}</td><td className="td text-right tabular-nums">{n2(l['Received Qty'])}</td><td className="td text-right tabular-nums">{n2(l['Balance Qty'])}</td>
               {authorizing && <td className="td"><input type="checkbox" aria-label={`Remove line ${l['Line No']}`} checked={!!e.remove} onChange={(ev) => setEdit({ ...edit, [l['Line No']]: { ...e, remove: ev.target.checked } })} /></td>}
             </tr>); })}</tbody></table></div>
         <dl className="ml-auto grid max-w-xs grid-cols-2 gap-1 p-4 text-sm">{poType === 'import' && header.Currency ? (<>
