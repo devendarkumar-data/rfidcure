@@ -432,6 +432,8 @@ export async function savePo(ctx, body, id, idem) {
     const header = await validateHeader(ctx, t, hdr);
     const date = header.Date || today();
     need(sstr(header['Vendor Account']), 'Vendor is required');
+    { const vi = await poseries.vendorInfo(ctx, header['Vendor Account']); const tp = sstr(header['Type Of Purchase']);
+      if (tp && vi.linkedTypes?.length && !vi.linkedTypes.some((x) => x.toLowerCase() === tp.toLowerCase())) throw unprocessable(`Vendor ${vi.name} is not linked with purchase type ${tp} (linked: ${vi.linkedTypes.join(', ')}). Change it in Vendor Master`); }
     if (poType === 'import') { const vi = await poseries.vendorInfo(ctx, header['Vendor Account']); need(vi.currencies.length && vi.hasCurrency !== false, `No currency is defined for vendor ${vi.name} - set its Allowed Currency in Vendor Master`); need(vi.currencies.some((c) => c.code === sstr(header.Currency)), `Currency is required and must be one allowed for ${vi.name}: ${vi.currencies.map((c) => c.code).join(', ')}`); }
     const stock = await loadStock(ctx.store, { fresh: true });
     const catalog = await itemCatalog(ctx.store, stock);
@@ -626,7 +628,10 @@ export async function poItemInfo(ctx, q = {}) {
   }
   const it = (await itemCatalog(ctx.store)).get(code) || {};
   const stockOf = await currentStockMap(ctx);
-  return { lastRate: last?.rate || 0, reorderLevel: it.minStock || 0, brand: it.brand || '', unit: it.unit || '', currentStock: stockOf(sstr(q.warehouse), code) };
+  // physical warehouses only (hospital / imprest locations are not stock warehouses): Opening Stock + GRN/MRN - Imprest Out + Imprest In - Consumption, as the stock engine posts it
+  const whs = await warehouseList(ctx.store);
+  const byWarehouse = whs.map((w) => ({ warehouse: w, qty: stockOf(w, code) }));
+  return { lastRate: last?.rate || 0, reorderLevel: it.minStock || 0, brand: it.brand || '', unit: it.unit || '', currentStock: stockOf(sstr(q.warehouse), code), name: it.name || '', byWarehouse, total: Math.round(byWarehouse.reduce((a, x) => a + x.qty, 0) * 1e6) / 1e6 };
 }
 
 // POs a GRN can be raised against.

@@ -37,13 +37,15 @@ export const REFS = {
   Location: M('Warehouse Location Master', 'Name'),
   'Preferred Vendor': M('Vendor Master', 'Vendor Name'),
   Supplier: M('Vendor Master', 'Vendor Name'),
-  'Allowed Currency': { special: 'currency', multi: true }, Companies: { special: 'company' }, 'Business Head': { special: 'bhead' },
+  'Allowed Currency': { special: 'currency', multi: true }, 'Allowed Purchase Type': { special: 'ptype', multi: true }, Companies: { special: 'company' }, 'Business Head': { special: 'bhead' },
 };
 for (const f of WAREHOUSE_FIELDS) REFS[f] = { special: 'warehouse' };
 REFS.Items = REFS.Item = { special: 'item' };
 REFS['Stock Item'] = { special: 'stock' };
 REFS['PO No'] = { special: 'po' };
 
+// Column names stay as in the sheet; this is only what the screens call them.
+export const FIELD_LABELS = { 'Allowed Purchase Type': 'Purchase Type Linked With Vendor' };
 const YN = ['Yes', 'No'];
 const INDENT_STATUS = ['Draft', 'Submitted', 'Approved', 'Partially Fulfilled', 'Fulfilled', 'Rejected'];
 export { PURCHASE_TYPES, CURRENCIES };

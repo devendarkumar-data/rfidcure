@@ -209,3 +209,7 @@ Inventory > **Stock Master**: opening quantity and live quantity per warehouse /
 - No exchange rate: an Import PO is created and printed wholly in the chosen currency (rates, gross, line totals, subtotal, grand total) with the currency sign. The PO list shows its value in that currency too.
 - The currency must be one of the vendor's **Allowed Currency** values in Vendor Master; a vendor with no currency defined cannot be used for an Import PO.
 - Vendor Category is a Domestic / International dropdown. Custom PO Prefix is optional (no prefix = the shared `PO` series).
+
+## PO: stock panel and purchase-type links
+- Selecting an item on a PO shows its available quantity in every warehouse (Opening Stock + GRN/MRN − Imprest Out + Imprest In − Consumption; hospital / imprest locations are not counted). The Closing Stock column shows the header warehouse (default MWH) and follows it when it changes.
+- Vendor Master's `Allowed Purchase Type` column is shown as **Purchase Type Linked With Vendor** (a multi-select of purchase types; the sheet header is unchanged). On a PO, choosing Type Of Purchase limits the Vendor list to linked vendors, and choosing a vendor limits the Type Of Purchase list; a vendor with none linked is open to all. The words Domestic / Import / Both in that column still restrict the PO kind.

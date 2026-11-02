@@ -25,13 +25,14 @@ export async function vendorInfo(ctx, name) {
   const { rows } = await ctx.store.read(VENDOR, { fresh: true });
   const v = rows.find((r) => sstr(r['Vendor Name']).toLowerCase() === sstr(name).toLowerCase());
   const all = await currencies(ctx.store);
-  if (!v) return { id: '', name: sstr(name), active: true, prefix: '', types: { domestic: true, import: true }, defaultCurrency: 'INR', currencies: all, unlisted: true }; // not in the master: default series, no restrictions const codes = new Set(all.map((c) => c.code));
+  if (!v) return { id: '', name: sstr(name), active: true, linkedTypes: [], prefix: '', types: { domestic: true, import: true }, defaultCurrency: 'INR', currencies: all, unlisted: true }; // not in the master: default series, no restrictions const codes = new Set(all.map((c) => c.code));
   const codes = new Set(all.map((c) => c.code)); const allowedRaw = list(v['Allowed Currency']); const def = sstr(v['Default Currency']).toUpperCase();
   const allowed = (allowedRaw.length ? allowedRaw : (def ? [def] : [...codes])).filter((c) => codes.has(c));
   const pt = sstr(v['Allowed Purchase Type']).toLowerCase();
   return {
     id: sstr(v['Sup ID']) || sstr(v['Master Id']), name: sstr(v['Vendor Name']), active: active(v.Status), prefix: sstr(v['Custom PO Prefix']).toUpperCase(),
-    types: { domestic: !pt || /domestic|both/.test(pt), import: !pt || /import|both/.test(pt) },
+    types: { domestic: !/domestic|import|both/.test(pt) || /domestic|both/.test(pt), import: !/domestic|import|both/.test(pt) || /import|both/.test(pt) }, // only the words Domestic / Import / Both restrict the PO kind; purchase-type names do not
+    linkedTypes: sstr(v['Allowed Purchase Type']).split(/[,;|]+/).map((x) => x.trim()).filter((x) => x && !['domestic', 'import', 'both'].includes(x.toLowerCase())), // purchase types linked with the vendor (empty = open to all)
     defaultCurrency: codes.has(def) ? def : (allowed[0] || 'INR'), currencies: all.filter((c) => allowed.includes(c.code)), hasCurrency: allowedRaw.length > 0 || !!def,
   };
 }
@@ -47,7 +48,7 @@ export async function preview(ctx, name, type, date) {
 
 function checkVendor(v, type) {
   if (!v.active) throw unprocessable(`Vendor ${v.name} is inactive and cannot be used for a new PO`);
-  if (!v.types[type]) throw unprocessable(`Vendor ${v.name} is not set up for ${TYPE[type]} purchases (Allowed Purchase Type in Vendor Master)`);
+  if (!v.types[type]) throw unprocessable(`Vendor ${v.name} is not set up for ${type === 'import' ? 'Import' : 'Domestic'} purchases (Purchase Type Linked With Vendor in Vendor Master)`);
 }
 async function findSeries(store, v, type, fy) {
   const { rows } = await store.read(SERIES, { fresh: true });

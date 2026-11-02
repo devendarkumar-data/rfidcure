@@ -1,5 +1,5 @@
 // One serverless entry point. api/handler.js simply calls this. Keeping one function avoids Vercel's per-plan function limit.
-import { MODULE_NAMES, TABLES, TABLE_BY_SLUG, REFS } from '../shared/registry.js';
+import { MODULE_NAMES, TABLES, TABLE_BY_SLUG, REFS, FIELD_LABELS } from '../shared/registry.js';
 import { actionsFor, actionsForTab, ROLE_LABELS } from '../shared/permissions.js';
 import * as accessMatrix from './access-matrix.js';
 import { mayRaiseIntent } from './workflow.js';
@@ -73,7 +73,7 @@ const isSecure = (req) => config().prod || req.headers['x-forwarded-proto'] === 
 function fieldMeta(ctx, f) {
   const acc = fieldAccess(ctx.user.role, f.name);
   const ref = REFS[f.name];
-  return { name: f.name, type: f.type, options: f.options, yesNo: f.yesNo || undefined, lookup: ref ? f.name : undefined, special: ref?.special, multi: f.multi || undefined, readonly: f.readonly || f.type === 'calc' || f.type === 'auto' || acc !== 'w', hidden: acc === 'n' };
+  return { name: f.name, label: FIELD_LABELS[f.name] || undefined, type: f.type, options: f.options, yesNo: f.yesNo || undefined, lookup: ref ? f.name : undefined, special: ref?.special, multi: f.multi || undefined, readonly: f.readonly || f.type === 'calc' || f.type === 'auto' || acc !== 'w', hidden: acc === 'n' };
 }
 function tableMeta(ctx, t) {
   const acts = actionsForTab(ctx.user.role, t.stage, t.tab);
@@ -241,7 +241,7 @@ export default async function handler(req, res) {
       }
       throw notFound('Unknown endpoint');
     }
-    if (path === 'lookup' && req.method === 'GET') return ok(await crud.lookup(ctx, q.field, q.q, 30, q.scopeOnly === '1', { warehouse: q.warehouse, all: q.all, imprest: q.imprest }));
+    if (path === 'lookup' && req.method === 'GET') return ok(await crud.lookup(ctx, q.field, q.q, 30, q.scopeOnly === '1', { warehouse: q.warehouse, all: q.all, imprest: q.imprest, purchaseType: q.purchaseType }));
     if (path === 'imprest/consumption' && req.method === 'GET') return ok(await imprest.consumptionList(ctx, q.status));
     if (path === 'imprest/bill' && req.method === 'POST') return ok(await imprest.updateBill(ctx, await readBody(req)));
     if (path === 'imprest/register' && req.method === 'GET') return ok(await imprest.register(ctx, q.type === 'in' ? 'in' : 'out'));

@@ -496,6 +496,12 @@ export async function lookup(ctx, field, q, limit = 30, scopeOnly = false, extra
     const list = await openPoList(ctx);
     return { options: list.filter((p) => !needle || `${p.no} ${p.vendor}`.toLowerCase().includes(needle)).slice(0, 60).map((p) => ({ value: p.no, label: `${p.no} · ${p.vendor} · ${p.warehouse}` })) };
   }
+  if (ref.special === 'ptype') { // purchase types a vendor can be linked with: Purchase Type Master, else the standard list
+    const { rows } = await ctx.store.read('Purchase Type Master');
+    const names = rows.filter((r) => sstr(r.Name) && (!sstr(r.Status) || /^active$/i.test(sstr(r.Status)))).map((r) => sstr(r.Name));
+    const { PURCHASE_TYPES } = await import('../shared/po-options.js');
+    return { options: (names.length ? names : PURCHASE_TYPES).filter((v) => !needle || v.toLowerCase().includes(needle)).map((v) => ({ value: v, label: v })) };
+  }
   if (ref.special === 'currency') { // Currency Master (seeded on first use)
     const { currencies } = await import('./poseries.js');
     return { options: (await currencies(ctx.store)).filter((c) => !needle || `${c.code} ${c.name}`.toLowerCase().includes(needle)).map((c) => ({ value: c.code, label: `${c.code} – ${c.name}` })) };
@@ -505,6 +511,13 @@ export async function lookup(ctx, field, q, limit = 30, scopeOnly = false, extra
     const heads = rows.filter((r) => /business\s*head/i.test(sstr(r.Type)) && sstr(r['Salesperson Name']));
     const names = [...new Set((heads.length ? heads : rows).map((r) => sstr(r['Salesperson Name'])).filter(Boolean))].sort();
     return { options: names.filter((v) => !needle || v.toLowerCase().includes(needle)).map((v) => ({ value: v, label: v })) };
+  }
+  if (ref.master === 'vendor-master' && sstr(extra.purchaseType)) { // dependent dropdown: only vendors linked with the chosen Type Of Purchase (a vendor with none linked is open to all)
+    const pt = sstr(extra.purchaseType).toLowerCase();
+    const { rows } = await ctx.store.read('Vendor Master');
+    const ok = new Set(rows.filter((r) => { const l = sstr(r['Allowed Purchase Type']).split(/[,;|]+/).map((x) => x.trim().toLowerCase()).filter((x) => x && !['domestic', 'import', 'both'].includes(x)); return !l.length || l.includes(pt); }).map((r) => sstr(r['Vendor Name'])));
+    const list = [...ok].filter((v) => v && (!needle || v.toLowerCase().includes(needle))).sort();
+    return { options: list.slice(0, 200).map((v) => ({ value: v, label: v })) };
   }
   let vals = [...new Set(await masterValues(ctx.store, ref))].sort();
   if (!vals.length && ref.master === 'state-master') vals = INDIA_STATES; // State Master not filled yet: offer the standard list

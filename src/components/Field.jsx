@@ -37,7 +37,7 @@ export default function Field({ field, value, onChange, required, disabled, erro
   }
   return (
     <div className={field.type === 'textarea' || field.type === 'upload' || /^address$/i.test(field.name) ? 'sm:col-span-2 [.compact_&]:col-span-2 2xl:[.compact_&]:col-span-2' : ''}>
-      <label htmlFor={id} className="label">{field.name}{required && <span className="text-red-600"> *</span>}</label>
+      <label htmlFor={id} className="label">{field.label || field.name}{required && <span className="text-red-600"> *</span>}</label>
       {control}
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>

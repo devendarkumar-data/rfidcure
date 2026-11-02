@@ -554,3 +554,26 @@ test('Import PO needs a currency defined on the vendor (Allowed Currency in Vend
   const r = await sa('POST', '/api/wf/pos', { poType: 'import', header: { Date: '2026-10-27', 'Vendor Account': 'No Cur Intl', Location: 'MWH', Currency: 'USD' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10 }], submit: false });
   assert.equal(r.status, 400, r.text); assert.match(r.json.error, /Allowed Currency in Vendor Master/);
 });
+
+test('PO: stock by warehouse for the selected item, Purchase Type Linked With Vendor drives the Type Of Purchase / Vendor dropdowns', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  const meta = (await sa('GET', '/api/meta')).json.modules.flatMap((m) => m.tables).find((x) => x.slug === 'vendor-master');
+  const f = meta.fields.find((x) => x.name === 'Allowed Purchase Type');
+  assert.equal(f.label, 'Purchase Type Linked With Vendor'); assert.equal(f.multi, true);
+  assert.ok((await sa('GET', '/api/lookup?field=Allowed Purchase Type')).json.options.some((o) => o.value === 'Spine'));
+  await app.store.append('Vendor Master', [
+    { 'Master Id': 'V1', 'Vendor Name': 'Spine Only Co', 'Allowed Purchase Type': 'Spine, Spine Implants', Status: 'Active' },
+    { 'Master Id': 'V2', 'Vendor Name': 'Trauma Only Co', 'Allowed Purchase Type': 'SPM Trauma', Status: 'Active' },
+    { 'Master Id': 'V3', 'Vendor Name': 'Open Co', Status: 'Active' }]);
+  const v = (await sa('GET', '/api/lookup?field=Vendor Account&purchaseType=Spine')).json.options.map((o) => o.value).sort();
+  assert.deepEqual(v, ['Open Co', 'Spine Only Co']);
+  const line = [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10, 'GST %': 12 }];
+  const mk = (vendor, tp) => sa('POST', '/api/wf/pos', { header: { Date: '2026-10-27', 'Vendor Account': vendor, 'Type Of Purchase': tp, Location: 'MWH' }, lines: line, submit: false });
+  assert.equal((await mk('Trauma Only Co', 'Spine')).status, 422);
+  { const r = await mk('Spine Only Co', 'Spine Implants'); assert.equal(r.status, 201, r.text); }
+  assert.equal((await mk('Open Co', 'SPM Trauma')).status, 201);
+  const info = (await sa('GET', '/api/wf/pos/item-info?code=A1&warehouse=MWH')).json;
+  assert.ok(Array.isArray(info.byWarehouse) && info.byWarehouse.length >= 1 && info.byWarehouse.every((w) => typeof w.qty === 'number'));
+  assert.equal(info.total, Math.round(info.byWarehouse.reduce((a, w) => a + w.qty, 0) * 1e6) / 1e6);
+});

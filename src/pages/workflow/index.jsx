@@ -331,6 +331,8 @@ export function PoForm() {
     if (editId || !hdr['Vendor Account']) { setVinfo(null); setVErr(''); return; }
     api.get('/api/wf/pos/vendor', { vendor: hdr['Vendor Account'], type, date: hdr.Date }).then((r) => { setVinfo(r); setVErr(''); setHdr((h) => (type === 'import' && !r.vendor.currencies.some((c) => c.code === h.Currency) ? { ...h, Currency: r.vendor.currencies.some((c) => c.code === r.vendor.defaultCurrency) ? r.vendor.defaultCurrency : (r.vendor.currencies[0]?.code || '') } : h)); }).catch((e) => { setVinfo(null); setVErr(e.message); });
   }, [hdr['Vendor Account'], type, hdr.Date, editId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const vendorParams = useMemo(() => (hdr['Type Of Purchase'] ? { purchaseType: hdr['Type Of Purchase'] } : undefined), [hdr['Type Of Purchase']]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [stockInfo, setStockInfo] = useState(null);
   const [picker, setPicker] = useState(false); const [override, setOverride] = useState(''); const [needOverride, setNeedOverride] = useState(false);
   const canOverride = ['super_admin', 'admin', 'purchase_manager'].includes(user?.role) || user?.actions?.includes?.('po:approve');
 
@@ -357,10 +359,17 @@ export function PoForm() {
   }, [editId, intentParam, addFromIntents]);
 
   const onItem = (i, it) => {
-    if (type !== 'domestic') return;
     setLines((cur) => cur.map((l, j) => (j === i ? { ...l, Description: it.name, Brand: it.brand || l.Brand, Warehouse: l.Warehouse || hdr.Location } : l)));
-    api.get('/api/wf/pos/item-info', { code: it.code, warehouse: hdr.Location }).then((r) => setLines((cur) => cur.map((l, j) => (j === i && l['Item Code'] === it.code ? { ...l, 'Current Stock': r.currentStock, 'Reorder Level': r.reorderLevel || l['Reorder Level'], 'Last PO Rate': r.lastRate || l['Last PO Rate'], Brand: r.brand || l.Brand, Units: l.Units || r.unit } : l)))).catch(() => {});
+    api.get('/api/wf/pos/item-info', { code: it.code, warehouse: hdr.Location }).then((r) => {
+      setLines((cur) => cur.map((l, j) => (j === i && l['Item Code'] === it.code ? { ...l, 'Current Stock': r.currentStock, 'Reorder Level': r.reorderLevel || l['Reorder Level'], 'Last PO Rate': r.lastRate || l['Last PO Rate'], Brand: r.brand || l.Brand, Units: l.Units || r.unit } : l)));
+      setStockInfo({ code: it.code, name: it.name || r.name, unit: r.unit, rows: r.byWarehouse || [], total: r.total });
+    }).catch(() => {});
   };
+  useEffect(() => { // closing stock follows the header warehouse
+    if (!ready || editId) return;
+    const codes = [...new Set(lines.map((l) => l['Item Code']).filter(Boolean))];
+    codes.forEach((code) => api.get('/api/wf/pos/item-info', { code, warehouse: hdr.Location }).then((r) => setLines((cur) => cur.map((l) => (l['Item Code'] === code ? { ...l, 'Current Stock': r.currentStock } : l)))).catch(() => {}));
+  }, [hdr.Location]); // eslint-disable-line react-hooks/exhaustive-deps
   const c = useMemo(() => calc(type, hdr, lines), [type, hdr, lines]);
   if (!ready) return <Spinner />;
   const setH = (k, v) => setHdr((h) => ({ ...h, [k]: v }));
@@ -387,9 +396,9 @@ export function PoForm() {
       <Card title="Header" className="mb-4">
         <div className="grid gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
           {!editId && <div><label className="label" htmlFor="po-cat">Purchase category</label><select id="po-cat" className="input" value={type} onChange={(e) => { setType(e.target.value); setLines([]); }}><option value="domestic">Domestic</option><option value="import">Import</option></select></div>}
-          <div><label className="label">Type of purchase</label><select className="input" value={hdr['Type Of Purchase']} onChange={(e) => setH('Type Of Purchase', e.target.value)}><option value="">Select…</option>{PURCHASE_TYPES.map((x) => <option key={x}>{x}</option>)}</select></div>
+          <div><label className="label">Type of purchase</label><select className="input" value={hdr['Type Of Purchase']} onChange={(e) => setH('Type Of Purchase', e.target.value)}><option value="">Select…</option>{(vinfo?.vendor?.linkedTypes?.length ? vinfo.vendor.linkedTypes : PURCHASE_TYPES).map((x) => <option key={x}>{x}</option>)}</select></div>
           <div><label className="label">Date</label><input type="date" className="input" value={hdr.Date} onChange={(e) => setH('Date', e.target.value)} /></div>
-          <div><label className="label">Vendor <span className="text-red-600">*</span></label><Combobox field="Vendor Account" value={hdr['Vendor Account']} onChange={(v) => setH('Vendor Account', v)} /></div>
+          <div><label className="label">Vendor <span className="text-red-600">*</span></label><Combobox field="Vendor Account" value={hdr['Vendor Account']} onChange={(v) => setH('Vendor Account', v)} extraParams={vendorParams} /></div>
           {<div><label className="label">Warehouse / Location</label><select className="input" value={hdr.Location} onChange={(e) => setH('Location', e.target.value)}>{!hdr.Location && <option value="">Select…</option>}{[...new Set([hdr.Location, ...whList].filter(Boolean))].map((w) => <option key={w}>{w}</option>)}</select></div>}
           <div><label className="label">PO No. (generated on save){vinfo ? ` · FY ${vinfo.financialYear}` : ''}</label><input className="input bg-slate-50" readOnly value={vinfo ? vinfo.next : 'PREFIX/YY-YY/1001'} title="Generated automatically from the vendor's series; cannot be edited" /></div>
           <div><label className="label">Supplier reference</label><input className="input" value={hdr['Supplier Ref No']} onChange={(e) => setH('Supplier Ref No', e.target.value)} /></div>
@@ -408,6 +417,14 @@ export function PoForm() {
         </div>
       </Card>
       <Card title="Items" className="mb-4">
+        {stockInfo && (
+          <div className="mb-3 rounded-md border border-brand-200 bg-brand-50 p-3 text-sm" aria-live="polite">
+            <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2"><div><span className="font-semibold">{stockInfo.name || stockInfo.code}</span> <span className="text-xs text-slate-500">{stockInfo.code} · stock by warehouse</span></div><button type="button" className="text-xs text-slate-500 underline" onClick={() => setStockInfo(null)}>Hide</button></div>
+            <div className="flex flex-wrap gap-2">{stockInfo.rows.map((w) => (
+              <div key={w.warehouse} className={`min-w-[5.5rem] rounded border px-2 py-1 ${w.warehouse.toUpperCase() === String(hdr.Location).toUpperCase() ? 'border-brand-600 bg-white' : 'border-slate-200 bg-white'}`}><div className="text-[11px] text-slate-500">{w.warehouse}</div><div className="font-semibold tabular-nums">{n2(w.qty)}</div></div>))}
+              <div className="min-w-[5.5rem] rounded border border-slate-300 bg-slate-100 px-2 py-1"><div className="text-[11px] text-slate-500">All warehouses</div><div className="font-semibold tabular-nums">{n2(stockInfo.total)}</div></div></div>
+            <p className="mt-1 text-[11px] text-slate-500">Available = Opening Stock + GRN/MRN − Imprest Out + Imprest In − Consumption. Hospital (imprest) locations are not counted.</p>
+          </div>)}
         <Grid cols={poCols(type)} lines={c.lines} onChange={setLines} onItem={onItem} extra={<button type="button" className="btn btn-sm btn-primary" onClick={() => setPicker(true)}>+ Add from approved intents</button>} />
         <dl className="mt-4 ml-auto grid max-w-xs grid-cols-2 gap-1 text-sm">
           {(() => { const imp = type === 'import'; const cur = imp ? (hdr.Currency || 'INR') : 'INR'; const f = (v) => (imp ? money(v, cur) : inr(v)); return (<>
