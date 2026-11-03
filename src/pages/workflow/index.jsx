@@ -622,10 +622,9 @@ export function GrnForm() {
     <>
       <PageHeader back={<Back to="/grn">GRN Register</Back>} title="Create GRN" subtitle="Receive goods against a Purchase Order — it appears here as soon as it is created, authorization is not required. Accepted quantity is posted to stock once." />
       <ErrorBox msg={err} />
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2">
         <div className="rounded-md border-2 border-brand-600 bg-brand-50 p-3"><div className="font-semibold text-brand-800">GRN against a PO</div><div className="mt-0.5 text-xs text-slate-600">Pick the Purchase Order below; its items and balances are filled in for you.</div></div>
-        <Link to="/grn/manual?type=GRN" className="rounded-md border border-slate-300 bg-white p-3 hover:border-brand-600"><div className="font-semibold text-slate-800">Manual GRN →</div><div className="mt-0.5 text-xs text-slate-600">Add items yourself; link a line to a PO if it has one.</div></Link>
-        <Link to="/grn/manual?type=MRN" className="rounded-md border border-slate-300 bg-white p-3 hover:border-brand-600"><div className="font-semibold text-slate-800">Manual MRN →</div><div className="mt-0.5 text-xs text-slate-600">Material receipt note: add items yourself; link a line to a PO if it has one.</div></Link>
+        <Link to="/grn/manual" className="rounded-md border border-slate-300 bg-white p-3 hover:border-brand-600"><div className="font-semibold text-slate-800">Manual GRN / MRN →</div><div className="mt-0.5 text-xs text-slate-600">Add items yourself and choose GRN or MRN; link a line to a PO if it has one.</div></Link>
       </div>
       <Card title="1. Purchase Order" className="mb-4">
         {!pos.length ? <p className="text-sm text-slate-500">No Purchase Orders are waiting for receipt in your warehouses.</p> : (<>

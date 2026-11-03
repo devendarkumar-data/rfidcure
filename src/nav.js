@@ -46,7 +46,7 @@ export function buildNav(meta) {
   ]);
   add('wh-grn', 'GRN / MRN', 'inbox', [
     it(has(grn, 'create'), '/grn/new', 'Create GRN'),
-    it(has(grn, 'create'), '/grn/manual?type=MRN', 'Manual MRN'),
+    it(has(grn, 'create'), '/grn/manual', 'Manual GRN / MRN'),
     it(has(grn, 'view'), '/grn?type=GRN', 'GRN Register'),
     it(has(grn, 'view'), '/grn?type=MRN', 'MRN Register'),
   ]);
