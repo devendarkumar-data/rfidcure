@@ -31,7 +31,7 @@ export const ROLE_STAGE_ACTIONS = {
   warehouse_operator: { intent: W, grn: ['view', 'create'], requisition: W, reports: R },
   // Central stock operations at the Mother Warehouse: raises indents, receives goods, approves and dispatches requisitions.
   // Mother Warehouse is split in two people: this one raises Purchase Intents and runs Imprest Out / In and Consumption (no GRN); the GRN Operator does GRN only.
-  mother_warehouse_operator: { intent: W, transfer: W, imprest: W, consumption: W, requisition: WA, eway: W, dispatch: R, reports: R },
+  mother_warehouse_operator: { intent: W, grn: W, transfer: W, imprest: W, consumption: W, requisition: WA, eway: W, dispatch: R, reports: R },
   // Mother Warehouse Manager: runs the whole mother warehouse - raises indents, creates POs, transfers, requisitions and sees all warehouse activity.
   mother_warehouse_manager: { intent: W, po: W, grn: R, transfer: W, imprest: W, consumption: W, dispatch: R, requisition: WA, eway: R, reports: R },
   // Works the authorization queues (intents, POs, requisitions); does not raise documents.

@@ -46,10 +46,8 @@ export function buildNav(meta) {
   ]);
   add('wh-grn', 'GRN / MRN', 'inbox', [
     it(has(grn, 'create'), '/grn/new', 'Create GRN'),
-    it(has(grn, 'create'), '/grn/manual?type=GRN', 'Manual GRN'),
     it(has(grn, 'create'), '/grn/manual?type=MRN', 'Manual MRN'),
-    it(has(grn, 'view'), '/grn', 'GRN Register'),
-    it(has(grn, 'view'), '/grn?type=GRN', 'GRN Register (GRN only)'),
+    it(has(grn, 'view'), '/grn?type=GRN', 'GRN Register'),
     it(has(grn, 'view'), '/grn?type=MRN', 'MRN Register'),
   ]);
   add('wh-imprest', 'Imprest & Consumption', 'inbox', [

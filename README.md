@@ -226,3 +226,4 @@ Inventory > **Stock Master**: opening quantity and live quantity per warehouse /
 - **GRN Operator (MWH)**: creates GRN / MRN, views pending and authorized POs and all reports.
 - **GRN Special Operator (MWH, new)**: GRN / MRN view + create + edit permission and all warehouse operations (transfer, imprest, consumption, requisition). Posted stock documents stay locked by the stock rule.
 - **Entry Operator (MWH)**: everything except creating GRN / MRN - indent, stock transfer, requisition, imprest out/in, consumption, E-Way; GRN is view-only.
+- **Mother Warehouse Operator (MWH all access)**: GRN / MRN, indent, stock transfer, requisition issue, imprest, consumption, E-Way and all reports; no PO / purchase. Menu GRN / MRN: Create GRN, Manual MRN, GRN Register, MRN Register.
