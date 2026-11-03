@@ -62,6 +62,7 @@ test('stock engine through the API', async (t) => {
     const out = await wm('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-26', 'To Warehouse': 'CWH' }, lines: [{ Warehouse: 'MWH', Item: 'A1', Quantity: 1, Batch: 'B-LATE' }] });
     assert.equal(out.status, 201, out.text);
     assert.equal(qtyOf(await bal(sa, '&hospitals=1'), 'CWH', 'A1', 'B-LATE'), 3);
+    { const rec = (await wm('GET', `/api/t/imprest-out-new/record?id=${encodeURIComponent(out.json.id)}`)).json; const l = (rec.lines || [])[0] || {}; assert.ok('Taxable Value' in l, JSON.stringify(l)); assert.equal(l['Taxable Value'], l.Gross, 'taxable value = quantity x rate'); }
     const back = await app.as('sa');
     const inn = await back('POST', '/api/t/imprest-in-new', { header: { Date: '2026-10-27', 'To Warehouse': 'CWH' }, lines: [{ Warehouse: 'MWH', Item: 'A1', Quantity: 1, Batch: 'B-LATE' }] });
     assert.equal(inn.status, 201, inn.text); assert.equal(qtyOf(await bal(sa, '&hospitals=1'), 'CWH', 'A1', 'B-LATE'), 2);

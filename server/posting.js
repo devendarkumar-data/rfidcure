@@ -11,6 +11,7 @@ function expand(line, allocs) {
   return allocs.map((a) => {
     const l = { ...line, Batch: a.batch, 'Expiry Date': a.expiry || line['Expiry Date'] || '', Quantity: a.qty, Rate: a.rate };
     if ('Gross' in l || 'Gross' in line) l.Gross = round2(a.qty * a.rate);
+    if ('Taxable Value' in l) l['Taxable Value'] = l.Gross;
     return l;
   });
 }
@@ -38,7 +39,7 @@ export const POSTERS = {
       if (src.toUpperCase() === dest.toUpperCase()) throw unprocessable(`${label}: source and To Warehouse are the same`);
       const allocs = view.out({ wh: src, code: l['Item Code'], name: l._name, qty: toNum(l.Quantity), batch: l.Batch, date, type: 'Imprest Out', doc, label });
       for (const a of allocs) view.in({ wh: dest, code: l['Item Code'], name: l._name, qty: a.qty, batch: a.batch, expiry: a.expiry, rate: a.rate, date, type: 'Imprest Out', doc, label });
-      out.push(...expand(l, allocs));
+      out.push(...expand(l, allocs).map((x) => ({ ...x, Gross: round2(toNum(x.Quantity) * toNum(x.Rate)), 'Taxable Value': round2(toNum(x.Quantity) * toNum(x.Rate)) })));
     });
     return { lines: out, posted: true };
   },
@@ -82,7 +83,7 @@ export const POSTERS = {
 
   consumption({ header, lines, view, doc, date }) {
     const wh = need(header.Warehouse, 'Select the warehouse');
-    if (sstr(header['Bill Status']) !== 'Pending Bill' && lines.some((l) => /against bill/i.test(sstr(l['Consumption Type']))) && !sstr(header['Bill No'])) throw unprocessable('Bill No is required for consumption against a bill');
+    if (sstr(header['Bill Status']) !== 'Pending Bill' && lines.some((l) => /against (bill|po)/i.test(sstr(l['Consumption Type']))) && !sstr(header['Bill No'])) throw unprocessable('Bill No is required for consumption against a bill');
     const out = [];
     lines.forEach((l, i) => {
       const label = `Line ${i + 1} (${l['Item Code']})`;

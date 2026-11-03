@@ -162,6 +162,7 @@ export async function validateLines(ctx, table, input, catalog, { strictItems })
     }
     if ('Quantity' in l && table.post && table.post !== 'actual' && !(toNum(l.Quantity) > 0) && !(table.post === 'grn' && !isBlank(l['Accepted Qty']))) throw bad(`${w}Quantity must be greater than zero`);
     if ('Gross' in byName && !isBlank(l.Quantity) && !isBlank(l.Rate)) l.Gross = round2(toNum(l.Quantity) * toNum(l.Rate));
+    if ('Taxable Value' in byName && 'Gross' in l) l['Taxable Value'] = l.Gross; // taxable value = Quantity x Rate
     out.push(l);
   }
   return out;

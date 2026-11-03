@@ -115,7 +115,7 @@ export async function consume(ctx, body, idem) {
     const c = want.get(g.key) || 0;
     if (c < 0 || !Number.isFinite(c)) throw bad(`${g.code}: consumed quantity is not valid`);
     if (c > g.balance + 1e-9) throw unprocessable(`${g.code} (batch ${g.batch}): consumed ${c} is more than the ${g.balance} remaining`);
-    if (c > 0) used.push({ 'Consumption Type': 'Against Bill', 'Item Code': g.code, Quantity: c, Batch: g.batch });
+    if (c > 0) used.push({ 'Consumption Type': 'Consumption as Against PO', 'Item Code': g.code, Quantity: c, Batch: g.batch });
   }
   if (!used.length) throw unprocessable('Enter the consumed quantity');
   const billNo = sstr(body.billNo);

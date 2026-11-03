@@ -227,3 +227,8 @@ Inventory > **Stock Master**: opening quantity and live quantity per warehouse /
 - **GRN Special Operator (MWH, new)**: GRN / MRN view + create + edit permission and all warehouse operations (transfer, imprest, consumption, requisition). Posted stock documents stay locked by the stock rule.
 - **Entry Operator (MWH)**: everything except creating GRN / MRN - indent, stock transfer, requisition, imprest out/in, consumption, E-Way; GRN is view-only.
 - **Mother Warehouse Operator (MWH all access)**: GRN / MRN, indent, stock transfer, requisition issue, imprest, consumption, E-Way and all reports; no PO / purchase. Menu GRN / MRN: Create GRN, Manual MRN, GRN Register, MRN Register.
+
+### Imprest Out lines / Consumption Type / Manual entries
+- Imprest Out line columns: Warehouse, Item, Description, Units, HSN, Stock in hand, Quantity, L-Surgery Set, Batch, Expiry Date, Rate, Gross, CGST, SGST, CESS, Taxable Value (= Quantity x Rate). Stock in hand is shown from the stock record picked.
+- Consumption Type (Imprest In and Material Consumption): Consumption as Against PO, Broken, OTC.
+- Left menu: Imprest In — Manual and Consumption — Manual open the entry form directly (no pending list).

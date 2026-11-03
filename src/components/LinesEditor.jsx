@@ -36,7 +36,7 @@ function BatchSelect({ value, onChange, warehouse, code, disabled, auto, all }) 
 
 // Generic line-item grid driven by table.lineFields. batchMode: 'pick' (existing batches, outward docs) | 'enter' (free text, inward docs).
 export default function LinesEditor({ lineFields, itemField, lines, onChange, getWarehouse, batchMode = 'enter', readOnly = false, errors = {}, autoBatch = false, batchFromAll = false, stockPick = false, stockWh = null, lineDefaults = null, scopeWarehouse = false }) {
-  const cols = lineFields.filter((f) => f.name !== 'Item Code' && f.type !== 'calc' || (f.type === 'calc' && ['Gross', 'System Qty'].includes(f.name)));
+  const cols = lineFields.filter((f) => f.name !== 'Item Code' && f.type !== 'calc' || (f.type === 'calc' && ['Gross', 'System Qty', 'Stock in hand', 'Taxable Value'].includes(f.name)));
   const idRef = useRef(1);
   const set = (i, patch) => onChange(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const add = () => onChange([...lines, { _k: idRef.current++, ...(lineDefaults || {}) }]);
@@ -58,6 +58,8 @@ export default function LinesEditor({ lineFields, itemField, lines, onChange, ge
     if (f.name === itemField) return <div className="min-w-[14rem]"><ItemPicker value={v ? `${l['Item Code'] || ''} — ${v}`.replace(/^ — /, '') : ''} disabled={readOnly || f.readonly} onChange={({ code, name }) => set(i, { 'Item Code': code, [itemField]: name })} /></div>;
     if (autoBatch && (f.name === 'Expiry Date' || f.name === 'Rate')) return <input className={`input ${f.name === 'Rate' ? 'min-w-[6rem] text-right' : 'min-w-[9rem]'} bg-slate-50`} value={v} readOnly tabIndex={-1} placeholder="from stock" aria-label={f.name} title="Filled automatically from the selected stock batch" />;
     if (f.name === 'Gross') return <span className="tabular-nums">{(num(l.Quantity) * num(l.Rate)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>;
+    if (f.name === 'Taxable Value') return <span className="tabular-nums">{(num(l.Quantity) * num(l.Rate)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>;
+    if (f.name === 'Stock in hand') return <span className="tabular-nums text-slate-600">{l._avail ?? ''}</span>;
     if (f.type === 'calc') return <span className="tabular-nums text-slate-500">{v}</span>;
     if (f.name === 'Batch' && batchMode === 'pick') return <div className="min-w-[14rem]"><BatchSelect value={v} warehouse={getWarehouse?.(l)} code={l['Item Code']} disabled={readOnly || f.readonly} onChange={(b, o) => set(i, { Batch: b, ...(autoBatch && o ? { 'Expiry Date': o.expiry || '', ...(o.rate ? { Rate: o.rate } : {}) } : {}) })} auto={autoBatch} all={batchFromAll} /></div>;
     if (f.options || f.yesNo) return <select className="input min-w-[7rem]" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { [f.name]: e.target.value })} aria-label={f.name}><option value="">—</option>{(f.options || ['Yes', 'No']).map((o) => <option key={o}>{o}</option>)}</select>;

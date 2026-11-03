@@ -367,7 +367,7 @@ test('Imprest flow: 100 out to a hospital, 80 returned by Imprest In, remaining 
   const r = await back(80); assert.equal(r.status, 201, r.text);
   assert.equal(await avail(), 20, 'out 100 - in 80 = 20 left at the hospital');
   const cons = (body) => e('POST', '/api/t/material-consumption', body);
-  const lines = (q) => [{ 'Consumption Type': 'Against Bill', 'Item Code': 'FL1', Quantity: q, Batch: 'F-1' }];
+  const lines = (q) => [{ 'Consumption Type': 'Consumption as Against PO', 'Item Code': 'FL1', Quantity: q, Batch: 'F-1' }];
   assert.equal((await cons({ header: { Warehouse: 'CITY HOSPITAL' }, lines: lines(20) })).status, 422, 'bill number required');
   assert.equal((await cons({ header: { Warehouse: 'CITY HOSPITAL', 'Bill No': 'B-77' }, lines: lines(21) })).status, 422, 'more than the 20 left');
   const ok = await cons({ header: { Warehouse: 'CITY HOSPITAL', 'Bill No': 'B-77', 'Bill Date': '2026-10-28' }, lines: lines(20) });

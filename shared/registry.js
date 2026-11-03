@@ -87,9 +87,9 @@ function decorate(f, tableOpts = {}) {
 // ---- table specifications -------------------------------------------------------------------------
 const IMH = 'DocNo:Alphanumeric-Autogen|Date:Date|Customer Account:Dropdown|Surgery:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Location:Dropdown|Companies:Dropdown|Narration / Notes:Text|Business Head:Dropdown|OT Name:Text|Place of Supply:Dropdown|Is IGST:Dropdown|Ref. Doc:Text|Ref. Date:Date|Ship to Name:Text|Ship to Address:Long text|Ship to City:Dropdown|Ship to State:Dropdown|Ship to Pin code:Text|To Warehouse:Dropdown|Dispatch Name:Text|Dispatch City:Dropdown|Dispatch Address:Text|Dispatch Pincode:Text|Dispatch State:Dropdown|Imprest Ref:Text';
 const IMH_OUT = 'DocNo:Alphanumeric-Autogen|Date:Date|Customer Account:Dropdown|Surgery:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Location:Dropdown|Companies:Dropdown|Narration / Notes:Text|Business Head:Dropdown|OT Name:Text|Place of Supply:Dropdown|Is IGST:Dropdown|Ref. Doc:Text|Ref. Date:Date|Ship to Name:Text|Ship to Address:Long text|Ship to City:Dropdown|Ship to State:Dropdown|Ship to Pin code:Text|To Warehouse:Dropdown|Dispatch Name:Text|Dispatch City:Dropdown|Dispatch Address:Text|Dispatch Pincode:Text|Dispatch State:Dropdown|Supplier:Dropdown|Bill Code:Text|Delivery Date:Date|Return Closed:Text';
-const IML = 'Consumption Type:Dropdown:Against Consumption,Against Bill|Warehouse:Dropdown|Item:Dropdown|Description:Autofill|Units:Autofill|Quantity:Number|Rate:Number|Gross:Calculated|Batch:Text|Expiry Date:Date';
-const IML_IN = 'Consumption Type:Dropdown:Against Bill,Against Consumption|Warehouse:Dropdown|Item:Dropdown|Description:Autofill|Units:Autofill|Quantity:Number|Rate:Number|Gross:Calculated|Batch:Text|Expiry Date:Date';
-const IML_OUT = 'Warehouse:Dropdown|Item:Dropdown|Description:Autofill|Units:Autofill|Quantity:Number|Rate:Number|Gross:Calculated|Batch:Text|Expiry Date:Date';
+const IML = 'Consumption Type:Dropdown:Consumption as Against PO,Broken,OTC|Warehouse:Dropdown|Item:Dropdown|Description:Autofill|Units:Autofill|Quantity:Number|Rate:Number|Gross:Calculated|Batch:Text|Expiry Date:Date';
+const IML_IN = 'Consumption Type:Dropdown:Consumption as Against PO,Broken,OTC|Warehouse:Dropdown|Item:Dropdown|Description:Autofill|Units:Autofill|Quantity:Number|Rate:Number|Gross:Calculated|Batch:Text|Expiry Date:Date';
+const IML_OUT = 'Warehouse:Dropdown|Item:Dropdown|Description:Autofill|Units:Autofill|HSN:Text|Stock in hand:Calculated|Quantity:Number|L-Surgery Set:Text|Batch:Text|Expiry Date:Date|Rate:Number|Gross:Calculated|CGST:Number|SGST:Number|CESS:Number|Taxable Value:Calculated';
 const EWH = 'Document No.:Alphanumeric-Autogen|Date:Date|Ref. Doc:Text|Supply Type:Dropdown:Outward,Inward|Document Type:Dropdown:Tax Invoice,Delivery Challan|Transporter Name:Text|Transporter ID:Text|Transport Mode:Dropdown:Road,Rail,Air,Ship|Vehicle No.:Text|Distance (KM):Number|Ship to State:Dropdown|Dispatch State:Dropdown|E-Way Bill No.:Text|Valid Upto:Date';
 const EWL = 'Item:Dropdown|HSN:Text|Quantity:Number|Taxable Value:Number|CGST:Number|SGST:Number|IGST:Number';
 const RFID_LINES = null;
@@ -152,7 +152,7 @@ export const SPECS = [
 
   { tab: 'Material Consumption', kind: 'doc', stage: 'consumption', prefix: 'MC', post: 'consumption', wh: ['Warehouse'], required: ['Warehouse'],
     form: 'Document No:Alphanumeric-Autogen|Customer Account:Dropdown|Location:Dropdown|Warehouse:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Narration / Notes:Text|Business Head:Dropdown|Submit for Approval:Dropdown|Bill No:Text|Bill Date:Date|Imprest Ref:Text|Bill Status:Dropdown:Pending Bill,Billed',
-    lines: 'Consumption Type:Dropdown:Against Bill,Against Consumption|Item:Dropdown|Description:Autofill|Units:Text|Quantity:Number|Batch:Text|Expiry Date:Date|Rate:Number|Gross:Calculated|Posting:Text' },
+    lines: 'Consumption Type:Dropdown:Consumption as Against PO,Broken,OTC|Item:Dropdown|Description:Autofill|Units:Text|Quantity:Number|Batch:Text|Expiry Date:Date|Rate:Number|Gross:Calculated|Posting:Text' },
 
   { tab: 'Master Mapping', kind: 'log', stage: 'admin', required: ['ERP Master'] },
   { tab: 'Voucher Posting', kind: 'list', stage: 'admin' },
