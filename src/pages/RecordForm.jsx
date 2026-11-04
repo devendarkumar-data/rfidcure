@@ -46,7 +46,14 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
   const [lines, setLines] = useState(() => (initial?.lines || []).map((l, i) => ({ ...l, _k: `i${i}` })));
   const [errors, setErrors] = useState({}); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
 
-  const fields = useMemo(() => table.fields.filter((f) => !(mode === 'create' && (f.type === 'auto' && !table.idCol)) ), [table, mode]);
+  const GRN_ORDER = ['Receipt Type', 'Date', 'Warehouse', 'Document No.', 'Vendor Account', 'Type Of Purchase', 'Supplier Ref No', 'Location', 'Invoice No.', 'Invoice Date', 'Invoice Value', 'Is IGST', 'Update Stock', 'Raise Receipt', 'Attachment', 'Terms Of Delivery', 'Narration-Notes'];
+  const isGrn = table.slug === 'grn-mrn';
+  const fields = useMemo(() => {
+    const f = table.fields.filter((x) => !(mode === 'create' && (x.type === 'auto' && !table.idCol)));
+    if (!isGrn) return f;
+    const at = (n) => { const i = GRN_ORDER.findIndex((o) => o.toLowerCase() === n.toLowerCase()); return i < 0 ? 99 : i; }; // GRN header in fixed rows of 4 so every column lines up
+    return [...f].sort((a, b) => at(a.name) - at(b.name));
+  }, [table, mode]); // eslint-disable-line react-hooks/exhaustive-deps
   const isOut = table.slug === 'imprest-out-new' && mode === 'create';
   const isIn = table.slug === 'imprest-in-new' && mode === 'create';
   const isCons = table.slug === 'material-consumption' && mode === 'create';
@@ -105,7 +112,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
   return (
     <form onSubmit={submit} noValidate aria-label={table.title}>
       {err && <div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
-      <div className={`grid gap-x-2 gap-y-1.5 ${!table.hasLines && fields.length > 8 ? "grid-cols-1 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 [&_.label]:text-[11px] [&_.label]:leading-4" : fields.length > 8 ? "compact grid-cols-2 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 [&_.input]:h-8 [&_.input]:py-0 [&_.input]:text-[13px] [&_.label]:mb-0 [&_.label]:text-[10px] [&_.label]:leading-4 [&_.label]:flex [&_.label]:min-h-[2rem] [&_.label]:items-end" : "sm:grid-cols-2"}`}>
+      <div className={`grid gap-x-3 gap-y-2 ${isGrn ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 [&_.input]:h-9 [&_.label]:mb-1 [&_.label]:flex [&_.label]:min-h-[1.25rem] [&_.label]:items-end [&_.label]:text-[11px] [&_textarea.input]:h-9 [&_textarea.input]:min-h-0" : !table.hasLines && fields.length > 8 ? "grid-cols-1 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 [&_.label]:text-[11px] [&_.label]:leading-4" : fields.length > 8 ? "compact grid-cols-2 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 [&_.input]:h-8 [&_.input]:py-0 [&_.input]:text-[13px] [&_.label]:mb-0 [&_.label]:text-[10px] [&_.label]:leading-4 [&_.label]:flex [&_.label]:min-h-[2rem] [&_.label]:items-end" : "sm:grid-cols-2"}`}>
         {fields.map((f) => <Field key={f.name} field={f} value={values[f.name]} onChange={(v) => set(f.name, v)} disabled={readOnly} required={table.required.includes(f.name)} error={errors[f.name]} extraParams={IMPREST_WH && ((isIn && f.name === 'To Warehouse') || (isCons && f.name === 'Warehouse')) ? IMPREST_WH : undefined} />)}
       </div>
       {table.hasLines && (
@@ -116,6 +123,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
           <LinesEditor lineFields={table.lineFields} itemField={table.itemField} lines={lines} onChange={setLines} readOnly={readOnly}
             batchMode={table.posts && !INWARD.has(table.slug) ? 'pick' : 'enter'} getWarehouse={getWarehouse}
             autoBatch={!!stockMode} stockPick={stockMode} stockWh={isOut ? (l) => l.Warehouse : isIn ? () => values['To Warehouse'] : isCons ? () => values.Warehouse : null} scopeWarehouse={isOut || isIn} lineDefaults={(isOut || isIn) && defWh ? { Warehouse: defWh } : isCons ? { 'Consumption Type': 'Against Bill' } : null} />
+          {table.lineFields.some((lf) => lf.name === 'Quantity') && lines.length > 0 && <div className="mt-2 flex justify-end text-sm"><span className="rounded-md bg-slate-100 px-3 py-1 font-semibold text-slate-700">Total Qty: <span className="tabular-nums">{Math.round(lines.reduce((s, l) => s + (Number(l.Quantity) || 0), 0) * 1e6) / 1e6}</span></span></div>}
           {table.posts && table.slug !== 'actual-stock' && <p className="mt-2 text-xs text-slate-500">Saving posts to the stock ledger and cannot be edited afterwards. Leave Batch on “Auto” to issue the earliest-expiry stock first.</p>}
         </div>
       )}

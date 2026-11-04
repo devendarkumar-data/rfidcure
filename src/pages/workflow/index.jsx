@@ -606,7 +606,7 @@ export function GrnForm() {
       const r = rec[l.poLine] || {}; const got = num(r.rec); if (!got) continue; const rej = num(r.rej);
       if (rej > got) return setErr(`${l.items}: rejected quantity cannot exceed received quantity`);
       if (got - rej > l.balance + 1e-9) return setErr(`${l.items}: accepted ${n2(got - rej)} exceeds the PO balance ${n2(l.balance)}`);
-      out.push({ 'PO Line': l.poLine, 'Received Qty': got, 'Rejected / Damaged Qty': rej, Batch: r.batch || '', 'Expiry Date': r.exp || '', ...(r.short ? { 'Short Close': 'Close Balance (authorized)' } : {}) });
+      out.push({ 'PO Line': l.poLine, 'Received Qty': got, 'Rejected / Damaged Qty': rej, Batch: r.batch || '', 'Expiry Date': r.exp || '' });
     }
     if (!out.length) return setErr('Enter a received quantity on at least one line');
     setBusy(true);
@@ -648,7 +648,7 @@ export function GrnForm() {
         </div></Card>
         <Card title="3. Items received (leave quantity blank for lines not delivered)" pad={false} className="mb-4">
           <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-100">
-            <thead><tr>{['Item', 'Ordered', 'Received so far', 'Balance', 'Received now', 'Rejected', 'Accepted', 'Batch', 'Expiry', 'Short-close'].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
+            <thead><tr>{['Item', 'Ordered', 'Received so far', 'Balance', 'Received now', 'Rejected', 'Accepted', 'Batch', 'Expiry'].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
             <tbody className="divide-y divide-slate-100">{cur.lines.map((l) => { const r = rec[l.poLine] || {}; const acc = Math.max(0, num(r.rec) - num(r.rej)); return (
               <tr key={l.poLine}><td className="td"><div className="font-medium">{l.items}</div><div className="text-xs text-slate-500">{l.itemCode} · line {l.poLine}</div></td>
                 <td className="td text-right tabular-nums">{n2(l.ordered)}</td><td className="td text-right tabular-nums">{n2(l.received)}</td><td className="td text-right font-medium tabular-nums">{n2(l.balance)}</td>
@@ -656,8 +656,7 @@ export function GrnForm() {
                 <td className="td"><input className="input w-24 text-right" type="number" min="0" step="any" aria-label={`Rejected qty ${l.items}`} value={r.rej ?? ''} onChange={(e) => setR(l.poLine, 'rej', e.target.value)} /></td>
                 <td className={`td text-right tabular-nums ${acc > l.balance + 1e-9 ? 'font-semibold text-red-600' : ''}`}>{n2(acc)}</td>
                 <td className="td"><input className="input min-w-[8rem]" aria-label={`Batch ${l.items}`} value={r.batch ?? ''} onChange={(e) => setR(l.poLine, 'batch', e.target.value)} /></td>
-                <td className="td"><input className="input min-w-[9rem]" type="date" aria-label={`Expiry ${l.items}`} value={r.exp ?? ''} onChange={(e) => setR(l.poLine, 'exp', e.target.value)} /></td>
-                <td className="td text-center"><input type="checkbox" aria-label={`Short close ${l.items}`} checked={!!r.short} onChange={(e) => setR(l.poLine, 'short', e.target.checked)} /></td></tr>); })}</tbody></table></div>
+                <td className="td"><input className="input min-w-[9rem]" type="date" aria-label={`Expiry ${l.items}`} value={r.exp ?? ''} onChange={(e) => setR(l.poLine, 'exp', e.target.value)} /></td></tr>); })}</tbody></table></div>
         </Card>
         <div className="flex flex-wrap justify-end gap-2"><button className="btn" disabled={busy} onClick={() => nav(-1)}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={save}>{busy ? 'Posting…' : 'Post GRN & update stock'}</button></div>
       </>)}

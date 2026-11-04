@@ -48,6 +48,7 @@ export function buildNav(meta) {
     it(has(grn, 'create'), '/grn/new', 'Create GRN'),
     it(has(grn, 'create'), '/grn/manual', 'Manual GRN / MRN'),
     it(has(grn, 'view'), '/grn?type=GRN', 'GRN Register'),
+    it(has(grn, 'view'), '/grn/detail', 'GRN / MRN Detail Register'),
     it(has(grn, 'view'), '/grn?type=MRN', 'MRN Register'),
   ]);
   add('wh-imprest', 'Imprest & Consumption', 'inbox', [
@@ -96,6 +97,7 @@ export function buildNav(meta) {
   add('admin', 'Administration', 'gear', [
     it(f.users, '/admin/users', 'Users'),
     it(f.access, '/admin/access', 'Access Control'),
+    it(!!tables.configuration, '/admin/approval', 'Approval (Indent / PO)'),
     it(f.dataQuality, '/admin/data-quality', 'Data Quality'),
     ...ADMIN_SLUGS.map((s) => it(!!tables[s], `/t/${s}`, tables[s]?.title)),
   ]);

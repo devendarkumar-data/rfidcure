@@ -237,3 +237,10 @@ Inventory > **Stock Master**: opening quantity and live quantity per warehouse /
 - **Administration > Configuration**: "Require Indent Approval" and "Require PO Authorization". Blank / ticked = approval required (default). Un-ticking sends a submitted indent (approved as requested) or PO straight to Approved. Two trailing columns were added to the Configuration sheet tab (after "Lines"): `Require Indent Approval`, `Require PO Authorization`. Enter `No` to switch off.
 - **Imprest In — Manual / Consumption — Manual** (menu): pick the Imprest Out voucher (searchable); its items / batches load with the open quantity; enter quantities by hand. The server checks the voucher belongs to that hospital and that quantity does not exceed what is open. Consumption at a hospital must cite a voucher. Nothing is consumed automatically - stock the hospital still holds stays there until returned or consumed.
 - Purchase Team can additionally view transfer, imprest, consumption, dispatch and E-Way pages (read-only) besides all stock and reports.
+
+### Nov 2026 UI round
+- GRN against a PO no longer has a Short-close column (PO "Close / short-close" stays on the PO screen).
+- GRN / MRN Detail Register (menu GRN / MRN): one row per item line with search, type, warehouse, vendor and date filters.
+- Administration > Approval (Indent / PO): switches for indent approval and PO authorization.
+- GRN header laid out in fixed rows of four; Imprest registers use compact rows; line editors show Total Qty.
+- Imprest In (settle) page: Open quantity, quantity taken back, and a "Convert into consumption" column + button for the part the hospital used.

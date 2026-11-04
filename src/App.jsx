@@ -21,6 +21,8 @@ import ImprestSettle from './pages/ImprestSettle.jsx';
 import ImprestPending from './pages/ImprestPending.jsx';
 import ImprestRegister from './pages/ImprestRegister.jsx';
 import ConsumptionPage from './pages/ConsumptionPage.jsx';
+import ApprovalSettings from './pages/ApprovalSettings.jsx';
+import GrnDetailRegister from './pages/workflow/GrnDetailRegister.jsx';
 import { GrnDetail, GrnForm, GrnRegister, IntentDetail, IntentForm, IntentRegister, PoDetail, PoForm, PoRegister } from './pages/workflow/index.jsx';
 import DocPrint from './pages/DocPrint.jsx';
 import IntentPrint from './pages/workflow/IntentPrint.jsx';
@@ -45,6 +47,7 @@ function Need({ feature, table, action = 'view', children }) {
 
 // Tabs that have a dedicated screen (PO linking, workflow, stock) must not open the generic add/edit form.
 const DEDICATED_ROUTE = { 'imprest-in-new': '/imprest/pending', 'imprest-in-pending': '/imprest/pending', 'imprest-out-pending': '/imprest/pending', 'imprest-in-register': '/imprest/register/in', 'imprest-out-register': '/imprest/register/out', 'material-consumption': '/consumption/register', 'grn-mrn': '/grn', 'purchase-indent': '/purchase-intent', 'purchase-order-domestic': '/purchasing/po', 'purchase-order-import': '/purchasing/po', 'purchase-requisition': '/requisitions', 'opening-stock': '/inventory/opening-stock' };
+function ApprovalRoute() { const { tables } = useAuth(); const t = tables.configuration; return t ? <ApprovalSettings table={t} /> : <NotFound />; }
 function TableRoute() {
   const { slug } = useParams(); const manual = new URLSearchParams(useLocation().search).get('manual') === '1' && ['imprest-in-new', 'material-consumption'].includes(slug); // manual entry forms
   return DEDICATED_ROUTE[slug] && !manual ? <Navigate to={DEDICATED_ROUTE[slug]} replace /> : <Keyed><TablePage /></Keyed>;
@@ -91,6 +94,8 @@ export default function App() {
         <Route path="imprest/pending" element={<ImprestPending />} />
         <Route path="imprest/register/:type" element={<ImprestRegister />} />
         <Route path="consumption/:mode" element={<ConsumptionPage />} />
+        <Route path="admin/approval" element={<ApprovalRoute />} />
+        <Route path="grn/detail" element={<Need table="grn-mrn" action="view"><GrnDetailRegister /></Need>} />
         <Route path="print/:slug/:id" element={<DocPrint />} />
         <Route path="eway/pending" element={<EwayPending />} />
         <Route path="imprest/settle/:ref" element={<ImprestSettle />} />
