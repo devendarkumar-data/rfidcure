@@ -244,3 +244,4 @@ Inventory > **Stock Master**: opening quantity and live quantity per warehouse /
 - Administration > Approval (Indent / PO): switches for indent approval and PO authorization.
 - GRN header laid out in fixed rows of four; Imprest registers use compact rows; line editors show Total Qty.
 - Imprest In (settle) page: Open quantity, quantity taken back, and a "Convert into consumption" column + button for the part the hospital used.
+- **Imprest Out stock selection**: pick the item, leave Batch blank for Auto (the server issues the oldest / earliest-expiry non-expired stock first, splitting across batches) or type / pick a batch by hand. Stock in hand shows for the item (or the chosen batch).
