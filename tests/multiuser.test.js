@@ -368,9 +368,10 @@ test('Imprest flow: 100 out to a hospital, 80 returned by Imprest In, remaining 
   assert.equal(await avail(), 20, 'out 100 - in 80 = 20 left at the hospital');
   const cons = (body) => e('POST', '/api/t/material-consumption', body);
   const lines = (q) => [{ 'Consumption Type': 'Consumption as Against PO', 'Item Code': 'FL1', Quantity: q, Batch: 'F-1' }];
-  assert.equal((await cons({ header: { Warehouse: 'CITY HOSPITAL' }, lines: lines(20) })).status, 422, 'bill number required');
-  assert.equal((await cons({ header: { Warehouse: 'CITY HOSPITAL', 'Bill No': 'B-77' }, lines: lines(21) })).status, 422, 'more than the 20 left');
-  const ok = await cons({ header: { Warehouse: 'CITY HOSPITAL', 'Bill No': 'B-77', 'Bill Date': '2026-10-28' }, lines: lines(20) });
+  assert.equal((await cons({ header: { Warehouse: 'CITY HOSPITAL', 'Imprest Ref': out.json.id }, lines: lines(20) })).status, 422, 'bill number required');
+  assert.equal((await cons({ header: { Warehouse: 'CITY HOSPITAL', 'Imprest Ref': out.json.id, 'Bill No': 'B-77' }, lines: lines(21) })).status, 422, 'more than the 20 left');
+  const ok = await cons({ header: { Warehouse: 'CITY HOSPITAL', 'Imprest Ref': out.json.id, 'Bill No': 'B-77', 'Bill Date': '2026-10-28' }, lines: lines(20) });
+  assert.equal((await cons({ header: { Warehouse: 'CITY HOSPITAL', 'Bill No': 'B-78' }, lines: lines(1) })).status, 422, 'consumption at a hospital must cite the voucher');
   assert.equal(ok.status, 201, ok.text);
   assert.equal(await avail(), 0);
   assert.ok(!(await hosp()).includes('CITY HOSPITAL'), 'nothing left at the hospital');
@@ -620,4 +621,20 @@ test('Approver views operations but creates nothing; GRN Special Operator does G
   assert.equal(mk.status, 201, mk.text);
   assert.equal((await g('PUT', `/api/t/grn-mrn/record?id=${encodeURIComponent(mk.json.id || mk.json['Document No.'])}`, { header: { 'Narration-Notes': 'x' } })).status, 409, 'special has edit permission (posted GRN stays locked by the stock rule, not by role)');
   assert.equal((await g('POST', '/api/t/material-consumption', { header: { Warehouse: 'MWH' }, lines: [{ 'Item Code': 'A1', Quantity: 1, Batch: 'GS-1' }] })).status, 201, 'special does warehouse ops');
+});
+
+test('approval switches in Configuration: indent and PO go straight to Approved when not required', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa'); const stOf = (j) => j.Status || j.status?.Status || j.header?.Status || (typeof j.status === 'string' ? j.status : '');
+  const cfg = (await app.store.read('Configuration')).rows[0];
+  const set = async (patch) => { if (cfg) await app.store.updateRow('Configuration', cfg.__row, patch); else await app.store.append('Configuration', [patch]); };
+  const mkIntent = () => sa('POST', '/api/wf/intents', { header: { Date: '2026-10-27' }, lines: [{ 'Item Code': 'A1', Quantity: 4 }], submit: true });
+  const a = await mkIntent(); assert.equal(a.status, 201, a.text); assert.equal(stOf(a.json), 'Pending Review', 'required by default');
+  await set({ 'Require Indent Approval': 'No', 'Require PO Authorization': 'No' });
+  const b = await mkIntent(); assert.equal(b.status, 201, b.text);
+  const st = stOf(b.json);
+  assert.equal(st, 'Approved', JSON.stringify(b.json).slice(0, 300));
+  const po = await sa('POST', '/api/wf/pos', { header: { Date: '2026-10-27', 'Vendor Account': 'BOMBAY ORTHO INDUSTRIES', Location: 'MWH' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10, 'GST %': 12 }], submit: true });
+  assert.equal(po.status, 201, po.text);
+  assert.ok(!/Pending/.test(JSON.stringify(stOf(po.json))), 'PO not left pending');
 });

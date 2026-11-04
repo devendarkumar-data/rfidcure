@@ -3,7 +3,7 @@
 import { TABLE_BY_SLUG } from '../shared/registry.js';
 import { assertCan, inScope, parseLines } from './access.js';
 import { audit } from './audit.js';
-import { createRecord, imprestLinked } from './crud.js';
+import { createRecord, hospitalSet, imprestLinked } from './crud.js';
 import { keyOf, loadStock } from './stock.js';
 import { HttpError, bad, notFound, normDate, sstr, today, toNum, unprocessable } from './util.js';
 
@@ -34,6 +34,27 @@ function position(out, ins, cons) {
   return { ref, date: normDate(out.Date), hospital: sstr(out['To Warehouse']), customer: sstr(out['Customer Account']), deliveryDate: normDate(out['Delivery Date']), lines, dispatched: total('dispatched'), returned: total('returned'), consumed: total('consumed'), balance, hasIn, status: balance <= 0 ? 'Closed' : 'Open' };
 }
 const mine = (ctx, p) => p.lines.some((l) => !l.warehouse || inScope(ctx, l.warehouse));
+
+// Imprest In / Consumption are entered manually against an Imprest Out voucher: the voucher must exist, belong to that hospital,
+// and each item / batch may not exceed what is still open on it. Nothing is consumed automatically.
+export async function validateVoucher(ctx, kind, header, lines) {
+  const ref = sstr(header['Imprest Ref']);
+  const hospital = sstr(kind === 'in' ? header['To Warehouse'] : header.Warehouse);
+  if (!ref) { if (kind === 'cons' && (await hospitalSet(ctx.store)).has(hospital.toUpperCase())) throw unprocessable('Select the Imprest Out voucher this consumption belongs to'); return; }
+  const { outs, ins, cons } = await load(ctx);
+  const out = outs.find((o) => sstr(o.DocNo) === ref); if (!out) throw unprocessable(`Imprest voucher ${ref} was not found`);
+  const p = position(out, ins, cons);
+  if (hospital && hospital.toUpperCase() !== p.hospital.toUpperCase()) throw unprocessable(`Voucher ${ref} belongs to ${p.hospital}, not ${hospital}`);
+  const used = new Map();
+  for (const l of lines) { const k = gkey(l['Item Code'], l.Batch); used.set(k, rq((used.get(k) || 0) + toNum(l.Quantity))); }
+  for (const [k, q] of used) {
+    const [code, batch] = k.split('|');
+    const open = p.lines.filter((g) => g.code === code && (!batch || g.batch === batch));
+    if (!open.length) throw unprocessable(`${code}${batch ? ` (batch ${batch})` : ''} is not on voucher ${ref}`);
+    const bal = rq(open.reduce((s, g) => s + g.balance, 0));
+    if (q > bal + 1e-9) throw unprocessable(`${code}${batch ? ` (batch ${batch})` : ''}: ${q} is more than the ${bal} still open on voucher ${ref}`);
+  }
+}
 
 export async function pending(ctx) {
   assertCan(ctx, TABLE_BY_SLUG[OUT], 'view');

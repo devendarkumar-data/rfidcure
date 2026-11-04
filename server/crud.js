@@ -311,6 +311,7 @@ export async function createRecord(ctx, table, body, idemKey, hooks = {}) {
       const catalog = stock ? await itemCatalog(store, stock) : new Map();
       lines = await validateLines(ctx, table, body?.lines, catalog, { strictItems: !!table.post });
       id = await nextDocNo(store, table, date);
+      if (table.post === 'consumption' || table.post === 'imprest-in') await (await import('./imprest.js')).validateVoucher(ctx, table.post === 'imprest-in' ? 'in' : 'cons', header, lines);
       if (table.post === 'consumption') { if (!(await imprestLinked(ctx, header.Warehouse))) assertWarehouses(ctx, [header.Warehouse]); }
       else if (table.post === 'imprest-in') { assertWarehouses(ctx, writeWarehouses(table.post, header, lines)); if (!(await imprestLinked(ctx, header['To Warehouse']))) throw forbidden(`Warehouse ${header['To Warehouse']} has no imprest stock sent from your warehouse`); }
       else assertWarehouses(ctx, writeWarehouses(table.post, header, lines));

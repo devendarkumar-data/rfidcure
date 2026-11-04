@@ -160,7 +160,7 @@ export const SPECS = [
   { tab: 'Reconciliation', kind: 'list', stage: 'admin' },
 
   { tab: 'Configuration', kind: 'settings', stage: 'admin',
-    form: 'Date Format:Dropdown:DD/MM/YYYY,YYYY-MM-DD|No. of Decimals:Dropdown:2,1,0|Session Timeout (min):Number|PO Pending Authorization Default:Checkbox|Price Override Approval Threshold (%):Number|Stack Price Meaning (to be confirmed):Dropdown:Stock price,Slab / quantity price,Other' },
+    form: 'Date Format:Dropdown:DD/MM/YYYY,YYYY-MM-DD|No. of Decimals:Dropdown:2,1,0|Session Timeout (min):Number|PO Pending Authorization Default:Checkbox|Price Override Approval Threshold (%):Number|Require Indent Approval:Checkbox|Require PO Authorization:Checkbox|Stack Price Meaning (to be confirmed):Dropdown:Stock price,Slab / quantity price,Other' },
   { tab: 'Security', kind: 'settings', stage: 'admin', form: 'Minimum Password Length:Number|Password Expiry (days):Number|Enable 2FA:Checkbox|Lock After Failed Attempts:Number|IP Whitelist:Longtext' },
   { tab: 'Backup', kind: 'settings', stage: 'admin', form: 'Schedule:Dropdown:Daily,Weekly,Manual|Retention (days):Number' },
 ];

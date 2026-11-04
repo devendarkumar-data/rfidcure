@@ -649,7 +649,9 @@ export default [
    "PO Pending Authorization Default",
    "Price Override Approval Threshold (%)",
    "Stack Price Meaning (to be confirmed)",
-   "Lines"
+   "Lines",
+   "Require Indent Approval",
+   "Require PO Authorization"
   ]
  },
  {

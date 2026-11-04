@@ -66,6 +66,13 @@ const cleanLines = (ls) => (Array.isArray(ls) ? ls.map((l) => Object.fromEntries
 export const need = (cond, msg) => { if (!cond) throw bad(msg); };
 const lineNos = (lines) => lines.reduce((m, l) => Math.max(m, toNum(l['Line No'])), 0);
 
+// Administration > Configuration: "Require Indent Approval" / "Require PO Authorization". Blank = required (the safe default).
+export async function approvalRequired(store, kind) {
+  const cfg = (await store.read('Configuration', { fresh: true })).rows[0] || {};
+  const v = sstr(cfg[kind === 'po' ? 'Require PO Authorization' : 'Require Indent Approval']);
+  return !/^(no|false|0|off)$/i.test(v);
+}
+
 export async function defaultLocation(store) {
   const { rows } = await store.read('Configuration');
   return sstr(rows[0]?.Location) || sstr(process.env.DEFAULT_PO_LOCATION) || 'MWH';
@@ -213,7 +220,9 @@ export async function saveIntent(ctx, body, id, idem) {
     });
     if (new Set(lines.map((l) => l['Line No'])).size !== lines.length) throw bad('Duplicate line numbers');
     const wantSubmit = !!body?.submit;
-    const status = wantSubmit ? IS.PENDING : (existing?.st.Status === IS.RETURNED ? IS.RETURNED : IS.DRAFT);
+    const autoOk = wantSubmit && !(await approvalRequired(ctx.store, 'intent')); // approval switched off: a submitted indent is approved as requested
+    if (autoOk) for (const l of lines) l['Approved Qty'] = toNum(l.Quantity);
+    const status = autoOk ? IS.APPROVED : wantSubmit ? IS.PENDING : (existing?.st.Status === IS.RETURNED ? IS.RETURNED : IS.DRAFT);
     const row = { ...header, 'Indent Type': header['Indent Type'] || 'In-house', Status: status, 'Submit For Approval': wantSubmit ? 'Yes' : 'No', Lines: JSON.stringify(stripInternal(lines)) };
     const t0 = nowIso();
     if (!id) {
@@ -222,7 +231,7 @@ export async function saveIntent(ctx, body, id, idem) {
       await ctx.store.append(t.tab, [row]);
       await ctx.store.append(DOC_STATUS_TAB, [{ 'Doc Type': INTENT, 'Document No.': no, Status: status, 'Created By': ctx.user.id, 'Created At': t0, 'Submitted At': wantSubmit ? t0 : '', Warehouse: header['Requesting Warehouse'], 'Updated At': t0 }]);
       await addHistory(ctx.store, { type: INTENT, no, event: 'Created', to: status, user: ctx.user, details: { lines: lines.length } });
-      if (wantSubmit) await addHistory(ctx.store, { type: INTENT, no, event: 'Submitted', from: IS.DRAFT, to: IS.PENDING, user: ctx.user });
+      if (wantSubmit) await addHistory(ctx.store, { type: INTENT, no, event: autoOk ? 'Submitted - approval not required' : 'Submitted', from: IS.DRAFT, to: status, user: ctx.user });
       await audit(ctx.store, { user: ctx.user, module: t.tab, doc: no, action: 'Create', next: { status, lines: lines.length }, remarks: idem ? `idem:${idem}` : '' });
       return getIntent(ctx, no);
     }
@@ -244,8 +253,10 @@ export async function intentAction(ctx, id, body) {
     if (!c[action === 'return' ? 'return' : action]) throw forbidden(`You cannot ${action} intent ${id} (status: ${d.st.Status})`);
     const t0 = nowIso();
     if (action === 'submit') {
-      await ctx.store.updateRow(t.tab, d.row.__row, { Status: IS.PENDING, 'Submit For Approval': 'Yes' }, { col: t.idCol, val: id });
-      await setStatus(ctx, d.st, { Status: IS.PENDING, 'Submitted At': t0 }, { event: d.st.Status === IS.RETURNED ? 'Resubmitted' : 'Submitted' });
+      const autoOk = !(await approvalRequired(ctx.store, 'intent')); const sStatus = autoOk ? IS.APPROVED : IS.PENDING;
+      const sLines = autoOk ? d.lines.map((l) => ({ ...l, 'Approved Qty': toNum(l.Quantity) })) : null;
+      await ctx.store.updateRow(t.tab, d.row.__row, { Status: sStatus, 'Submit For Approval': 'Yes', ...(sLines ? { Lines: JSON.stringify(sLines) } : {}) }, { col: t.idCol, val: id });
+      await setStatus(ctx, d.st, { Status: sStatus, 'Submitted At': t0 }, { event: autoOk ? 'Submitted - approval not required' : d.st.Status === IS.RETURNED ? 'Resubmitted' : 'Submitted' });
     } else if (['approve', 'reject', 'return'].includes(action)) {
       if (action !== 'approve') need(remarks, 'Remarks are required to reject or return an intent');
       const patchLines = d.lines.slice();
@@ -453,7 +464,8 @@ export async function savePo(ctx, body, id, idem) {
     });
     await checkIntentLines(ctx, lines, { poNo: id, override, history: overrideHist });
     const calc = calcPoLines(poType, header, lines);
-    const wantSubmit = !!body?.submit; const status = wantSubmit ? PS.PENDING : (existing?.st.Status === PS.RETURNED ? PS.RETURNED : PS.DRAFT);
+    const wantSubmit = !!body?.submit; const autoOk = wantSubmit && !(await approvalRequired(ctx.store, 'po')); // authorization switched off: a submitted PO is authorised
+    const status = autoOk ? PS.APPROVED : wantSubmit ? PS.PENDING : (existing?.st.Status === PS.RETURNED ? PS.RETURNED : PS.DRAFT);
     const row = { ...header, 'Submit For Approval': wantSubmit ? 'Yes' : 'No', Lines: JSON.stringify(stripInternal(calc.lines)) };
     const t0 = nowIso(); const money = { Subtotal: calc.subtotal, 'Tax Total': calc.taxTotal, 'Grand Total': calc.grandTotal };
     const intents = [...new Set(calc.lines.map((l) => sstr(l['Intent No'])).filter(Boolean))];
@@ -464,7 +476,7 @@ export async function savePo(ctx, body, id, idem) {
       await ctx.store.append(t.tab, [row]);
       await ctx.store.append(DOC_STATUS_TAB, [{ 'Doc Type': PO, 'Document No.': no, Status: status, 'Created By': ctx.user.id, 'Created At': t0, 'Submitted At': wantSubmit ? t0 : '', 'Source Ref': intents.join(', '), Warehouse: loc, ...money, 'Updated At': t0 }]);
       await addHistory(ctx.store, { type: PO, no, event: 'Created', to: status, user: ctx.user, details: { lines: calc.lines.length, ...money } });
-      if (wantSubmit) await addHistory(ctx.store, { type: PO, no, event: 'Submitted for authorization', from: PS.DRAFT, to: PS.PENDING, user: ctx.user });
+      if (wantSubmit) await addHistory(ctx.store, { type: PO, no, event: autoOk ? 'Submitted - authorization not required' : 'Submitted for authorization', from: PS.DRAFT, to: status, user: ctx.user });
     } else {
       const patch = { ...row }; delete patch[t.idCol];
       await ctx.store.updateRow(t.tab, existing.row.__row, patch, { col: t.idCol, val: id });
@@ -487,7 +499,8 @@ export async function poAction(ctx, id, body) {
     const t0 = nowIso(); const oldStatus = d.st.Status; const intents = new Set(sstr(d.st['Source Ref']).split(',').map((x) => x.trim()).filter(Boolean));
     if (action === 'submit') {
       await ctx.store.updateRow(t.tab, d.row.__row, { 'Submit For Approval': 'Yes' }, { col: t.idCol, val: id });
-      await setStatus(ctx, d.st, { Status: PS.PENDING, 'Submitted At': t0 }, { event: oldStatus === PS.RETURNED ? 'Resubmitted for authorization' : 'Submitted for authorization' });
+      const autoOk = !(await approvalRequired(ctx.store, 'po'));
+      await setStatus(ctx, d.st, { Status: autoOk ? PS.APPROVED : PS.PENDING, 'Submitted At': t0 }, { event: autoOk ? 'Submitted - authorization not required' : oldStatus === PS.RETURNED ? 'Resubmitted for authorization' : 'Submitted for authorization' });
     } else if (['approve', 'reject', 'return'].includes(action)) {
       if (action !== 'approve') need(remarks, 'Comments are required to reject or return a PO');
       let lines = d.lines; let money = null; const changes = [];

@@ -34,11 +34,11 @@ test('report engine: filters, scope, export, virtual stock', async (t) => {
     assert.equal(d.status, 201, d.text);
     const v = (await rep(sa, 'virtual-stock')).json; assert.equal(v.total, 1); assert.equal(v.rows[0].Location, 'MAX HOSPITAL'); assert.equal(v.rows[0]['Location Type'], 'Hospital / virtual'); assert.equal(v.rows[0].Quantity, 6);
     assert.equal((await rep(sa, 'warehouse-stock', '?warehouse=MWH&item=A1')).json.totals.Quantity, 13); // physical shrank by 6, nothing else
-    const c = await sa('POST', '/api/t/material-consumption', { header: { Warehouse: 'MAX HOSPITAL' }, lines: [{ 'Item Code': 'A1', Quantity: 5, Batch: 'B-LATE' }] });
+    const c = await sa('POST', '/api/t/material-consumption', { header: { Warehouse: 'MAX HOSPITAL', 'Imprest Ref': d.json.id }, lines: [{ 'Item Code': 'A1', Quantity: 5, Batch: 'B-LATE' }] });
     assert.equal(c.status, 201, c.text);
     assert.equal((await rep(sa, 'virtual-stock')).json.rows[0].Quantity, 1);
     assert.equal((await rep(sa, 'item-wise-stock')).json.rows.find((x) => x['Item Code'] === 'A1')['Total Qty'], 18); // 24 minus the 6 sent to the hospital; virtual stock is excluded from warehouse totals
-    assert.equal((await sa('POST', '/api/t/material-consumption', { header: { Warehouse: 'MAX HOSPITAL' }, lines: [{ 'Item Code': 'A1', Quantity: 2, Batch: 'B-LATE' }] })).status, 422); // only 1 left
+    assert.equal((await sa('POST', '/api/t/material-consumption', { header: { Warehouse: 'MAX HOSPITAL', 'Imprest Ref': d.json.id }, lines: [{ 'Item Code': 'A1', Quantity: 2, Batch: 'B-LATE' }] })).status, 422); // only 1 left
     assert.equal((await rep(sa, 'consumption-register')).json.total, 1);
     assert.equal((await rep(sa, 'hospital-delivery-register')).json.total, 1);
   });
@@ -69,8 +69,8 @@ test('dashboard cards come from live data', async (t) => {
   await app.store.append('Warehouse Master', [{ 'Master Id': 'W-1', 'Warehouse Name': 'MAX HOSPITAL', 'Warehouse Type': 'Hospital' }]);
   let d = (await sa('GET', '/api/dashboard')).json.cards;
   assert.equal(d.currentStock.qty, 32); assert.equal(d.openingStock.qty, 32); assert.equal(d.virtualStock.qty, 0); assert.deepEqual(d.warehouses.map((w) => w.warehouse), ['MWH', 'CWH', 'DWH']); // MWH first
-  await wm('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-26', 'To Warehouse': 'MAX HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 4, Batch: 'B-LATE' }] });
-  await sa('POST', '/api/t/material-consumption', { header: { Warehouse: 'MAX HOSPITAL' }, lines: [{ 'Item Code': 'A1', Quantity: 1, Batch: 'B-LATE' }] });
+  const io = await wm('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-26', 'To Warehouse': 'MAX HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 4, Batch: 'B-LATE' }] });
+  await sa('POST', '/api/t/material-consumption', { header: { Warehouse: 'MAX HOSPITAL', 'Imprest Ref': io.json.id }, lines: [{ 'Item Code': 'A1', Quantity: 1, Batch: 'B-LATE' }] });
   const full = (await sa('GET', '/api/dashboard?from=2020-01-01&to=2099-01-01')).json; d = full.cards;
   assert.equal(d.currentStock.qty, 28); assert.equal(d.virtualStock.qty, 3); assert.equal(d.consumption.qty, 1); assert.ok(full.recent.length >= 3);
   assert.equal(d.currentStock.qty + d.virtualStock.qty + d.consumption.qty, 32); // nothing lost or double counted

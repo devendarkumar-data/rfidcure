@@ -46,8 +46,8 @@ function Need({ feature, table, action = 'view', children }) {
 // Tabs that have a dedicated screen (PO linking, workflow, stock) must not open the generic add/edit form.
 const DEDICATED_ROUTE = { 'imprest-in-new': '/imprest/pending', 'imprest-in-pending': '/imprest/pending', 'imprest-out-pending': '/imprest/pending', 'imprest-in-register': '/imprest/register/in', 'imprest-out-register': '/imprest/register/out', 'material-consumption': '/consumption/register', 'grn-mrn': '/grn', 'purchase-indent': '/purchase-intent', 'purchase-order-domestic': '/purchasing/po', 'purchase-order-import': '/purchasing/po', 'purchase-requisition': '/requisitions', 'opening-stock': '/inventory/opening-stock' };
 function TableRoute() {
-  const { slug } = useParams();
-  return DEDICATED_ROUTE[slug] ? <Navigate to={DEDICATED_ROUTE[slug]} replace /> : <Keyed><TablePage /></Keyed>;
+  const { slug } = useParams(); const manual = new URLSearchParams(useLocation().search).get('manual') === '1' && ['imprest-in-new', 'material-consumption'].includes(slug); // manual entry forms
+  return DEDICATED_ROUTE[slug] && !manual ? <Navigate to={DEDICATED_ROUTE[slug]} replace /> : <Keyed><TablePage /></Keyed>;
 }
 const Home = () => { const { features, tables } = useAuth(); return features.dashboard ? <Dashboard /> : <Landing tables={tables} />; };
 function Landing({ tables }) {

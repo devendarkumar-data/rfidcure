@@ -232,3 +232,8 @@ Inventory > **Stock Master**: opening quantity and live quantity per warehouse /
 - Imprest Out line columns: Warehouse, Item, Description, Units, HSN, Stock in hand, Quantity, L-Surgery Set, Batch, Expiry Date, Rate, Gross, CGST, SGST, CESS, Taxable Value (= Quantity x Rate). Stock in hand is shown from the stock record picked.
 - Consumption Type (Imprest In and Material Consumption): Consumption as Against PO, Broken, OTC.
 - Left menu: Imprest In — Manual and Consumption — Manual open the entry form directly (no pending list).
+
+### Approval switches, Imprest / Consumption vouchers (Nov 2026)
+- **Administration > Configuration**: "Require Indent Approval" and "Require PO Authorization". Blank / ticked = approval required (default). Un-ticking sends a submitted indent (approved as requested) or PO straight to Approved. Two trailing columns were added to the Configuration sheet tab (after "Lines"): `Require Indent Approval`, `Require PO Authorization`. Enter `No` to switch off.
+- **Imprest In — Manual / Consumption — Manual** (menu): pick the Imprest Out voucher (searchable); its items / batches load with the open quantity; enter quantities by hand. The server checks the voucher belongs to that hospital and that quantity does not exceed what is open. Consumption at a hospital must cite a voucher. Nothing is consumed automatically - stock the hospital still holds stays there until returned or consumed.
+- Purchase Team can additionally view transfer, imprest, consumption, dispatch and E-Way pages (read-only) besides all stock and reports.

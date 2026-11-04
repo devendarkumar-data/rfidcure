@@ -24,7 +24,7 @@ export const ROLE_STAGE_ACTIONS = {
   admin: { intent: WA, po: WA, grn: WA, transfer: WA, imprest: WA, consumption: WA, dispatch: WA, requisition: WA, eway: WA, reports: WA, admin: ALL }, // Billing: "-"
   warehouse_manager: { intent: W, grn: WA, transfer: WA, imprest: WA, consumption: WA, dispatch: WA, requisition: WA, reports: R },        // PO: "-", Billing: "-"
   // Purchase Team: creates POs, views every master, the stock ledger and stock in all warehouses.
-  purchase: { intent: R, po: W, grn: R, requisition: R, reports: R, admin: R },
+  purchase: { intent: R, po: W, grn: R, transfer: R, imprest: R, consumption: R, dispatch: R, requisition: R, eway: R, reports: R, admin: R },
   // Purchase Indents and POs are approved / rejected / authorised ONLY by Super Admin, Admin and Approver. Everyone else who raises them has W (no 'approve').
 // Added for the Purchase Intent / PO authorization workflow (not in the original matrix image - please confirm):
   purchase_manager: { intent: W, po: W, grn: R, requisition: R, reports: R },

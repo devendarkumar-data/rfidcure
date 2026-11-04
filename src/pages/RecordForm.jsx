@@ -12,6 +12,27 @@ const IMPREST_WH = { imprest: '1' }; // hospital / imprest warehouses that hold 
 const INWARD = new Set(['grn-mrn']); // posting tables whose Batch is typed in, not picked
 
 // Header fields + (optional) line items for any table. mode: create | edit | view
+// Imprest In / Consumption are entered by hand against an Imprest Out voucher: pick the voucher, then enter the quantity per item / batch.
+function VoucherPicker({ kind, value, onPick }) {
+  const [rows, setRows] = useState(null); const [q, setQ] = useState('');
+  useEffect(() => { api.get(kind === 'cons' ? '/api/imprest/consumption-queue' : '/api/imprest/pending').then((r) => setRows(r.rows || [])).catch(() => setRows([])); }, [kind]);
+  const n = q.trim().toLowerCase();
+  const shown = (rows || []).filter((r) => !n || `${r.ref} ${r.hospital} ${r.customer}`.toLowerCase().includes(n));
+  return (
+    <div className="mb-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+      <label className="label">Imprest Out voucher no.{kind === 'cons' ? ' *' : ''}</label>
+      <div className="flex flex-wrap gap-2">
+        <input className="input max-w-xs" placeholder="Search voucher no. or hospital…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search voucher" />
+        <select className="input max-w-lg" value={value || ''} onChange={(e) => onPick(shown.find((r) => r.ref === e.target.value) || (rows || []).find((r) => r.ref === e.target.value) || null)} aria-label="Imprest Out voucher">
+          <option value="">{rows ? '— Select voucher —' : 'Loading…'}</option>
+          {shown.map((r) => <option key={r.ref} value={r.ref}>{r.ref} · {r.hospital} · {r.date} · open {r.balance}</option>)}
+        </select>
+      </div>
+      <p className="mt-1 text-xs text-slate-500">Enter the quantity yourself for each item / batch. Only what is still open on the voucher can be {kind === 'cons' ? 'consumed' : 'taken back'}; nothing is consumed automatically.</p>
+    </div>
+  );
+}
+
 export default function RecordForm({ table, mode = 'create', initial, onSubmit, onCancel, submitLabel }) {
   const toast = useToast();
   const readOnly = mode === 'view';
@@ -90,6 +111,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
       {table.hasLines && (
         <div className="mt-3">
           <h3 className="mb-1 text-sm font-semibold">Line items</h3>
+          {(isIn || isCons) && !readOnly && <VoucherPicker kind={isIn ? 'in' : 'cons'} value={values['Imprest Ref']} onPick={(r) => { setValues((st) => ({ ...st, 'Imprest Ref': r ? r.ref : '', ...(r ? { [isIn ? 'To Warehouse' : 'Warehouse']: r.hospital } : {}) })); setLines(r ? r.lines.filter((g) => g.balance > 0).map((g, i) => ({ _k: `v${i}-${Date.now()}`, 'Item Code': g.code, [table.itemField]: g.name, Batch: g.batch, 'Expiry Date': g.expiry || '', ...(isIn ? { Warehouse: g.warehouse } : {}), _avail: g.balance, Quantity: '' })) : [{ _k: `e-${Date.now()}` }]); }} />}
           {(isOut || isIn || isCons) && <ItemStockPanel codes={lines.map((l) => l['Item Code'])} highlight={isIn ? values['To Warehouse'] : isCons ? values.Warehouse : lines[0]?.Warehouse} />}
           <LinesEditor lineFields={table.lineFields} itemField={table.itemField} lines={lines} onChange={setLines} readOnly={readOnly}
             batchMode={table.posts && !INWARD.has(table.slug) ? 'pick' : 'enter'} getWarehouse={getWarehouse}
