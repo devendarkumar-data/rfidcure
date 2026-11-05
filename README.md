@@ -245,3 +245,8 @@ Inventory > **Stock Master**: opening quantity and live quantity per warehouse /
 - GRN header laid out in fixed rows of four; Imprest registers use compact rows; line editors show Total Qty.
 - Imprest In (settle) page: Open quantity, quantity taken back, and a "Convert into consumption" column + button for the part the hospital used.
 - **Imprest Out stock selection**: pick the item, leave Batch blank for Auto (the server issues the oldest / earliest-expiry non-expired stock first, splitting across batches) or type / pick a batch by hand. Stock in hand shows for the item (or the chosen batch).
+
+### Focus-style Imprest Out (Nov 2026)
+- **Batch window** (Imprest Out line > "Pick batch (FIFO / LIFO)…"): shows the item's batches (batch, base quantity, expiry, qty adjusted, rate, stock in hand, warehouse) with Expiring in / after N days, search and "show all incl. expired". **Pick on FIFO** fills Qty Adjusted from the earliest-expiry batch onward until the line quantity is met; **Pick on LIFO** starts from the latest expiry. Ok writes one line per batch. Leaving Batch blank still auto-allocates earliest-expiry first when saved.
+- Imprest Out form footer: Quantity, Stock in hand, Gross, CGST, SGST, IGST, Cess, Taxable Value, Net.
+- Imprest registers: Date option list (Date Range, As on date, Current month … Previous Quarter), start / end date, hospital / warehouse, Output (Screen, Printer, Excel (CSV)); rows ordered newest date first, then highest document number.
