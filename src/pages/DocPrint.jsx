@@ -4,11 +4,13 @@ import { api } from '../api.js';
 import Spinner from '../components/Spinner.jsx';
 
 // Printable document (A4) for Imprest Out / Imprest In / Material Consumption. Opened from the registers by clicking the document number.
-export const PRINTABLE = { 'imprest-out-new': 'IMPREST OUT', 'imprest-in-new': 'IMPREST IN', 'material-consumption': 'MATERIAL CONSUMPTION' };
+export const PRINTABLE = { 'imprest-out-new': 'IMPREST OUT', 'imprest-in-new': 'IMPREST IN', 'material-consumption': 'MATERIAL CONSUMPTION', 'grn-mrn': 'GOODS / MATERIAL RECEIPT NOTE' };
 export const printPath = (slug, id) => `/print/${slug}/${encodeURIComponent(id)}`;
 const HIDE_HEAD = new Set(['Lines', 'DocNo', 'Document No.', 'Return Closed', 'Ref. Doc', 'Ref. Date', 'Is IGST', 'Location', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State']);
 const HIDE_LINE = new Set(['_k', '_name', 'Warehouse Type']);
-const LABEL = { Items: 'Item Name', Item: 'Item Name' };
+const LABEL = { Items: 'Item Name', Item: 'Item Name', Quantity: 'Qty', Batch: 'Batch No' };
+// Line columns of every printed document, in this order (a column with no data is left out).
+const LINE_ORDER = ['Consumption Type', 'Item Code', 'Items', 'Item', 'Quantity', 'Rate', 'Batch', 'Expiry Date'];
 const dmy = (d) => (/^\d{4}-\d{2}-\d{2}/.test(String(d || '')) ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : String(d ?? ''));
 const border = '1px solid #000';
 
@@ -21,8 +23,8 @@ export default function DocPrint() {
   if (!data) return <Spinner />;
   const head = Object.entries(data.record || {}).filter(([k, v]) => !k.startsWith('_') && !k.startsWith('__') && !HIDE_HEAD.has(k) && v !== '' && v !== null && v !== undefined);
   const lines = data.lines || [];
-  const cols = [];
-  for (const l of lines) for (const k of Object.keys(l)) if (!HIDE_LINE.has(k) && !k.startsWith('__') && !cols.includes(k) && lines.some((x) => x[k] !== '' && x[k] !== null && x[k] !== undefined)) cols.push(k);
+  const has = (k) => lines.some((x) => x[k] !== '' && x[k] !== null && x[k] !== undefined);
+  const cols = LINE_ORDER.filter((k) => has(k) && !(k === 'Item' && has('Items')));
   const qtyTotal = lines.reduce((s, l) => s + (Number(l.Quantity) || 0), 0);
   const cell = { border, fontSize: 11, padding: '3px 5px', verticalAlign: 'top' };
   return (
@@ -31,7 +33,7 @@ export default function DocPrint() {
       <div className="mb-3 flex justify-between print:hidden"><Link className="text-sm text-brand-700 hover:underline" to={-1}>← Back</Link><button className="btn btn-primary" onClick={() => window.print()}>Print / Save as PDF</button></div>
       <div style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
         <div style={{ textAlign: 'center', marginBottom: 6 }}><img src="/logo.png" alt="Cure Surgicals" style={{ height: 46, display: 'inline-block', verticalAlign: 'middle', marginRight: 10 }} /></div>
-        <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{PRINTABLE[slug]}</div>
+        <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{slug === 'grn-mrn' ? (data.record?.['Receipt Type'] === 'MRN' ? 'MATERIAL RECEIPT NOTE (MRN)' : 'GOODS RECEIPT NOTE (GRN)') : PRINTABLE[slug]}</div>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 8 }}><tbody>
           {Array.from({ length: Math.ceil(head.length / 2) }, (_, i) => head.slice(i * 2, i * 2 + 2)).map((pair, i) => (
             <tr key={i}>{pair.map(([k, v]) => <><td key={`${k}-l`} style={{ ...cell, fontWeight: 700, width: '18%', background: '#f1e4e3' }}>{k}</td><td key={`${k}-v`} style={{ ...cell, width: '32%' }}>{/date/i.test(k) ? dmy(v) : String(v)}</td></>)}{pair.length < 2 && <td colSpan={2} style={cell} />}</tr>

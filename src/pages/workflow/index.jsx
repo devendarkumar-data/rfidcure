@@ -701,7 +701,7 @@ export function GrnDetail() {
   const h = data.record || {}; const lines = data.lines || [];
   return (
     <>
-      <PageHeader back={<Back to="/grn">GRN Register</Back>} title={`GRN ${id}`} actions={h['Supplier Ref No'] && <Link className="btn" to={`/purchasing/po/${encodeURIComponent(h['Supplier Ref No'])}`}>View PO {h['Supplier Ref No']}</Link>} />
+      <PageHeader back={<Back to="/grn">GRN Register</Back>} title={`GRN ${id}`} actions={<>{h['Supplier Ref No'] && <Link className="btn" to={`/purchasing/po/${encodeURIComponent(h['Supplier Ref No'])}`}>View PO {h['Supplier Ref No']}</Link>}<Link className="btn" to={`/print/grn-mrn/${encodeURIComponent(id)}`}>Print</Link></>} />
       <Card title="Header" className="mb-4"><dl className="grid gap-4 sm:grid-cols-4">
         {Object.entries(h).filter(([k]) => k !== 'Lines' && k !== '__row').map(([k, v]) => <KV key={k} k={k === 'Supplier Ref No' ? 'PO No.' : k === 'Vendor Account' ? 'Vendor' : k}>{k === 'Attachment' ? <AttachmentLinks value={v} /> : String(v ?? '')}</KV>)}
       </dl></Card>

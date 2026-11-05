@@ -123,17 +123,16 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
           <LinesEditor lineFields={table.lineFields} itemField={table.itemField} lines={lines} onChange={setLines} readOnly={readOnly}
             batchMode={table.posts && !INWARD.has(table.slug) ? 'pick' : 'enter'} getWarehouse={getWarehouse}
             autoBatch={!!stockMode} fifo={isOut} stockPick={isOut ? false : stockMode} stockWh={isOut ? (l) => l.Warehouse : isIn ? () => values['To Warehouse'] : isCons ? () => values.Warehouse : null} scopeWarehouse={isOut || isIn} lineDefaults={(isOut || isIn) && defWh ? { Warehouse: defWh } : isCons ? { 'Consumption Type': 'Against Bill' } : null} />
-          {isOut && lines.length > 0 && (() => {
+          {table.lineFields.some((lf) => lf.name === 'Quantity') && lines.length > 0 && (() => {
             const n = (v) => Number(v) || 0; const r2 = (v) => (Math.round(v * 100) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             const qty = lines.reduce((x, l) => x + n(l.Quantity), 0); const hand = lines.reduce((x, l) => x + n(l._avail), 0);
             const gross = lines.reduce((x, l) => x + n(l.Quantity) * n(l.Rate), 0);
             const tax = (k) => lines.reduce((x, l) => x + n(l.Quantity) * n(l.Rate) * n(l[k]) / 100, 0);
             const igstOn = /^y/i.test(String(values['Is IGST'] ?? ''));
             const cg = igstOn ? 0 : tax('CGST'), sg = igstOn ? 0 : tax('SGST'), ig = igstOn ? tax('CGST') + tax('SGST') : 0, ce = tax('CESS');
-            const cells = [['Quantity', Math.round(qty * 1e6) / 1e6], ['Stock in hand', r2(hand)], ['Gross', r2(gross)], ['CGST', r2(cg)], ['SGST', r2(sg)], ['IGST', r2(ig)], ['Cess', r2(ce)], ['Taxable Value', r2(gross)], ['Net', r2(gross + cg + sg + ig + ce)]];
-            return <dl className="mt-3 grid grid-cols-3 gap-x-6 gap-y-1 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm sm:grid-cols-5 lg:grid-cols-9">{cells.map(([k, v]) => <div key={k}><dt className="text-xs text-slate-500">{k}</dt><dd className={`tabular-nums font-semibold ${k === 'Net' ? 'text-brand-700' : ''}`}>{v}</dd></div>)}</dl>;
+            const rows = [[['Quantity', r2(qty)], ['stock in hand', r2(hand)], ['Gross', r2(gross)]], [['CGST', r2(cg)], ['SGST', r2(sg)], ['IGST', r2(ig)]], [['Cess', r2(ce)], ['Taxable Value', r2(gross)], ['Net', `₹ ${r2(gross + cg + sg + ig + ce)}`]]];
+            return <table className="mt-3 w-full max-w-4xl border-collapse text-sm"><tbody>{rows.map((r, ri) => <tr key={ri}>{r.map(([k, v]) => <><th key={`${k}-k`} className={`w-[17%] border border-slate-300 px-2 py-2 text-left font-semibold ${k === 'Net' ? 'text-brand-700' : 'text-slate-700'}`}>{k}{k === 'Quantity' ? '' : ' :'}</th><td key={`${k}-v`} className={`w-[16%] border border-slate-300 px-2 py-2 text-right tabular-nums ${k === 'Net' ? 'font-semibold text-brand-700' : ''}`}>{v}</td></>)}</tr>)}</tbody></table>;
           })()}
-          {table.lineFields.some((lf) => lf.name === 'Quantity') && lines.length > 0 && !isOut && <div className="mt-2 flex justify-end text-sm"><span className="rounded-md bg-slate-100 px-3 py-1 font-semibold text-slate-700">Total Qty: <span className="tabular-nums">{Math.round(lines.reduce((s, l) => s + (Number(l.Quantity) || 0), 0) * 1e6) / 1e6}</span></span></div>}
           {table.posts && table.slug !== 'actual-stock' && <p className="mt-2 text-xs text-slate-500">Saving posts to the stock ledger and cannot be edited afterwards. Leave Batch on “Auto” to issue the earliest-expiry stock first.</p>}
         </div>
       )}

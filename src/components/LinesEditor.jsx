@@ -60,6 +60,22 @@ export default function LinesEditor({ lineFields, itemField, lines, onChange, ge
   const set = (i, patch) => onChange(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const add = () => onChange([...lines, { _k: idRef.current++, ...(lineDefaults || {}) }]);
   const del = (i) => onChange(lines.filter((_, j) => j !== i));
+  // Imprest Out: once item + quantity are entered with no batch chosen, fill batches automatically - earliest expiry first - and
+  // carry the rest over to the next batch when one batch is not enough (the line is split, one line per batch).
+  const autoPick = async (i) => {
+    const l = lines[i]; const qty = num(l?.Quantity); const wh = getWarehouse?.(l);
+    if (!l || l.Batch || !(qty > 0) || !l['Item Code'] || !wh) return;
+    try {
+      const r = await api.get('/api/stock/batches', { warehouse: wh, code: l['Item Code'] });
+      const usable = (r.batches || []).filter((b) => !b.expired).sort((a, b) => String(a.expiry || '9999').localeCompare(String(b.expiry || '9999')));
+      let need = qty; const picks = [];
+      for (const b of usable) { if (need <= 0) break; const take = Math.min(need, b.qty); picks.push({ ...b, take: Math.round(take * 1e6) / 1e6 }); need = Math.round((need - take) * 1e6) / 1e6; }
+      if (!picks.length) return;
+      if (need > 0) { onChange(lines.map((x, j) => (j === i ? { ...x, _avail: usable.reduce((s, b) => s + b.qty, 0) } : x))); return; } // not enough stock: leave it, the save will say so
+      const mk = (p, k) => ({ ...l, ...(k ? { _k: idRef.current++ + 2e6 } : {}), Batch: p.batch, 'Expiry Date': p.expiry || '', Rate: p.rate, Quantity: p.take, _avail: p.qty });
+      onChange([...lines.slice(0, i), ...picks.map(mk), ...lines.slice(i + 1)]);
+    } catch { /* leave the line as typed */ }
+  };
   useEffect(() => { if (!lines.length && !readOnly) onChange([{ _k: idRef.current++, ...(lineDefaults || {}) }]); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cell = (f, l, i) => {
@@ -85,6 +101,7 @@ export default function LinesEditor({ lineFields, itemField, lines, onChange, ge
     if (f.options || f.yesNo) return <select className="input min-w-[7rem]" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { [f.name]: e.target.value })} aria-label={f.name}><option value="">—</option>{(f.options || ['Yes', 'No']).map((o) => <option key={o}>{o}</option>)}</select>;
     if (f.lookup) return <div className="min-w-[10rem]"><Combobox field={f.lookup} extraParams={scopeWarehouse && f.name === 'Warehouse' ? SCOPE : undefined} value={v} disabled={readOnly || f.readonly} onChange={(x) => set(i, { [f.name]: x, ...(f.name === 'Warehouse' ? { Batch: '', ...(stockPick === 'out' || fifo ? { 'Item Code': '', [itemField]: '', 'Expiry Date': '', Rate: '', _avail: null } : {}) } : {}) })} /></div>;
     if (stockPick && f.name === 'Quantity') return <div><input className={`input min-w-[6rem] text-right ${l._avail != null && num(v) > l._avail ? 'border-red-400' : ''}`} type="number" min="0" max={l._avail ?? undefined} step="any" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { Quantity: e.target.value })} aria-label="Quantity" />{l._avail != null && <p className={`mt-0.5 text-xs ${num(v) > l._avail ? 'text-red-600' : 'text-slate-500'}`}>Available: {l._avail}</p>}</div>;
+    if (fifo && f.name === 'Quantity') return <input className={`input min-w-[6rem] text-right ${l._avail != null && num(v) > l._avail ? 'border-red-400' : ''}`} type="number" min="0" step="any" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { Quantity: e.target.value })} onBlur={() => autoPick(i)} aria-label="Quantity" />;
     if (f.type === 'number') return <input className="input min-w-[6rem] text-right" type="number" min="0" step="any" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { [f.name]: e.target.value })} aria-label={f.name} />;
     if (f.type === 'date') return <input className="input min-w-[9rem]" type="date" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { [f.name]: e.target.value })} aria-label={f.name} />;
     return <input className="input min-w-[7rem]" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { [f.name]: e.target.value })} aria-label={f.name} />;
