@@ -175,23 +175,45 @@ export async function updateBill(ctx, body) {
   return { ok: true, doc: no, ...patch };
 }
 
-// ---- Imprest Out / Imprest In registers (one row per item line) ---------------------------------------------------
+// ---- Imprest Out / Imprest In / Consumption registers (one row per item line, columns as in the Focus register export) ----
+export const REGISTER_COLUMNS = ['DocNo', 'Date', 'Customer A/c Name', 'Issues/Receipts', 'Doctor Name', 'Warehouse 1', 'Warehouse 2', 'Item Code', 'Item Name', 'Unit Name', 'Narration', 'Quantity', 'Item Brand', 'Batch', 'Net Amount', 'Authorize Status', 'Base Link Status', 'Expiry Date', 'Location Name', 'Manufacturing Date', 'Base Link Doc Date', 'Base Link Doc No', 'Link Status', 'Created User', 'Item HSN/SAC', 'Rate'];
 export async function register(ctx, type) {
-  assertCan(ctx, TABLE_BY_SLUG[OUT], 'view');
+  assertCan(ctx, TABLE_BY_SLUG[type === 'cons' ? CONS : type === 'in' ? IN : OUT], 'view');
   const { outs, ins, cons, ledger } = await load(ctx);
-  const who = (no) => sstr(ledger.find((r) => sstr(r.Doc) === no)?.User);
+  const items = (await ctx.store.read('Item Master')).rows;
+  const brand = (code) => sstr(items.find((r) => sstr(r.Code) === code)?.Brand);
+  const led = (no) => ledger.find((r) => sstr(r.Doc) === no);
+  const outOf = (ref) => outs.find((o) => sstr(o.DocNo) === ref);
   const rows = [];
+  const line = (h, no, date, kind, hospital, l, base) => {
+    const qty = toNum(l.Quantity), rate = toNum(l.Rate);
+    const tax = toNum(l.CGST) + toNum(l.SGST) + toNum(l.CESS) + toNum(l.IGST);
+    const code = sstr(l['Item Code']);
+    return { no, date, 'Customer A/c Name': sstr(h['Customer Account']), 'Issues/Receipts': kind, 'Doctor Name': sstr(h.Doctor), 'Warehouse 1': sstr(l.Warehouse), 'Warehouse 2': hospital, 'Item Code': code,
+      'Item Name': sstr(l.Items || l.Item || l.Description), 'Unit Name': sstr(l.Units || l.Unit), Narration: sstr(h['Narration / Notes']), Quantity: qty, 'Item Brand': brand(code), Batch: sstr(l.Batch),
+      'Net Amount': Math.round((qty * rate + tax) * 100) / 100, 'Authorize Status': 'Authorized', 'Base Link Status': base ? 'Linked' : '', 'Expiry Date': normDate(l['Expiry Date']) || '', 'Location Name': sstr(h['Place of Supply'] || h.Location),
+      'Manufacturing Date': normDate(l['Manufacturing Date']) || '', 'Base Link Doc Date': base ? normDate(base.Date) : '', 'Base Link Doc No': base ? sstr(base.DocNo) : '', 'Link Status': '', 'Created User': sstr(led(no)?.User),
+      'Item HSN/SAC': sstr(l.HSN), Rate: rate, hospital, status: '', ref: base ? sstr(base.DocNo) : '', warehouse: sstr(l.Warehouse) };
+  };
   if (type === 'out') {
     for (const o of outs.filter((x) => sstr(x.DocNo))) {
       const p = position(o, ins, cons); if (!mine(ctx, p)) continue;
-      for (const l of parseLines(o.Lines)) rows.push({ no: p.ref, date: p.date, hospital: p.hospital, deliveryDate: p.deliveryDate || '', code: sstr(l['Item Code']), name: sstr(l.Items || l.Item || l.Description), batch: sstr(l.Batch), expiry: normDate(l['Expiry Date']) || '', qty: toNum(l.Quantity), status: p.status, by: who(p.ref) });
+      for (const l of parseLines(o.Lines)) rows.push({ ...line(o, p.ref, p.date, 'Issues', p.hospital, l, null), 'Link Status': p.status === 'Open' ? 'Pending' : 'Closed', status: p.status });
     }
-  } else {
+  } else if (type === 'in') {
     for (const d of ins.filter((x) => sstr(x.DocNo))) {
       const ls = parseLines(d.Lines); if (!ls.some((l) => !sstr(l.Warehouse) || inScope(ctx, l.Warehouse))) continue;
-      for (const l of ls) rows.push({ no: sstr(d.DocNo), date: normDate(d.Date), hospital: sstr(d['To Warehouse']), ref: sstr(d['Imprest Ref']), code: sstr(l['Item Code']), name: sstr(l.Items || l.Item || l.Description), batch: sstr(l.Batch), expiry: normDate(l['Expiry Date']) || '', qty: toNum(l.Quantity), warehouse: sstr(l.Warehouse), by: who(sstr(d.DocNo)) });
+      const base = outOf(sstr(d['Imprest Ref'])); const ps = base ? position(base, ins, cons) : null;
+      for (const l of ls) rows.push({ ...line(d, sstr(d.DocNo), normDate(d.Date), 'Receipts', sstr(d['To Warehouse']), l, base), 'Link Status': ps ? (ps.status === 'Open' ? 'Pending' : 'Closed') : '' });
+    }
+  } else {
+    for (const d of cons.filter((x) => sstr(x['Document No']))) {
+      const no = sstr(d['Document No']); const ls = parseLines(d.Lines);
+      if (!(await imprestLinked(ctx, d.Warehouse, ledger)) && !ls.some((l) => inScope(ctx, l.Warehouse))) continue;
+      const base = outOf(sstr(d['Imprest Ref'])); const ps = base ? position(base, ins, cons) : null;
+      for (const l of ls) rows.push({ ...line(d, no, normDate(led(no)?.Date) || '', 'Consumption', sstr(d.Warehouse), l, base), 'Link Status': ps ? (ps.status === 'Open' ? 'Pending' : 'Closed') : sstr(d['Bill Status']) });
     }
   }
   rows.sort((a, b) => String(b.date).localeCompare(String(a.date)) || b.no.localeCompare(a.no));
-  return { rows };
+  return { rows, columns: REGISTER_COLUMNS };
 }

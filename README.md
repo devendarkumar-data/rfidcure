@@ -263,3 +263,9 @@ Inventory > **Stock Master**: opening quantity and live quantity per warehouse /
 - PO series: the same vendor name may exist as Domestic and as International in Vendor Master, each row with its own Custom PO Prefix; the PO number series is separate for each (Domestic PO uses the Domestic row, Import PO the International row).
 - Special GRN: the PO No dropdown on a line lists only open POs of the chosen vendor that still have that item; the server re-checks the PO / item / balance / vendor on save.
 - Actual stock stays: Opening + GRN / MRN (incl. Special GRN) + Imprest In - Imprest Out - Consumption.
+
+## Imprest / Consumption registers (Focus column set) and per-document PDF
+- Imprest Out, Imprest In and Consumption registers now use the Focus export columns: DocNo, Date, Customer A/c Name, Issues/Receipts, Doctor Name, Warehouse 1, Warehouse 2, Item Code, Item Name, Unit Name, Narration, Quantity, Item Brand, Batch, Net Amount, Authorize Status, Base Link Status, Expiry Date, Location Name, Manufacturing Date, Base Link Doc Date, Base Link Doc No, Link Status, Created User, Item HSN/SAC, Rate. The screen, CSV and `Excel (Sheet)` (.xlsx with a Grand Total row) all use them.
+- `GET /api/imprest/register?type=out|in|cons[&export=xlsx]`. The Consumption Register menu now opens this register (Consumption Pending still handles bills).
+- Every document row has a **PDF** button that downloads that transaction as its own PDF (jsPDF, built in the browser).
+- Assumptions: Authorize Status is always "Authorized" (posted documents); Item Brand comes from Item Master; Manufacturing Date is blank unless the line carries one; xlsx has no Focus title rows.

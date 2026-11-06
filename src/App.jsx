@@ -93,6 +93,7 @@ export default function App() {
         <Route path="admin/users" element={<Need feature="users"><UsersPage /></Need>} />
         <Route path="imprest/pending" element={<ImprestPending />} />
         <Route path="imprest/register/:type" element={<ImprestRegister />} />
+        <Route path="consumption/register" element={<ImprestRegister kind="cons" />} />
         <Route path="consumption/:mode" element={<ConsumptionPage />} />
         <Route path="admin/approval" element={<ApprovalRoute />} />
         <Route path="grn/detail" element={<Need table="grn-mrn" action="view"><GrnDetailRegister /></Need>} />

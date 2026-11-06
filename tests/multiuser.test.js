@@ -420,8 +420,11 @@ test('Imprest flow: Imprest In holds only the quantity taken back; the remainder
   assert.equal((await e('GET', '/api/imprest/consumption?status=pending')).json.rows.length, 0);
   assert.equal((await e('GET', '/api/imprest/consumption?status=billed')).json.rows.length, 2);
   assert.equal((await e('GET', '/api/imprest/consumption-queue')).json.rows.length, 0, 'closed');
-  const rin = (await e('GET', '/api/imprest/register?type=in')).json.rows; assert.deepEqual(rin.map((x) => [x.code, x.qty]).sort(), [['ST1', 80], ['ST2', 0.5], ['ST2', 40]]);
-  const rout = (await e('GET', '/api/imprest/register?type=out')).json.rows; assert.equal(rout.length, 2); assert.ok(rout.every((x) => x.status === 'Closed'));
+  const rin = (await e('GET', '/api/imprest/register?type=in')).json.rows; assert.deepEqual(rin.map((x) => [x['Item Code'], x.Quantity]).sort(), [['ST1', 80], ['ST2', 0.5], ['ST2', 40]]);
+  const rout = (await e('GET', '/api/imprest/register?type=out')).json.rows; assert.equal(rout.length, 2);
+  assert.ok(rout.every((x) => x['Issues/Receipts'] === 'Issues' && x['Warehouse 2'] && x['Item Code'] && x['Authorize Status'] === 'Authorized')); assert.ok(rin.every((x) => x['Issues/Receipts'] === 'Receipts' && x['Base Link Doc No']));
+  const rcons = await e('GET', '/api/imprest/register?type=cons'); assert.equal(rcons.status, 200); assert.ok(rcons.json.rows.every((x) => x['Issues/Receipts'] === 'Consumption')); assert.equal(rcons.json.columns[0], 'DocNo');
+  const rx = await e('GET', '/api/imprest/register?type=out&export=xlsx'); assert.equal(rx.status, 200); assert.ok(rout.every((x) => x.status === 'Closed'));
   const tr = (await e('GET', `/api/imprest/trail?ref=${encodeURIComponent(ref)}`)).json;
   assert.deepEqual(tr.events.map((x) => [x.type, x.qty]), [['Imprest Out', 150], ['Imprest In', 120], ['Imprest In', 0.5], ['Consumption', 20], ['Consumption', 9.5]]);
   assert.equal(tr.position.status, 'Closed');

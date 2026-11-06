@@ -246,7 +246,17 @@ export default async function handler(req, res) {
     if (path === 'lookup' && req.method === 'GET') return ok(await crud.lookup(ctx, q.field, q.q, 30, q.scopeOnly === '1', { warehouse: q.warehouse, all: q.all, imprest: q.imprest, purchaseType: q.purchaseType, vendor: q.vendor, item: q.item }));
     if (path === 'imprest/consumption' && req.method === 'GET') return ok(await imprest.consumptionList(ctx, q.status));
     if (path === 'imprest/bill' && req.method === 'POST') return ok(await imprest.updateBill(ctx, await readBody(req)));
-    if (path === 'imprest/register' && req.method === 'GET') return ok(await imprest.register(ctx, q.type === 'in' ? 'in' : 'out'));
+    if (path === 'imprest/register' && req.method === 'GET') {
+      const kind = q.type === 'in' ? 'in' : q.type === 'cons' ? 'cons' : 'out'; const r = await imprest.register(ctx, kind);
+      if (q.export === 'xlsx') {
+        const title = { out: 'Imprest Out Register', in: 'Imprest In Register', cons: 'Consumption Register' }[kind];
+        const grand = r.rows.reduce((s, x) => s + (Number(x.Quantity) || 0), 0), net = r.rows.reduce((s, x) => s + (Number(x['Net Amount']) || 0), 0);
+        const data = r.rows.map((x) => ({ ...x, DocNo: x.no, Date: x.date }));
+        data.push({ DocNo: 'Grand Total', Quantity: grand, 'Net Amount': Math.round(net * 100) / 100 });
+        return send(res, 200, await toXlsx(title, r.columns, data), { ...outHeaders, 'Content-Disposition': `attachment; filename="${title.toLowerCase().replace(/ /g, '-')}.xlsx"` });
+      }
+      return ok(r);
+    }
     if (path === 'attachments' && req.method === 'POST') return ok(await attachments.upload(ctx, await readBody(req)), 201);
     if (path === 'attachments/get' && req.method === 'GET') return ok(await attachments.download(ctx, q.id));
     if (path === 'eway/pending' && req.method === 'GET') return ok(await eway.pending(ctx));
