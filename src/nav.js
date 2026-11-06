@@ -46,7 +46,6 @@ export function buildNav(meta) {
     it(has(grn, 'create'), '/grn/new', 'Create GRN'),
     it(has(grn, 'create'), '/grn/manual', 'Special GRN'),
     it(has(grn, 'view'), '/grn?type=GRN', 'GRN Register'),
-    it(has(grn, 'view'), '/grn?type=MRN', 'MRN Register'),
   ]);
   add('wh-imprest', 'Imprest & Consumption', 'inbox', [
     it(has(tables['imprest-out-new'], 'create'), '/t/imprest-out-new?new=1', 'Imprest Out — New'),
