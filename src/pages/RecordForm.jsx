@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, idemKey } from '../api.js';
 import { COMPANY } from '../../shared/company.js';
+import Collapsible from '../components/Collapsible.jsx';
+import TotalsBlock from '../components/TotalsBlock.jsx';
 import Field from '../components/Field.jsx';
 import ItemStockPanel from '../components/ItemStockPanel.jsx';
 import LinesEditor from '../components/LinesEditor.jsx';
@@ -48,6 +50,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
 
   const GRN_ORDER = ['Receipt Type', 'Date', 'Warehouse', 'Document No.', 'Vendor Account', 'Type Of Purchase', 'Supplier Ref No', 'Location', 'Invoice No.', 'Invoice Date', 'Invoice Value', 'Is IGST', 'Update Stock', 'Raise Receipt', 'Attachment', 'Terms Of Delivery', 'Narration-Notes'];
   const isGrn = table.slug === 'grn-mrn';
+  const ACCT = new Set(['place of supply', 'ship to name', 'ship to address', 'ship to city', 'ship to state', 'ship to pin code', 'bill code', 'is igst', 'ref. doc', 'ref. date']); // account / GST details can be folded away on Imprest forms
   const fields = useMemo(() => {
     const f = table.fields.filter((x) => !(mode === 'create' && (x.type === 'auto' && !table.idCol)));
     if (!isGrn) return f;
@@ -56,6 +59,8 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
   }, [table, mode]); // eslint-disable-line react-hooks/exhaustive-deps
   const isOut = table.slug === 'imprest-out-new' && mode === 'create';
   const isIn = table.slug === 'imprest-in-new' && mode === 'create';
+  const foldFields = isOut || isIn ? fields.filter((x) => ACCT.has(x.name.toLowerCase())) : [];
+  const mainFields = foldFields.length ? fields.filter((x) => !foldFields.includes(x)) : fields;
   const isCons = table.slug === 'material-consumption' && mode === 'create';
   const stockMode = isOut ? 'out' : isIn ? 'in' : isCons ? 'consume' : false;
   const [defWh, setDefWh] = useState('');
@@ -113,8 +118,13 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
     <form onSubmit={submit} noValidate aria-label={table.title}>
       {err && <div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
       <div className={`grid gap-x-3 gap-y-2 ${isGrn ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 [&_.input]:h-9 [&_.label]:mb-1 [&_.label]:flex [&_.label]:min-h-[1.25rem] [&_.label]:items-end [&_.label]:text-[11px] [&_textarea.input]:h-9 [&_textarea.input]:min-h-0" : !table.hasLines && fields.length > 8 ? "grid-cols-1 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 [&_.label]:text-[11px] [&_.label]:leading-4" : fields.length > 8 ? "compact grid-cols-2 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 [&_.input]:h-8 [&_.input]:py-0 [&_.input]:text-[13px] [&_.label]:mb-0 [&_.label]:text-[10px] [&_.label]:leading-4 [&_.label]:flex [&_.label]:min-h-[2rem] [&_.label]:items-end" : "sm:grid-cols-2"}`}>
-        {fields.map((f) => <Field key={f.name} field={f} value={values[f.name]} onChange={(v) => set(f.name, v)} disabled={readOnly} required={table.required.includes(f.name)} error={errors[f.name]} extraParams={IMPREST_WH && ((isIn && f.name === 'To Warehouse') || (isCons && f.name === 'Warehouse')) ? IMPREST_WH : undefined} />)}
+        {mainFields.map((f) => <Field key={f.name} field={f} value={values[f.name]} onChange={(v) => set(f.name, v)} disabled={readOnly} required={table.required.includes(f.name)} error={errors[f.name]} extraParams={IMPREST_WH && ((isIn && f.name === 'To Warehouse') || (isCons && f.name === 'Warehouse')) ? IMPREST_WH : undefined} />)}
       </div>
+      {foldFields.length > 0 && <Collapsible title="Account / GST details" className="mt-3">
+        <div className={`grid gap-x-3 gap-y-2 ${isGrn ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 [&_.input]:h-9 [&_.label]:mb-1 [&_.label]:flex [&_.label]:min-h-[1.25rem] [&_.label]:items-end [&_.label]:text-[11px] [&_textarea.input]:h-9 [&_textarea.input]:min-h-0" : !table.hasLines && fields.length > 8 ? "grid-cols-1 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 [&_.label]:text-[11px] [&_.label]:leading-4" : fields.length > 8 ? "compact grid-cols-2 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 [&_.input]:h-8 [&_.input]:py-0 [&_.input]:text-[13px] [&_.label]:mb-0 [&_.label]:text-[10px] [&_.label]:leading-4 [&_.label]:flex [&_.label]:min-h-[2rem] [&_.label]:items-end" : "sm:grid-cols-2"}`}>
+          {foldFields.map((f) => <Field key={f.name} field={f} value={values[f.name]} onChange={(v) => set(f.name, v)} disabled={readOnly} required={table.required.includes(f.name)} error={errors[f.name]} extraParams={IMPREST_WH && ((isIn && f.name === 'To Warehouse') || (isCons && f.name === 'Warehouse')) ? IMPREST_WH : undefined} />)}
+        </div>
+      </Collapsible>}
       {table.hasLines && (
         <div className="mt-3">
           <h3 className="mb-1 text-sm font-semibold">Line items</h3>
@@ -122,16 +132,13 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
           {(isOut || isIn || isCons) && <ItemStockPanel codes={lines.map((l) => l['Item Code'])} highlight={isIn ? values['To Warehouse'] : isCons ? values.Warehouse : lines[0]?.Warehouse} />}
           <LinesEditor lineFields={table.lineFields} itemField={table.itemField} lines={lines} onChange={setLines} readOnly={readOnly}
             batchMode={table.posts && !INWARD.has(table.slug) ? 'pick' : 'enter'} getWarehouse={getWarehouse}
-            autoBatch={!!stockMode} fifo={isOut} stockPick={isOut ? false : stockMode} stockWh={isOut ? (l) => l.Warehouse : isIn ? () => values['To Warehouse'] : isCons ? () => values.Warehouse : null} scopeWarehouse={isOut || isIn} lineDefaults={(isOut || isIn) && defWh ? { Warehouse: defWh } : isCons ? { 'Consumption Type': 'Against Bill' } : null} />
+            autoBatch={!!stockMode} lookupParams={isGrn ? (f, l) => (f.name === 'PO No' ? { vendor: values['Vendor Account'] || undefined, item: l['Item Code'] || undefined } : undefined) : undefined} fifo={isOut} stockPick={isOut ? false : stockMode} stockWh={isOut ? (l) => l.Warehouse : isIn ? () => values['To Warehouse'] : isCons ? () => values.Warehouse : null} scopeWarehouse={isOut || isIn} lineDefaults={(isOut || isIn) && defWh ? { Warehouse: defWh } : isCons ? { 'Consumption Type': 'Against Bill' } : null} />
           {table.lineFields.some((lf) => lf.name === 'Quantity') && lines.length > 0 && (() => {
-            const n = (v) => Number(v) || 0; const r2 = (v) => (Math.round(v * 100) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            const qty = lines.reduce((x, l) => x + n(l.Quantity), 0); const hand = lines.reduce((x, l) => x + n(l._avail), 0);
-            const gross = lines.reduce((x, l) => x + n(l.Quantity) * n(l.Rate), 0);
+            const n = (v) => Number(v) || 0;
             const tax = (k) => lines.reduce((x, l) => x + n(l.Quantity) * n(l.Rate) * n(l[k]) / 100, 0);
             const igstOn = /^y/i.test(String(values['Is IGST'] ?? ''));
-            const cg = igstOn ? 0 : tax('CGST'), sg = igstOn ? 0 : tax('SGST'), ig = igstOn ? tax('CGST') + tax('SGST') : 0, ce = tax('CESS');
-            const rows = [[['Quantity', r2(qty)], ['stock in hand', r2(hand)], ['Gross', r2(gross)]], [['CGST', r2(cg)], ['SGST', r2(sg)], ['IGST', r2(ig)]], [['Cess', r2(ce)], ['Taxable Value', r2(gross)], ['Net', `₹ ${r2(gross + cg + sg + ig + ce)}`]]];
-            return <table className="mt-3 w-full max-w-4xl border-collapse text-sm"><tbody>{rows.map((r, ri) => <tr key={ri}>{r.map(([k, v]) => <><th key={`${k}-k`} className={`w-[17%] border border-slate-300 px-2 py-2 text-left font-semibold ${k === 'Net' ? 'text-brand-700' : 'text-slate-700'}`}>{k}{k === 'Quantity' ? '' : ' :'}</th><td key={`${k}-v`} className={`w-[16%] border border-slate-300 px-2 py-2 text-right tabular-nums ${k === 'Net' ? 'font-semibold text-brand-700' : ''}`}>{v}</td></>)}</tr>)}</tbody></table>;
+            return <TotalsBlock qty={lines.reduce((x, l) => x + n(l.Quantity), 0)} hand={lines.reduce((x, l) => x + n(l._avail), 0)} gross={lines.reduce((x, l) => x + n(l.Quantity) * n(l.Rate), 0)}
+              cgst={igstOn ? 0 : tax('CGST')} sgst={igstOn ? 0 : tax('SGST')} igst={igstOn ? tax('CGST') + tax('SGST') : 0} cess={tax('CESS')} />;
           })()}
           {table.posts && table.slug !== 'actual-stock' && <p className="mt-2 text-xs text-slate-500">Saving posts to the stock ledger and cannot be edited afterwards. Leave Batch on “Auto” to issue the earliest-expiry stock first.</p>}
         </div>

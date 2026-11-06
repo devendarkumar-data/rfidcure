@@ -138,6 +138,10 @@ test('Purchase Intent -> PO authorization -> GRN workflow', async (t) => {
     const free = await op('POST', '/api/t/grn-mrn', { header: { Date: '2026-10-28', Warehouse: 'MWH' }, lines: [{ 'Item Code': 'A1', Quantity: 1, Batch: 'GRN-M3', 'Expiry Date': '2031-06-30' }] });
     assert.equal(free.status, 201, 'a line without a PO is a plain manual receipt');
     const lk = await op('GET', '/api/lookup?field=PO%20No'); assert.equal(lk.status, 200, lk.text); assert.ok(lk.json.options.some((o) => o.value === ctx.po));
+    assert.ok((await op('GET', `/api/lookup?field=PO%20No&vendor=Acme%20Surgicals&item=A1`)).json.options.some((o) => o.value === ctx.po), 'PO offered for its vendor + item');
+    assert.ok(!(await op('GET', `/api/lookup?field=PO%20No&item=ZZ9`)).json.options.some((o) => o.value === ctx.po), 'PO not offered for an item it does not contain');
+    const wv = await op('POST', '/api/t/grn-mrn', { header: { Date: '2026-10-28', Warehouse: 'MWH', 'Vendor Account': 'Other Vendor' }, lines: [{ 'Item Code': 'A1', Quantity: 1, Batch: 'GRN-M4', 'Expiry Date': '2031-06-30', 'PO No': ctx.po }] });
+    assert.equal(wv.status, 422, 'PO of another vendor cannot be linked');
   });
   await t.test('full receipt completes the PO and removes it from Pending POs; closed intents/POs stay in All', async () => {
     const r = await op('POST', '/api/t/grn-mrn', grnBody(ctx.po, [{ 'PO Line': 1, 'Received Qty': 1, Batch: 'GRN-B2', 'Expiry Date': '2031-06-30' }]));

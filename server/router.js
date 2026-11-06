@@ -243,7 +243,7 @@ export default async function handler(req, res) {
       }
       throw notFound('Unknown endpoint');
     }
-    if (path === 'lookup' && req.method === 'GET') return ok(await crud.lookup(ctx, q.field, q.q, 30, q.scopeOnly === '1', { warehouse: q.warehouse, all: q.all, imprest: q.imprest, purchaseType: q.purchaseType }));
+    if (path === 'lookup' && req.method === 'GET') return ok(await crud.lookup(ctx, q.field, q.q, 30, q.scopeOnly === '1', { warehouse: q.warehouse, all: q.all, imprest: q.imprest, purchaseType: q.purchaseType, vendor: q.vendor, item: q.item }));
     if (path === 'imprest/consumption' && req.method === 'GET') return ok(await imprest.consumptionList(ctx, q.status));
     if (path === 'imprest/bill' && req.method === 'POST') return ok(await imprest.updateBill(ctx, await readBody(req)));
     if (path === 'imprest/register' && req.method === 'GET') return ok(await imprest.register(ctx, q.type === 'in' ? 'in' : 'out'));

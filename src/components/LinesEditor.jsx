@@ -21,7 +21,7 @@ function FifoBatch({ value, warehouse, code, disabled, onPick, onStock, onWindow
   return (
     <div>
       <input className="input min-w-[9rem]" list={id} value={value ?? ''} disabled={disabled || !code || !warehouse} placeholder={!warehouse ? 'Choose warehouse first' : code ? 'Auto (FIFO)' : 'Select item first'} aria-label="Batch" onChange={(e) => onPick(e.target.value, list.find((b) => b.batch === e.target.value))} />
-      {!disabled && code && warehouse && <button type="button" className="mt-0.5 text-xs text-brand-700 hover:underline" onClick={onWindow}>Pick batch (FIFO / LIFO)…</button>}
+      {!disabled && code && warehouse && <button type="button" className="mt-0.5 text-xs text-brand-700 hover:underline" onClick={onWindow}>Pick batch (FIFO)…</button>}
       <datalist id={id}>{list.map((b) => <option key={b.batch} value={b.batch}>{`exp ${b.expiry || 'n/a'} · qty ${b.qty}`}</option>)}</datalist>
     </div>
   );
@@ -53,13 +53,15 @@ function BatchSelect({ value, onChange, warehouse, code, disabled, auto, all }) 
 }
 
 // Generic line-item grid driven by table.lineFields. batchMode: 'pick' (existing batches, outward docs) | 'enter' (free text, inward docs).
-export default function LinesEditor({ lineFields, itemField, lines, onChange, getWarehouse, batchMode = 'enter', readOnly = false, errors = {}, autoBatch = false, batchFromAll = false, stockPick = false, stockWh = null, lineDefaults = null, scopeWarehouse = false, fifo = false }) {
+export default function LinesEditor({ lineFields, itemField, lines, onChange, getWarehouse, batchMode = 'enter', readOnly = false, errors = {}, autoBatch = false, batchFromAll = false, stockPick = false, stockWh = null, lineDefaults = null, scopeWarehouse = false, fifo = false, lookupParams = null }) {
   const cols = lineFields.filter((f) => f.name !== 'Item Code' && f.type !== 'calc' || (f.type === 'calc' && ['Gross', 'System Qty', 'Stock in hand', 'Taxable Value'].includes(f.name)));
   const idRef = useRef(1);
   const [picker, setPicker] = useState(null); // line index whose Batch window is open (Imprest Out)
   const set = (i, patch) => onChange(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const add = () => onChange([...lines, { _k: idRef.current++, ...(lineDefaults || {}) }]);
   const del = (i) => onChange(lines.filter((_, j) => j !== i));
+  const dup = (i) => onChange([...lines.slice(0, i + 1), { ...lines[i], _k: idRef.current++ + 3e6 }, ...lines.slice(i + 1)]); // same line again, right below
+  const insertBelow = (i) => onChange([...lines.slice(0, i + 1), { _k: idRef.current++ + 4e6, ...(lineDefaults || {}) }, ...lines.slice(i + 1)]);
   // Imprest Out: once item + quantity are entered with no batch chosen, fill batches automatically - earliest expiry first - and
   // carry the rest over to the next batch when one batch is not enough (the line is split, one line per batch).
   const autoPick = async (i) => {
@@ -99,7 +101,7 @@ export default function LinesEditor({ lineFields, itemField, lines, onChange, ge
     if (f.type === 'calc') return <span className="tabular-nums text-slate-500">{v}</span>;
     if (f.name === 'Batch' && batchMode === 'pick') return <div className="min-w-[14rem]"><BatchSelect value={v} warehouse={getWarehouse?.(l)} code={l['Item Code']} disabled={readOnly || f.readonly} onChange={(b, o) => set(i, { Batch: b, ...(autoBatch && o ? { 'Expiry Date': o.expiry || '', ...(o.rate ? { Rate: o.rate } : {}) } : {}) })} auto={autoBatch} all={batchFromAll} /></div>;
     if (f.options || f.yesNo) return <select className="input min-w-[7rem]" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { [f.name]: e.target.value })} aria-label={f.name}><option value="">—</option>{(f.options || ['Yes', 'No']).map((o) => <option key={o}>{o}</option>)}</select>;
-    if (f.lookup) return <div className="min-w-[10rem]"><Combobox field={f.lookup} extraParams={scopeWarehouse && f.name === 'Warehouse' ? SCOPE : undefined} value={v} disabled={readOnly || f.readonly} onChange={(x) => set(i, { [f.name]: x, ...(f.name === 'Warehouse' ? { Batch: '', ...(stockPick === 'out' || fifo ? { 'Item Code': '', [itemField]: '', 'Expiry Date': '', Rate: '', _avail: null } : {}) } : {}) })} /></div>;
+    if (f.lookup) return <div className="min-w-[10rem]"><Combobox field={f.lookup} extraParams={scopeWarehouse && f.name === 'Warehouse' ? SCOPE : lookupParams?.(f, l)} value={v} disabled={readOnly || f.readonly} onChange={(x) => set(i, { [f.name]: x, ...(f.name === 'Warehouse' ? { Batch: '', ...(stockPick === 'out' || fifo ? { 'Item Code': '', [itemField]: '', 'Expiry Date': '', Rate: '', _avail: null } : {}) } : {}) })} /></div>;
     if (stockPick && f.name === 'Quantity') return <div><input className={`input min-w-[6rem] text-right ${l._avail != null && num(v) > l._avail ? 'border-red-400' : ''}`} type="number" min="0" max={l._avail ?? undefined} step="any" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { Quantity: e.target.value })} aria-label="Quantity" />{l._avail != null && <p className={`mt-0.5 text-xs ${num(v) > l._avail ? 'text-red-600' : 'text-slate-500'}`}>Available: {l._avail}</p>}</div>;
     if (fifo && f.name === 'Quantity') return <input className={`input min-w-[6rem] text-right ${l._avail != null && num(v) > l._avail ? 'border-red-400' : ''}`} type="number" min="0" step="any" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { Quantity: e.target.value })} onBlur={() => autoPick(i)} aria-label="Quantity" />;
     if (f.type === 'number') return <input className="input min-w-[6rem] text-right" type="number" min="0" step="any" value={v} disabled={readOnly || f.readonly} onChange={(e) => set(i, { [f.name]: e.target.value })} aria-label={f.name} />;
@@ -111,13 +113,20 @@ export default function LinesEditor({ lineFields, itemField, lines, onChange, ge
     <div>
       <div className="overflow-x-auto rounded-md border border-slate-200">
         <table className="min-w-full divide-y divide-slate-200 max-sm:block">
-          <thead className="max-sm:hidden"><tr><th className="th w-8">#</th>{cols.map((f) => <th key={f.name} className="th">{f.name}</th>)}{!readOnly && <th className="th w-10" />}</tr></thead>
+          <thead className="max-sm:hidden"><tr><th className="th w-28">{readOnly ? '#' : 'Line'}</th>{cols.map((f) => <th key={f.name} className="th">{f.name}</th>)}</tr></thead>
           <tbody className="divide-y divide-slate-100 max-sm:block">
             {lines.map((l, i) => (
               <tr key={l._k ?? i} className={`${errors[i] ? 'bg-red-50' : ''} max-sm:block max-sm:p-3`}>
-                <td className="td text-slate-400 max-sm:block max-sm:p-0 max-sm:pb-1 max-sm:font-semibold">Line {i + 1}</td>
+                <td className="td align-top text-slate-400 max-sm:block max-sm:p-0 max-sm:pb-1 max-sm:font-semibold">
+                  <div className="flex items-center gap-1"><span className="w-5 text-xs">{i + 1}</span>
+                    {!readOnly && <>
+                      <button type="button" className="rounded border border-slate-300 px-1.5 text-sm leading-6 text-slate-600 hover:bg-slate-100" onClick={() => insertBelow(i)} title="Add a line below" aria-label={`Add line below line ${i + 1}`}>+</button>
+                      <button type="button" className="rounded border border-slate-300 px-1.5 text-sm leading-6 text-slate-600 hover:bg-slate-100" onClick={() => dup(i)} title="Duplicate this line" aria-label={`Duplicate line ${i + 1}`}>⧉</button>
+                      <button type="button" className="rounded border border-slate-300 px-1.5 text-sm leading-6 text-red-600 hover:bg-red-50 disabled:opacity-40" onClick={() => del(i)} title="Remove this line" aria-label={`Remove line ${i + 1}`} disabled={lines.length === 1}>✕</button>
+                    </>}
+                  </div></td>
                 {cols.map((f) => <td key={f.name} data-label={f.name} className="td align-top max-sm:block max-sm:px-0 max-sm:py-1 max-sm:before:mb-0.5 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]">{cell(f, l, i)}</td>)}
-                {!readOnly && <td className="td align-top max-sm:block max-sm:px-0"><button type="button" className="btn btn-sm" onClick={() => del(i)} aria-label={`Remove line ${i + 1}`} disabled={lines.length === 1}>✕</button></td>}
+                
               </tr>
             ))}
           </tbody>

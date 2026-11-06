@@ -253,3 +253,13 @@ Inventory > **Stock Master**: opening quantity and live quantity per warehouse /
 - **Imprest Out auto batch**: after item + quantity are entered and the field is left, batches are filled automatically, earliest expiry first; if one batch is not enough the line is split and the rest comes from the next batch (expired batches are skipped; short stock is reported on save).
 - **Totals block** (Quantity, stock in hand, Gross, CGST, SGST, IGST, Cess, Taxable Value, Net) shows under the lines of GRN / MRN, Imprest Out, Imprest In and Consumption.
 - **Print layout** (GRN / MRN, Imprest Out / In, Consumption): Consumption Type, Item Code, Item Name, Qty, Rate, Batch No, Expiry Date. GRN / MRN has a Print button on its detail page.
+
+### Nov 2026 round 3
+- Delivery Date removed from Imprest Out and its register; Imprest Out register has a Status filter (Pending / Closed), newest first.
+- Wording: "Manual" removed - menu has Create GRN, Special GRN (GRN or MRN, lines linked to POs), GRN Register, MRN Register; Imprest In — New, Consumption — New. LIFO removed from the batch window (FIFO only).
+- Line grids (Imprest, GRN, PO, Indent...): small + / duplicate / remove icons on the LEFT of each line.
+- Collapsible "Account / GST details" (Imprest forms) and "Totals" (GRN / MRN, Imprest, Consumption, GRN against PO).
+- Purchase Indents: one register with the Status filter (Pending Review / Approved / ...), no separate menu entries.
+- PO series: the same vendor name may exist as Domestic and as International in Vendor Master, each row with its own Custom PO Prefix; the PO number series is separate for each (Domestic PO uses the Domestic row, Import PO the International row).
+- Special GRN: the PO No dropdown on a line lists only open POs of the chosen vendor that still have that item; the server re-checks the PO / item / balance / vendor on save.
+- Actual stock stays: Opening + GRN / MRN (incl. Special GRN) + Imprest In - Imprest Out - Consumption.

@@ -443,9 +443,9 @@ export async function savePo(ctx, body, id, idem) {
     const header = await validateHeader(ctx, t, hdr);
     const date = header.Date || today();
     need(sstr(header['Vendor Account']), 'Vendor is required');
-    { const vi = await poseries.vendorInfo(ctx, header['Vendor Account']); const tp = sstr(header['Type Of Purchase']);
+    { const vi = await poseries.vendorInfo(ctx, header['Vendor Account'], poType); const tp = sstr(header['Type Of Purchase']);
       if (tp && vi.linkedTypes?.length && !vi.linkedTypes.some((x) => x.toLowerCase() === tp.toLowerCase())) throw unprocessable(`Vendor ${vi.name} is not linked with purchase type ${tp} (linked: ${vi.linkedTypes.join(', ')}). Change it in Vendor Master`); }
-    if (poType === 'import') { const vi = await poseries.vendorInfo(ctx, header['Vendor Account']); need(vi.currencies.length && vi.hasCurrency !== false, `No currency is defined for vendor ${vi.name} - set its Allowed Currency in Vendor Master`); need(vi.currencies.some((c) => c.code === sstr(header.Currency)), `Currency is required and must be one allowed for ${vi.name}: ${vi.currencies.map((c) => c.code).join(', ')}`); }
+    if (poType === 'import') { const vi = await poseries.vendorInfo(ctx, header['Vendor Account'], poType); need(vi.currencies.length && vi.hasCurrency !== false, `No currency is defined for vendor ${vi.name} - set its Allowed Currency in Vendor Master`); need(vi.currencies.some((c) => c.code === sstr(header.Currency)), `Currency is required and must be one allowed for ${vi.name}: ${vi.currencies.map((c) => c.code).join(', ')}`); }
     const stock = await loadStock(ctx.store, { fresh: true });
     const catalog = await itemCatalog(ctx.store, stock);
     let lines = await validateLines(ctx, t, cleanLines(body?.lines), catalog, { strictItems: true });
@@ -545,7 +545,7 @@ export async function poAction(ctx, id, body) {
 
 export async function openPoList(ctx) {
   return (await allPos(ctx)).filter((x) => PO_OPEN_FOR_GRN.has(x.s.Status) && (ctx.user.scope.mode !== 'assigned' || inScope(ctx, x.r.Destination || x.r.Location)) && x.bals.some((b) => b.balance > 1e-9))
-    .map((x) => ({ no: sstr(x.r[x.t.idCol]), vendor: sstr(x.r['Vendor Account']), warehouse: sstr(x.r.Destination || x.r.Location) }));
+    .map((x) => ({ no: sstr(x.r[x.t.idCol]), vendor: sstr(x.r['Vendor Account']), warehouse: sstr(x.r.Destination || x.r.Location), items: x.bals.filter((b) => b.balance > 1e-9).map((b) => sstr(x.lines.find((q) => toNum(q['Line No']) === b.lineNo)?.['Item Code'])) }));
 }
 async function allPos(ctx, { fresh = false } = {}) {
   const st = await statusMap(ctx.store, { fresh }); const { received, grns } = await poReceived(ctx, { fresh });
@@ -678,6 +678,7 @@ export function grnHooks(ctx) {
           if (!no) { lines.push(l); continue; }
           const x = all.find((p) => p.r[p.t.idCol] === no); if (!x) throw unprocessable(`Line ${i + 1}: PO ${no} was not found`);
           if (!PO_OPEN_FOR_GRN.has(x.s.Status)) throw unprocessable(`Line ${i + 1}: PO ${no} is "${x.s.Status}" and cannot be received against`);
+          const hv = sstr(body?.header?.['Vendor Account']); if (hv && hv.toLowerCase() !== sstr(x.r['Vendor Account']).toLowerCase()) throw unprocessable(`Line ${i + 1}: PO ${no} belongs to vendor ${sstr(x.r['Vendor Account'])}, not ${hv}`);
           const code = sstr(l['Item Code']); const qty = toNum(l.Quantity); need(qty > 0, `Line ${i + 1}: Quantity must be greater than zero`);
           const cand = x.bals.map((b) => ({ b, pl: x.lines.find((q) => toNum(q['Line No']) === b.lineNo) })).filter((c) => sstr(c.pl['Item Code']) === code && c.b.balance - (taken.get(`${no}|${c.b.lineNo}`) || 0) >= qty - 1e-9);
           if (!cand.length) throw unprocessable(`Line ${i + 1} (${code}): PO ${no} has no line for this item with ${qty} still to receive`);

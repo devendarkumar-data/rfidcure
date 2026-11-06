@@ -295,7 +295,7 @@ test('Imprest Out form: hidden fields, customer details, company / business head
   const names = meta.fields.map((f) => f.name);
   for (const gone of ['To Warehouse', 'Location', 'Is IGST', 'Ref. Date', 'Supplier', 'Ref. Doc', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State']) assert.ok(!names.includes(gone), `${gone} hidden`);
   for (const need of ['Bill Code', 'Companies', 'Business Head', 'Ship to Name', 'Ship to Address']) assert.ok(names.includes(need), `${need} present`);
-  assert.ok(names.includes('Delivery Date'), 'Delivery Date is in the main form');
+  assert.ok(!names.includes('Delivery Date'), 'Delivery Date is removed from the form');
   for (const gone of ['Delivery Date', 'Consumption Type']) assert.ok(!meta.lineFields.some((f) => f.name === gone), `${gone} not a line column`);
   const c = (await sa('GET', '/api/lookup/customer?name=max hospital')).json;
   assert.deepEqual([c.found, c.code, c.address, c.city, c.pincode], [true, 'MX01', '1 Ring Road', 'Delhi', '110001']);
@@ -637,4 +637,17 @@ test('approval switches in Configuration: indent and PO go straight to Approved 
   const po = await sa('POST', '/api/wf/pos', { header: { Date: '2026-10-27', 'Vendor Account': 'BOMBAY ORTHO INDUSTRIES', Location: 'MWH' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10, 'GST %': 12 }], submit: true });
   assert.equal(po.status, 201, po.text);
   assert.ok(!/Pending/.test(JSON.stringify(stOf(po.json))), 'PO not left pending');
+});
+
+test('same vendor name as Domestic and International: separate prefix and separate PO number series', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  const a = await sa('POST', '/api/t/vendor-master', { 'Vendor Name': 'Twin Ltd', 'Vendor Category': 'Domestic', 'Custom PO Prefix': 'TWD', 'Allowed Currency': 'INR' }); assert.equal(a.status, 201, a.text);
+  const b = await sa('POST', '/api/t/vendor-master', { 'Vendor Name': 'Twin Ltd', 'Vendor Category': 'International', 'Custom PO Prefix': 'TWI', 'Allowed Currency': 'USD' }); assert.equal(b.status, 201, b.text);
+  const dom = () => sa('POST', '/api/wf/pos', { header: { Date: '2026-10-27', 'Vendor Account': 'Twin Ltd', Location: 'MWH', Destination: 'MWH' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10, 'GST %': 12 }], submit: false });
+  const imp = () => sa('POST', '/api/wf/pos', { poType: 'import', header: { Date: '2026-10-27', 'Vendor Account': 'Twin Ltd', Location: 'MWH', Destination: 'MWH', Currency: 'USD' }, lines: [{ 'Item Code': 'A1', Items: 'Item A', Units: 'NOS', Quantity: 1, Rate: 10 }], submit: false });
+  assert.equal((await dom()).json.id, 'TWD/26-27/1001');
+  assert.equal((await imp()).json.id, 'TWI/26-27/1001');
+  assert.equal((await dom()).json.id, 'TWD/26-27/1002');
+  assert.equal((await imp()).json.id, 'TWI/26-27/1002');
 });

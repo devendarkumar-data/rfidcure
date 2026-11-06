@@ -24,9 +24,7 @@ export function buildNav(meta) {
   const pi = tables['purchase-indent']; const po = tables['purchase-order-domestic'];
   add('purchasing', 'Purchasing', 'cart', [
     it(has(pi, 'create'), '/purchase-intent/new', 'Create Purchase Indent'),
-    it(has(pi, 'view'), '/purchase-intent', 'Purchase Indents'),
-    it(has(pi, 'view'), '/purchase-intent?status=Pending Review', 'Pending Purchase Indents'),
-    it(has(pi, 'view'), '/purchase-intent?status=Approved', 'Approved Indents'),
+    it(has(pi, 'view'), '/purchase-intent', 'Purchase Indent Register'), // one register - filter Pending / Approved / other statuses on the page
     it(has(po, 'create'), '/purchasing/po/new', 'Create PO'),
     it(has(po, 'approve'), '/purchasing/po?view=pending-auth', 'PO Pending Authorization'), // only people who authorize POs need this queue
     it(has(po, 'view'), '/purchasing/po?view=pending', 'Pending Purchase Orders'),
@@ -46,19 +44,18 @@ export function buildNav(meta) {
   ]);
   add('wh-grn', 'GRN / MRN', 'inbox', [
     it(has(grn, 'create'), '/grn/new', 'Create GRN'),
-    it(has(grn, 'create'), '/grn/manual', 'Manual GRN / MRN'),
+    it(has(grn, 'create'), '/grn/manual', 'Special GRN'),
     it(has(grn, 'view'), '/grn?type=GRN', 'GRN Register'),
-    it(has(grn, 'view'), '/grn/detail', 'GRN / MRN Detail Register'),
     it(has(grn, 'view'), '/grn?type=MRN', 'MRN Register'),
   ]);
   add('wh-imprest', 'Imprest & Consumption', 'inbox', [
     it(has(tables['imprest-out-new'], 'create'), '/t/imprest-out-new?new=1', 'Imprest Out — New'),
     it(has(tables['imprest-out-new'], 'view'), '/imprest/register/out', 'Imprest Out Register'),
     it(has(tables['imprest-in-new'], 'create'), '/imprest/pending', 'Imprest In — Pending'),
-    it(has(tables['imprest-in-new'], 'create'), '/t/imprest-in-new?new=1&manual=1', 'Imprest In — Manual'),
+    it(has(tables['imprest-in-new'], 'create'), '/t/imprest-in-new?new=1&manual=1', 'Imprest In — New'),
     it(has(tables['imprest-in-new'], 'view'), '/imprest/register/in', 'Imprest In Register'),
     it(has(tables['material-consumption'], 'view'), '/consumption/pending', 'Consumption Pending'),
-    it(has(tables['material-consumption'], 'create'), '/t/material-consumption?new=1&manual=1', 'Consumption — Manual'),
+    it(has(tables['material-consumption'], 'create'), '/t/material-consumption?new=1&manual=1', 'Consumption — New'),
     it(has(tables['material-consumption'], 'view'), '/consumption/register', 'Consumption Register'),
   ]);
 

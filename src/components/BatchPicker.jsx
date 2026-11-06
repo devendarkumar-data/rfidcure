@@ -7,7 +7,7 @@ const num = (v) => Number(v) || 0;
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 // Batch window for an outward line (same idea as the Focus "Batch" window): shows the batches of the item in a warehouse,
-// "Pick on FIFO" / "Pick on LIFO" fills Qty Adjusted batch by batch (earliest expiry first / latest expiry first) until the line quantity is met.
+// "Pick on FIFO" fills Qty Adjusted batch by batch, earliest expiry first, until the line quantity is met.
 export default function BatchPicker({ open, onClose, warehouse, code, itemName, quantity, onApply }) {
   const [rows, setRows] = useState(null); const [err, setErr] = useState('');
   const [mode, setMode] = useState('after'); const [days, setDays] = useState(''); const [q, setQ] = useState(''); const [all, setAll] = useState(false);
@@ -25,8 +25,8 @@ export default function BatchPicker({ open, onClose, warehouse, code, itemName, 
       && (!n || b.batch.toLowerCase().includes(n)));
   }, [rows, days, mode, q, all]);
   const total = num(quantity); const used = rq(Object.values(adj).reduce((s, v) => s + num(v), 0));
-  const pick = (dir) => { // FIFO = earliest expiry first, LIFO = latest expiry first
-    const order = [...shown].filter((b) => !b.expired).sort((a, b) => (String(a.expiry || '9999') > String(b.expiry || '9999') ? 1 : -1) * (dir === 'lifo' ? -1 : 1));
+  const pick = () => { // FIFO = earliest expiry first
+    const order = [...shown].filter((b) => !b.expired).sort((a, b) => (String(a.expiry || '9999') > String(b.expiry || '9999') ? 1 : -1));
     let need = total; const next = {};
     for (const b of order) { if (need <= 0) break; const take = Math.min(need, b.qty); next[b.batch] = rq(take); need = rq(need - take); }
     setAdj(next);
@@ -71,8 +71,7 @@ export default function BatchPicker({ open, onClose, warehouse, code, itemName, 
         </table>
       </div>
       <div className="mt-3 flex flex-wrap justify-end gap-2">
-        <button type="button" className="btn" onClick={() => pick('fifo')} disabled={!(total > 0)}>Pick on FIFO</button>
-        <button type="button" className="btn" onClick={() => pick('lifo')} disabled={!(total > 0)}>Pick on LIFO</button>
+        <button type="button" className="btn" onClick={pick} disabled={!(total > 0)}>Pick on FIFO</button>
         <button type="button" className="btn btn-primary" onClick={apply} disabled={!(used > 0)}>Ok</button>
         <button type="button" className="btn" onClick={onClose}>Cancel</button>
       </div>

@@ -21,16 +21,19 @@ export async function currencies(store) {
   return rows.filter((r) => sstr(r['Currency Code']) && active(r.Status)).map((r) => ({ code: sstr(r['Currency Code']).toUpperCase(), name: sstr(r['Currency Name']), symbol: sstr(r.Symbol) }));
 }
 
-export async function vendorInfo(ctx, name) {
+// A vendor may exist twice with the same name - once Domestic and once International - each with its own prefix and its own number series.
+const catOf = (r) => (/^(int|imp)/i.test(sstr(r['Vendor Category'])) ? 'import' : /^dom/i.test(sstr(r['Vendor Category'])) ? 'domestic' : '');
+export async function vendorInfo(ctx, name, type) {
   const { rows } = await ctx.store.read(VENDOR, { fresh: true });
-  const v = rows.find((r) => sstr(r['Vendor Name']).toLowerCase() === sstr(name).toLowerCase());
+  const same = rows.filter((r) => sstr(r['Vendor Name']).toLowerCase() === sstr(name).toLowerCase());
+  const v = (type && same.find((r) => catOf(r) === type)) || (type && same.length > 1 ? same.find((r) => !catOf(r)) : null) || same[0];
   const all = await currencies(ctx.store);
   if (!v) return { id: '', name: sstr(name), active: true, linkedTypes: [], prefix: '', types: { domestic: true, import: true }, defaultCurrency: 'INR', currencies: all, unlisted: true }; // not in the master: default series, no restrictions const codes = new Set(all.map((c) => c.code));
   const codes = new Set(all.map((c) => c.code)); const allowedRaw = list(v['Allowed Currency']); const def = sstr(v['Default Currency']).toUpperCase();
   const allowed = (allowedRaw.length ? allowedRaw : (def ? [def] : [...codes])).filter((c) => codes.has(c));
   const pt = sstr(v['Allowed Purchase Type']).toLowerCase();
   return {
-    id: sstr(v['Sup ID']) || sstr(v['Master Id']), name: sstr(v['Vendor Name']), active: active(v.Status), prefix: sstr(v['Custom PO Prefix']).toUpperCase(),
+    id: sstr(v['Sup ID']) || sstr(v['Master Id']), seriesKey: same.length > 1 ? `${sstr(v['Sup ID']) || sstr(v['Master Id'])}|${sstr(v['Master Id'])}` : '', name: sstr(v['Vendor Name']), active: active(v.Status), prefix: sstr(v['Custom PO Prefix']).toUpperCase(),
     types: { domestic: !/domestic|import|both/.test(pt) || /domestic|both/.test(pt), import: !/domestic|import|both/.test(pt) || /import|both/.test(pt) }, // only the words Domestic / Import / Both restrict the PO kind; purchase-type names do not
     linkedTypes: sstr(v['Allowed Purchase Type']).split(/[,;|]+/).map((x) => x.trim()).filter((x) => x && !['domestic', 'import', 'both'].includes(x.toLowerCase())), // purchase types linked with the vendor (empty = open to all)
     defaultCurrency: codes.has(def) ? def : (allowed[0] || 'INR'), currencies: all.filter((c) => allowed.includes(c.code)), hasCurrency: allowedRaw.length > 0 || !!def,
@@ -41,7 +44,7 @@ const fmt = (prefix, fy, seq) => `${prefix}/${fy}/${seq}`;
 
 // Preview only (nothing is reserved).
 export async function preview(ctx, name, type, date) {
-  const v = await vendorInfo(ctx, name); checkVendor(v, type);
+  const v = await vendorInfo(ctx, name, type); checkVendor(v, type);
   const fy = fyOf(date); const { series } = await findSeries(ctx.store, v, type, fy);
   return { vendor: v, financialYear: fy, prefix: v.prefix || 'PO', next: fmt(v.prefix || 'PO', fy, Math.max(series ? toNum(series['Last Sequence']) : 0, START) + 1) };
 }
@@ -52,7 +55,7 @@ function checkVendor(v, type) {
 }
 async function findSeries(store, v, type, fy) {
   const { rows } = await store.read(SERIES, { fresh: true });
-  const vid = v.prefix ? (v.id || v.name) : 'DEFAULT';
+  const vid = v.prefix ? (v.seriesKey || v.id || v.name) : 'DEFAULT';
   const mine = rows.filter((r) => sstr(r['Vendor ID']).toUpperCase() === vid.toUpperCase() && sstr(r['Purchase Type']).toLowerCase() === TYPE[type].toLowerCase() && sstr(r['Financial Year']) === fy);
   return { vid, rows, series: mine.find((r) => active(r.Status)) || null, inactive: mine.length > 0 && !mine.some((r) => active(r.Status)) };
 }
@@ -60,7 +63,7 @@ async function findSeries(store, v, type, fy) {
 // Allocate the next number atomically (one lock for all series). The counter lives in the PO Series Config sheet row.
 export function allocate(ctx, { vendor, type, date, existingNos }) {
   return withLock('po-series', async () => {
-    const v = await vendorInfo(ctx, vendor); checkVendor(v, type);
+    const v = await vendorInfo(ctx, vendor, type); checkVendor(v, type);
     const fy = fyOf(date); const prefix = v.prefix || 'PO';
     const { vid, series, inactive } = await findSeries(ctx.store, v, type, fy);
     if (inactive) throw unprocessable(`PO series ${prefix}/${fy} is inactive - activate it in PO Series Config`);

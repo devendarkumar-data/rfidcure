@@ -302,7 +302,8 @@ export async function createRecord(ctx, table, body, idemKey, hooks = {}) {
       const col = table.uniqueCol; const val = sstr(header[col]);
       if (val) {
         const { rows } = await store.read(table.tab, { fresh: true });
-        if (rows.some((r) => sstr(r[col]).toLowerCase() === val.toLowerCase())) throw conflict(`${col} "${val}" already exists in ${table.tab}`);
+        const cat = (r) => (table.tab === 'Vendor Master' ? sstr(r['Vendor Category']).toLowerCase() : ''); // same vendor name allowed once per Vendor Category
+        if (rows.some((r) => sstr(r[col]).toLowerCase() === val.toLowerCase() && cat(r) === cat(header))) throw conflict(`${col} "${val}" already exists in ${table.tab}${cat(header) ? ` for ${header['Vendor Category']}` : ''}`);
       }
       id = await nextMasterId(store, table);
     }
@@ -373,7 +374,8 @@ export async function updateRecord(ctx, table, id, body) {
     if (table.kind === 'master' && table.uniqueCol in header) {
       const val = sstr(header[table.uniqueCol]);
       const { rows } = await ctx.store.read(table.tab, { fresh: true });
-      if (val && rows.some((r) => r.__row !== row.__row && sstr(r[table.uniqueCol]).toLowerCase() === val.toLowerCase())) throw conflict(`${table.uniqueCol} "${val}" already exists`);
+      const cat = (r) => (table.tab === 'Vendor Master' ? sstr(r['Vendor Category']).toLowerCase() : '');
+      if (val && rows.some((r) => r.__row !== row.__row && sstr(r[table.uniqueCol]).toLowerCase() === val.toLowerCase() && cat(r) === cat({ ...row, ...header }))) throw conflict(`${table.uniqueCol} "${val}" already exists`);
     }
     const patch = { ...header };
     let lines = null;
@@ -496,7 +498,8 @@ export async function lookup(ctx, field, q, limit = 30, scopeOnly = false, extra
   if (ref.special === 'po') { // open Purchase Orders (not fully received / closed) in the user's warehouses - for linking a manual GRN line
     const { openPoList } = await import('./workflow.js');
     const list = await openPoList(ctx);
-    return { options: list.filter((p) => !needle || `${p.no} ${p.vendor}`.toLowerCase().includes(needle)).slice(0, 60).map((p) => ({ value: p.no, label: `${p.no} · ${p.vendor} · ${p.warehouse}` })) };
+    const hv = sstr(extra.vendor).toLowerCase(), hi = sstr(extra.item); // only POs of the chosen vendor that still have the chosen item to receive
+    return { options: list.filter((p) => (!hv || p.vendor.toLowerCase() === hv) && (!hi || p.items.includes(hi)) && (!needle || `${p.no} ${p.vendor}`.toLowerCase().includes(needle))).slice(0, 60).map((p) => ({ value: p.no, label: `${p.no} · ${p.vendor} · ${p.warehouse}` })) };
   }
   if (ref.special === 'ptype') { // purchase types a vendor can be linked with: Purchase Type Master, else the standard list
     const { rows } = await ctx.store.read('Purchase Type Master');

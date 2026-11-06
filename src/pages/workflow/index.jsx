@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import TotalsBlock from '../../components/TotalsBlock.jsx';
 import { Link, useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { api, idemKey } from '../../api.js';
 import { BASE_CURRENCY, CURRENCIES, PURCHASE_TYPES } from '../../../shared/po-options.js';
@@ -59,13 +60,17 @@ export function Grid({ cols, lines, onChange, readOnly = false, minLines = 1, er
     <div>
       <div className="overflow-x-auto rounded-md border border-slate-200">
         <table className="min-w-full divide-y divide-slate-200">
-          <thead><tr><th className="th w-8">#</th>{cols.map((c) => <th key={c.k} className={`th ${c.type === 'number' || c.num ? 'text-right' : ''}`}>{c.label}</th>)}{!readOnly && <th className="th w-10" />}</tr></thead>
+          <thead><tr><th className="th w-28">{readOnly ? '#' : 'Line'}</th>{cols.map((c) => <th key={c.k} className={`th ${c.type === 'number' || c.num ? 'text-right' : ''}`}>{c.label}</th>)}</tr></thead>
           <tbody className="divide-y divide-slate-100">
             {lines.map((l, i) => (
               <tr key={l._k ?? i} className={errors[i] ? 'bg-red-50' : ''}>
-                <td className="td text-slate-400">{i + 1}</td>
+                <td className="td align-top text-slate-400"><div className="flex items-center gap-1"><span className="w-5 text-xs">{i + 1}</span>
+                  {!readOnly && <>
+                    <button type="button" className="rounded border border-slate-300 px-1.5 text-sm leading-6 text-slate-600 hover:bg-slate-100" title="Add a line below" aria-label={`Add line below line ${i + 1}`} onClick={() => onChange([...lines.slice(0, i + 1), { _k: idRef.current++ }, ...lines.slice(i + 1)])}>+</button>
+                    <button type="button" className="rounded border border-slate-300 px-1.5 text-sm leading-6 text-slate-600 hover:bg-slate-100" title="Duplicate this line" aria-label={`Duplicate line ${i + 1}`} onClick={() => onChange([...lines.slice(0, i + 1), { ...l, _k: idRef.current++ }, ...lines.slice(i + 1)])}>⧉</button>
+                    <button type="button" className="rounded border border-slate-300 px-1.5 text-sm leading-6 text-red-600 hover:bg-red-50 disabled:opacity-40" title="Remove this line" aria-label={`Remove line ${i + 1}`} disabled={lines.length <= 1} onClick={() => onChange(lines.filter((_, j) => j !== i))}>✕</button>
+                  </>}</div></td>
                 {cols.map((c) => <td key={c.k} className={`td align-top ${c.num ? 'text-right' : ''}`}>{cell(c, l, i)}</td>)}
-                {!readOnly && <td className="td align-top"><button type="button" className="btn btn-sm" aria-label={`Remove line ${i + 1}`} disabled={lines.length <= 1} onClick={() => onChange(lines.filter((_, j) => j !== i))}>✕</button></td>}
               </tr>
             ))}
           </tbody>
@@ -624,7 +629,7 @@ export function GrnForm() {
       <ErrorBox msg={err} />
       <div className="mb-4 grid gap-3 sm:grid-cols-2">
         <div className="rounded-md border-2 border-brand-600 bg-brand-50 p-3"><div className="font-semibold text-brand-800">GRN against a PO</div><div className="mt-0.5 text-xs text-slate-600">Pick the Purchase Order below; its items and balances are filled in for you.</div></div>
-        <Link to="/grn/manual" className="rounded-md border border-slate-300 bg-white p-3 hover:border-brand-600"><div className="font-semibold text-slate-800">Manual GRN / MRN →</div><div className="mt-0.5 text-xs text-slate-600">Add items yourself and choose GRN or MRN; link a line to a PO if it has one.</div></Link>
+        <Link to="/grn/manual" className="rounded-md border border-slate-300 bg-white p-3 hover:border-brand-600"><div className="font-semibold text-slate-800">Special GRN →</div><div className="mt-0.5 text-xs text-slate-600">Choose items yourself (GRN or MRN) and link each line to its PO.</div></Link>
       </div>
       <Card title="1. Purchase Order" className="mb-4">
         {!pos.length ? <p className="text-sm text-slate-500">No Purchase Orders are waiting for receipt in your warehouses.</p> : (<>
@@ -658,6 +663,7 @@ export function GrnForm() {
                 <td className="td"><input className="input min-w-[8rem]" aria-label={`Batch ${l.items}`} value={r.batch ?? ''} onChange={(e) => setR(l.poLine, 'batch', e.target.value)} /></td>
                 <td className="td"><input className="input min-w-[9rem]" type="date" aria-label={`Expiry ${l.items}`} value={r.exp ?? ''} onChange={(e) => setR(l.poLine, 'exp', e.target.value)} /></td></tr>); })}</tbody></table></div>
         </Card>
+        <TotalsBlock qty={cur.lines.reduce((x, l) => x + Math.max(0, num(rec[l.poLine]?.rec) - num(rec[l.poLine]?.rej)), 0)} gross={cur.lines.reduce((x, l) => x + Math.max(0, num(rec[l.poLine]?.rec) - num(rec[l.poLine]?.rej)) * num(l.rate), 0)} />
         <div className="flex flex-wrap justify-end gap-2"><button className="btn" disabled={busy} onClick={() => nav(-1)}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={save}>{busy ? 'Posting…' : 'Post GRN & update stock'}</button></div>
       </>)}
     </>
