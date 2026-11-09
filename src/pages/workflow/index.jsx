@@ -51,7 +51,7 @@ export function Grid({ cols, lines, onChange, readOnly = false, minLines = 1, er
   const cell = (c, l, i) => {
     const v = l[c.k] ?? '';
     if (readOnly || c.type === 'ro') return c.type === 'number' || c.num ? <span className="tabular-nums">{n2(v)}</span> : <span>{String(v) || <span className="text-slate-300">—</span>}</span>;
-    if (c.type === 'item') return <div className="min-w-[22rem]"><ItemPicker value={l['Item Code'] ? `${l['Item Code']} — ${l.Items || ''}` : ''} disabled={!!l['Intent No']} onChange={({ code, name, unit, brand, hsn }) => set(i, { 'Item Code': code, Items: name, ...(describe ? { Description: name } : {}), Units: unit || 'NOS' }) || onItem?.(i, { code, name, unit, brand, hsn })} /></div>;
+    if (c.type === 'item') return <div className="min-w-[22rem]"><ItemPicker value={l['Item Code'] ? `${l['Item Code']} — ${l.Items || ''}` : ''} disabled={!!l['Intent No']} onChange={({ code, name, unit, brand, hsn }) => set(i, { 'Item Code': code, Items: name, ...(describe ? { Description: name } : {}), ...(hsn ? { HSN: hsn } : {}), Units: unit || 'NOS' }) || onItem?.(i, { code, name, unit, brand, hsn })} /></div>;
     if (c.type === 'ref') return <div className="min-w-[10rem]"><Combobox field={c.field} value={v} onChange={(x) => set(i, { [c.k]: x })} /></div>;
     if (c.type === 'select') return <select className="input min-w-[7rem]" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label}>{c.options.map((o) => <option key={o}>{o}</option>)}</select>;
     if (c.type === 'number') return <input className="input min-w-[6rem] text-right" type="number" min="0" step="any" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label} />;
@@ -118,7 +118,7 @@ export function RemarksDialog({ title, label = 'Remarks', required, confirmLabel
 const PRIORITIES = ['Low', 'Normal', 'High', 'Urgent'];
 const INTENT_STATUSES = ['Draft', 'Pending Review', 'Returned for Correction', 'Approved', 'Partially Converted to PO', 'Fully Converted to PO', 'Rejected', 'Closed'];
 const intentCols = [
-  { k: 'Items', label: 'Item', type: 'item' }, { k: 'Units', label: 'Units', type: 'text' }, { k: 'Current Stock', label: 'Current Stock', type: 'ro', num: true },
+  { k: 'Items', label: 'Item', type: 'item' }, { k: 'HSN', label: 'HSN', type: 'text', w: 'min-w-[6rem]' }, { k: 'Units', label: 'Units', type: 'text' }, { k: 'Current Stock', label: 'Current Stock', type: 'ro', num: true },
   { k: 'Quantity', label: 'Required Qty', type: 'number' }, { k: 'Required By Date', label: 'Required By', type: 'date' },
   { k: 'Priority', label: 'Priority', type: 'select', options: PRIORITIES }, { k: 'Reason', label: 'Reason', type: 'text', w: 'min-w-[6rem] max-w-[11rem]' },
 ];

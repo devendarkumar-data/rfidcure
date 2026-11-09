@@ -158,7 +158,7 @@ export async function validateLines(ctx, table, input, catalog, { strictItems })
       if (!it) {
         if (strictItems || catalog.size) throw unprocessable(`${w}item "${raw}" is not in the Item Master or stock`);
         l['Item Code'] = ''; l[table.itemField] = raw;
-      } else { l['Item Code'] = it.code; l[table.itemField] = it.name; l._name = it.name; }
+      } else { l['Item Code'] = it.code; l[table.itemField] = it.name; l._name = it.name; if (byName.HSN && isBlank(l.HSN) && it.hsn) l.HSN = it.hsn; } // HSN comes from the Item Master when not typed (needed for accounts and the E-Way Bill)
     }
     if ('Quantity' in l && table.post && table.post !== 'actual' && !(toNum(l.Quantity) > 0) && !(table.post === 'grn' && !isBlank(l['Accepted Qty']))) throw bad(`${w}Quantity must be greater than zero`);
     if ('Gross' in byName && !isBlank(l.Quantity) && !isBlank(l.Rate)) l.Gross = round2(toNum(l.Quantity) * toNum(l.Rate));

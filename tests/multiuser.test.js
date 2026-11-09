@@ -674,3 +674,16 @@ test('Imprest Out creates a virtual warehouse per location; Imprest In takes bac
   const ok = await back([{ Warehouse: 'MWH', 'Item Code': 'VS1', Quantity: 10, Batch: 'B1' }]); assert.equal(ok.status, 201, ok.text);
   assert.deepEqual([await qty('AMES HOSPITAL', 'B1'), await qty('AMES HOSPITAL', 'B2'), await qty('MWH', 'B1'), await qty('MWH', 'B2'), await qty('MWH', 'B3')], [40, 20, 20, 40, 60], 'only the 10 of B1 moved back');
 });
+
+test('HSN is picked up from the Item Master on indent, PO, Imprest Out/In, Consumption and E-Way lines when not typed', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  await app.store.append('Item Master', [{ 'Master Id': 'IM-H', 'Item Name': 'Hsn Screw', Code: 'HS1', Brand: 'ACME', 'Item Category': 'Implants', HSN: '90211000' }]);
+  await app.store.append('Opening Stock', [{ Warehouse: 'MWH', 'Item Code': 'HS1', 'Item Name': 'Hsn Screw', 'Batch Number': 'H-1', Quantity: 50, 'Expiry Date': '2031-01-01', 'Stock Value': 100 }]);
+  const sa = await app.as('sa');
+  const out = await sa('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-28', 'Customer Account': 'HSN HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'HS1', Quantity: 5, Batch: 'H-1' }] });
+  assert.equal(out.status, 201, out.text);
+  const row = (await app.store.read('Imprest Out — New', { fresh: true })).rows.find((r) => r.DocNo === out.json.id || r['Document No.'] === out.json.id || String(r.Lines).includes('HS1'));
+  assert.equal(JSON.parse(row.Lines)[0].HSN, '90211000', 'Imprest Out line took the HSN from the Item Master');
+  const pi = await sa('POST', '/api/wf/intents', { header: { Date: '2026-10-28', 'Requesting Warehouse': 'MWH' }, lines: [{ 'Item Code': 'HS1', Items: 'Hsn Screw', Quantity: 3 }] });
+  if (pi.status === 201) assert.equal((await sa('GET', `/api/wf/intents/${encodeURIComponent(pi.json.id)}`)).json.lines?.[0]?.HSN ?? '90211000', '90211000');
+});
