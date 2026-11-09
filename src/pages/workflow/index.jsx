@@ -51,7 +51,7 @@ export function Grid({ cols, lines, onChange, readOnly = false, minLines = 1, er
   const cell = (c, l, i) => {
     const v = l[c.k] ?? '';
     if (readOnly || c.type === 'ro') return c.type === 'number' || c.num ? <span className="tabular-nums">{n2(v)}</span> : <span>{String(v) || <span className="text-slate-300">—</span>}</span>;
-    if (c.type === 'item') return <div className="min-w-[22rem]"><ItemPicker value={l['Item Code'] ? `${l['Item Code']} — ${l.Items || ''}` : ''} disabled={!!l['Intent No']} onChange={({ code, name, unit, brand }) => set(i, { 'Item Code': code, Items: name, ...(describe ? { Description: name } : {}), Units: unit || 'NOS' }) || onItem?.(i, { code, name, unit, brand })} /></div>;
+    if (c.type === 'item') return <div className="min-w-[22rem]"><ItemPicker value={l['Item Code'] ? `${l['Item Code']} — ${l.Items || ''}` : ''} disabled={!!l['Intent No']} onChange={({ code, name, unit, brand, hsn }) => set(i, { 'Item Code': code, Items: name, ...(describe ? { Description: name } : {}), Units: unit || 'NOS' }) || onItem?.(i, { code, name, unit, brand, hsn })} /></div>;
     if (c.type === 'ref') return <div className="min-w-[10rem]"><Combobox field={c.field} value={v} onChange={(x) => set(i, { [c.k]: x })} /></div>;
     if (c.type === 'select') return <select className="input min-w-[7rem]" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label}>{c.options.map((o) => <option key={o}>{o}</option>)}</select>;
     if (c.type === 'number') return <input className="input min-w-[6rem] text-right" type="number" min="0" step="any" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label} />;
@@ -313,7 +313,7 @@ const poCols = (type, lines = []) => {
   const has = (v) => lines.some((l) => l['Price Type'] === v);
   const pb = has('Price Book'), sp = has('Special Book');
   const cols = type === 'domestic' ? [
-    { k: 'Items', label: 'Items', type: 'item' }, { k: 'Description', label: 'Description', type: 'text' }, { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' },
+    { k: 'Items', label: 'Items', type: 'item' }, { k: 'HSN', label: 'HSN', type: 'text', w: 'min-w-[6rem]' }, { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' },
     { k: 'Units', label: 'Units', type: 'text', w: 'min-w-[5rem]' }, { k: 'SP Rate', label: 'SP Rate', type: 'number' }, { k: 'Quantity', label: 'Quantity', type: 'number' },
     { k: 'Price Type', label: 'Price Type', type: 'select', options: PRICE_TYPES }, ...(pb ? [{ k: 'Price Book Rate', label: 'Price Book Rate', type: 'number' }] : []), ...(sp ? [{ k: 'Special Rate', label: 'Special Rate', type: 'number' }] : []),
     { k: 'Intent No', label: 'L-Purchase Indent', type: 'ro' }, { k: 'Rate', label: 'Rate', type: 'number' }, { k: 'Last PO Rate', label: 'Last PO Rate', type: 'number' }, { k: 'Gross', label: 'Gross', type: 'ro', num: true },
@@ -322,7 +322,7 @@ const poCols = (type, lines = []) => {
     { k: 'Brand', label: 'Brand', type: 'ref', field: 'Brand' }, { k: 'Item Group', label: 'Item Group', type: 'ref', field: 'Item Group' }, { k: 'Division', label: 'Division', type: 'ref', field: 'Division' },
     { k: 'Line Total', label: 'Line Total', type: 'ro', num: true },
   ] : [
-    { k: 'Items', label: 'Items', type: 'item' }, { k: 'Description', label: 'Description', type: 'text' }, { k: 'Quantity', label: 'Quantity', type: 'number' },
+    { k: 'Items', label: 'Items', type: 'item' }, { k: 'HSN', label: 'HSN', type: 'text', w: 'min-w-[6rem]' }, { k: 'Quantity', label: 'Quantity', type: 'number' },
     { k: 'Price Type', label: 'Price Type', type: 'select', options: PRICE_TYPES }, ...(pb ? [{ k: 'Price Book Type', label: 'Price Book Type', type: 'text', w: 'min-w-[7rem]' }] : []), ...(sp ? [{ k: 'Special Rate', label: 'Special Rate', type: 'number' }] : []),
     { k: 'L-Imprest Out', label: 'L-Imprest Out', type: 'text', w: 'min-w-[8rem]' }, { k: 'Rate', label: 'Rate', type: 'number' }, { k: 'Gross', label: 'Gross', type: 'ro', num: true },
     { k: 'PKG Charges', label: 'PKG Charges', type: 'number' }, { k: 'Other Discount', label: 'Other Discount', type: 'number' },
@@ -373,9 +373,9 @@ export function PoForm() {
   }, [editId, intentParam, addFromIntents]);
 
   const onItem = (i, it) => {
-    setLines((cur) => cur.map((l, j) => (j === i ? { ...l, Description: it.name, Brand: it.brand || l.Brand, Warehouse: l.Warehouse || hdr.Location } : l)));
+    setLines((cur) => cur.map((l, j) => (j === i ? { ...l, Description: it.name, HSN: it.hsn || l.HSN, Brand: it.brand || l.Brand, Warehouse: l.Warehouse || hdr.Location } : l)));
     api.get('/api/wf/pos/item-info', { code: it.code, warehouse: hdr.Location }).then((r) => {
-      setLines((cur) => cur.map((l, j) => (j === i && l['Item Code'] === it.code ? { ...l, 'Current Stock': r.currentStock, 'Reorder Level': r.reorderLevel || l['Reorder Level'], 'Last PO Rate': r.lastRate || l['Last PO Rate'], Brand: r.brand || l.Brand, Units: l.Units || r.unit } : l)));
+      setLines((cur) => cur.map((l, j) => (j === i && l['Item Code'] === it.code ? { ...l, 'Current Stock': r.currentStock, 'Reorder Level': r.reorderLevel || l['Reorder Level'], 'Last PO Rate': r.lastRate || l['Last PO Rate'], Brand: r.brand || l.Brand, HSN: l.HSN || r.hsn, Units: l.Units || r.unit } : l)));
       setStockInfo({ code: it.code, name: it.name || r.name, unit: r.unit, rows: r.byWarehouse || [], total: r.total });
     }).catch(() => {});
   };
