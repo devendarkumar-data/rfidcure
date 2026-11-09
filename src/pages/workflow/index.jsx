@@ -681,12 +681,12 @@ export function GrnRegister() {
   const canCreate = t?.actions.includes('create');
   return (
     <>
-      <PageHeader title={rtype === 'MRN' ? 'MRN Register' : rtype === 'GRN' ? 'GRN Register (against PO)' : 'GRN Register'} actions={t?.actions.includes('create') && <Link className="btn btn-primary" to="/grn/new">+ Create GRN</Link>} />
+      <PageHeader title={'GRN Register'} actions={t?.actions.includes('create') && <Link className="btn btn-primary" to="/grn/new">+ Create GRN</Link>} />
       <FilterBar onReset={() => setRange({ from: '', to: '' })}>
         <FilterItem label="From"><input type="date" className="input" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></FilterItem>
         <FilterItem label="To"><input type="date" className="input" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></FilterItem>
       </FilterBar>
-      <DataTable endpoint="/api/t/grn-mrn" columns={columns} searchPlaceholder="Search invoice no., PO no., linked PO, item, vendor…" params={rtype ? { ...range, 'f.Receipt Type': rtype } : range} exportable={t?.actions.includes('export')} exportName="grn" defaultSort={{ col: 'Date', dir: 'desc' }}
+      <DataTable endpoint="/api/t/grn-mrn" columns={columns} searchPlaceholder="Search invoice no., PO no., linked PO, item, vendor…" params={rtype === 'GRN' ? { ...range, 'f.Receipt Type': 'GRN' } : range} exportable={t?.actions.includes('export')} exportName="grn" defaultSort={{ col: 'Date', dir: 'desc' }}
         rowKey={(r) => r['Document No.']} onRowClick={(r) => nav(`/grn/${encodeURIComponent(r['Document No.'])}`)}
         rowActions={(r) => (
           <div className="flex justify-end gap-1">
