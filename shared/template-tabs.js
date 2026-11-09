@@ -958,7 +958,9 @@ export default [
    "Preferred Vendor",
    "Batch Number",
    "Expiry Date",
-   "Warehouse"
+   "Warehouse",
+   "HSN",
+   "UOM"
   ]
  },
  {

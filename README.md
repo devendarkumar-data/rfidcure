@@ -278,3 +278,7 @@ Inventory > **Stock Master**: opening quantity and live quantity per warehouse /
 - **Stock Transfer**: From Warehouse defaults to MWH; the To list excludes MWH (`/api/lookup?field=Warehouse&exclude=MWH`). Raise Requisition: requesting-warehouse list excludes MWH (MWH is the issuer). Narration/Notes is narrower on both.
 - Choosing an item fills **Units** automatically; the item column is wider. Totals and "Account / GST details" start collapsed.
 - Assumption: GRN documents are posted immediately, so there is no Pending/Approved status on the GRN Register (the PO register has it).
+
+## Item Master headers and where live stock is tracked
+- Item Master columns: Master Id, Item Name, Code, Brand, Item Category, Related Suppliers, Min Stock Level, MOQ, Preferred Vendor, Batch Number, Expiry Date, Warehouse, then the new trailing **HSN** and **UOM**. HSN pre-fills the HSN on Imprest / E-Way lines; UOM fills Units when an item is picked. **Add the two header cells (HSN, UOM) to the Item Master sheet** (trailing, after Warehouse) before filling them.
+- Live stock is not stored anywhere: it is **Opening Stock** (the old software's closing stock, entered once) **+ the Stock Ledger** (every posted GRN, transfer, Imprest Out/In, consumption, actual-stock variance). Inventory → Live Stock Overview / Batch-wise Stock / Stock Master and Reports → Stock Reports / Stock Ledger all compute from those two tabs.
