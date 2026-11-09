@@ -8,7 +8,7 @@ export const PRINTABLE = { 'imprest-out-new': 'IMPREST OUT', 'imprest-in-new': '
 export const printPath = (slug, id) => `/print/${slug}/${encodeURIComponent(id)}`;
 const HIDE_HEAD = new Set(['Lines', 'DocNo', 'Document No.', 'Return Closed', 'Ref. Doc', 'Ref. Date', 'Is IGST', 'Location', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State']);
 const HIDE_LINE = new Set(['_k', '_name', 'Warehouse Type']);
-const LABEL = { Items: 'Item Name', Item: 'Item Name', Quantity: 'Qty', Batch: 'Batch No' };
+const LABEL = { Items: 'Item Name', Item: 'Item Name', Quantity: 'Qty', Batch: 'Batch No', HSN: 'HSN Code' };
 // Line columns of every printed document, in this order (a column with no data is left out).
 const LINE_ORDER = ['Consumption Type', 'Item Code', 'Items', 'Item', 'Quantity', 'Rate', 'Batch', 'Expiry Date'];
 const dmy = (d) => (/^\d{4}-\d{2}-\d{2}/.test(String(d || '')) ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : String(d ?? ''));

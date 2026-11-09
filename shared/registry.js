@@ -45,7 +45,7 @@ REFS['Stock Item'] = { special: 'stock' };
 REFS['PO No'] = { special: 'po' };
 
 // Column names stay as in the sheet; this is only what the screens call them.
-export const FIELD_LABELS = { 'Allowed Purchase Type': 'Purchase Type Linked With Vendor' };
+export const FIELD_LABELS = { 'Allowed Purchase Type': 'Purchase Type Linked With Vendor', HSN: 'HSN Code' };
 const YN = ['Yes', 'No'];
 const INDENT_STATUS = ['Draft', 'Submitted', 'Approved', 'Partially Fulfilled', 'Fulfilled', 'Rejected'];
 export { PURCHASE_TYPES, CURRENCIES };

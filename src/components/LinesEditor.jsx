@@ -114,7 +114,7 @@ export default function LinesEditor({ lineFields, itemField, lines, onChange, ge
     <div>
       <div className="overflow-x-auto rounded-md border border-slate-200">
         <table className="min-w-full divide-y divide-slate-200 max-sm:block">
-          <thead className="max-sm:hidden"><tr><th className="th w-28">{readOnly ? '#' : 'Line'}</th>{cols.map((f) => <th key={f.name} className="th">{f.name}</th>)}</tr></thead>
+          <thead className="max-sm:hidden"><tr><th className="th w-28">{readOnly ? '#' : 'Line'}</th>{cols.map((f) => <th key={f.name} className="th">{f.label || f.name}</th>)}</tr></thead>
           <tbody className="divide-y divide-slate-100 max-sm:block">
             {lines.map((l, i) => (
               <tr key={l._k ?? i} className={`${errors[i] ? 'bg-red-50' : ''} max-sm:block max-sm:p-3`}>

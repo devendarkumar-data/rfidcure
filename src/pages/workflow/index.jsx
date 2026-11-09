@@ -118,7 +118,7 @@ export function RemarksDialog({ title, label = 'Remarks', required, confirmLabel
 const PRIORITIES = ['Low', 'Normal', 'High', 'Urgent'];
 const INTENT_STATUSES = ['Draft', 'Pending Review', 'Returned for Correction', 'Approved', 'Partially Converted to PO', 'Fully Converted to PO', 'Rejected', 'Closed'];
 const intentCols = [
-  { k: 'Items', label: 'Item', type: 'item' }, { k: 'HSN', label: 'HSN', type: 'text', w: 'min-w-[6rem]' }, { k: 'Units', label: 'Units', type: 'text' }, { k: 'Current Stock', label: 'Current Stock', type: 'ro', num: true },
+  { k: 'Items', label: 'Item', type: 'item' }, { k: 'HSN', label: 'HSN Code', type: 'text', w: 'min-w-[6rem]' }, { k: 'Units', label: 'Units', type: 'text' }, { k: 'Current Stock', label: 'Current Stock', type: 'ro', num: true },
   { k: 'Quantity', label: 'Required Qty', type: 'number' }, { k: 'Required By Date', label: 'Required By', type: 'date' },
   { k: 'Priority', label: 'Priority', type: 'select', options: PRIORITIES }, { k: 'Reason', label: 'Reason', type: 'text', w: 'min-w-[6rem] max-w-[11rem]' },
 ];
@@ -313,7 +313,7 @@ const poCols = (type, lines = []) => {
   const has = (v) => lines.some((l) => l['Price Type'] === v);
   const pb = has('Price Book'), sp = has('Special Book');
   const cols = type === 'domestic' ? [
-    { k: 'Items', label: 'Items', type: 'item' }, { k: 'HSN', label: 'HSN', type: 'text', w: 'min-w-[6rem]' }, { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' },
+    { k: 'Items', label: 'Items', type: 'item' }, { k: 'HSN', label: 'HSN Code', type: 'text', w: 'min-w-[6rem]' }, { k: 'Current Stock', label: 'Closing Stock', type: 'ro', num: true }, { k: 'Reorder Level', label: 'Reorder Level', type: 'number' },
     { k: 'Units', label: 'Units', type: 'text', w: 'min-w-[5rem]' }, { k: 'SP Rate', label: 'SP Rate', type: 'number' }, { k: 'Quantity', label: 'Quantity', type: 'number' },
     { k: 'Price Type', label: 'Price Type', type: 'select', options: PRICE_TYPES }, ...(pb ? [{ k: 'Price Book Rate', label: 'Price Book Rate', type: 'number' }] : []), ...(sp ? [{ k: 'Special Rate', label: 'Special Rate', type: 'number' }] : []),
     { k: 'Intent No', label: 'L-Purchase Indent', type: 'ro' }, { k: 'Rate', label: 'Rate', type: 'number' }, { k: 'Last PO Rate', label: 'Last PO Rate', type: 'number' }, { k: 'Gross', label: 'Gross', type: 'ro', num: true },
