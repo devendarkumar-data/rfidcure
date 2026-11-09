@@ -213,6 +213,7 @@ export async function listRecords(ctx, table, q = {}, opts = {}) {
     if (!rowVisible(ctx, table, r, lines)) continue;
     if (dateCol && (q.from || q.to)) { const d = normDate(r[dateCol]); if ((q.from && d < q.from) || (q.to && d > q.to)) continue; }
     if (filters.some(([k, v]) => sstr(r[k]).toLowerCase() !== v.toLowerCase())) continue;
+    if (table.slug === 'grn-mrn' && (q.grnType === 'po' || q.grnType === 'special') && (q.grnType === 'po') !== !!sstr(r['Supplier Ref No'])) continue; // GRN against a PO carries the PO number; a Special GRN does not
     if (needle) {
       let hay = cols.map((f) => sstr(r[f.name])).join(' ').toLowerCase();
       if (lines) hay += ' ' + lines.map((l) => Object.values(maskLines(ctx, [l])[0]).join(' ')).join(' ').toLowerCase();
@@ -459,6 +460,7 @@ export async function lookup(ctx, field, q, limit = 30, scopeOnly = false, extra
     await ensureStandardWarehouses(ctx.store);
     let list = extra.imprest === '1' ? await warehouseList(ctx.store) : await assignableWarehouses(ctx.store); // dropdowns show warehouse names only (hospitals are not warehouses)
     if (scopeOnly) list = list.filter((w) => inScope(ctx, w)); // only the user's own / currently viewed warehouse(s)
+    if (extra.exclude) { const ex = new Set(String(extra.exclude).toUpperCase().split(',')); list = list.filter((w) => !ex.has(w.toUpperCase())); } // e.g. the Mother Warehouse cannot be a transfer / requisition destination
     if (extra.imprest === '1') { // hospitals / imprest warehouses that currently hold imprest stock sent out from the user's warehouse(s)
       const { rows: led } = await ctx.store.read('Stock Ledger'); const { balances } = await loadStock(ctx.store);
       const held = new Set([...balances.values()].filter((b) => b.qty > 0).map((b) => b.warehouse));

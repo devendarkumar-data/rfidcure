@@ -269,3 +269,12 @@ Inventory > **Stock Master**: opening quantity and live quantity per warehouse /
 - `GET /api/imprest/register?type=out|in|cons[&export=xlsx]`. The Consumption Register menu now opens this register (Consumption Pending still handles bills).
 - Every document row has a **PDF** button that downloads that transaction as its own PDF (jsPDF, built in the browser).
 - Assumptions: Authorize Status is always "Authorized" (posted documents); Item Brand comes from Item Master; Manufacturing Date is blank unless the line carries one; xlsx has no Focus title rows.
+
+## GRN / Requisition / Stock Transfer round
+- "MRN" is gone from the app: Special GRN has no GRN/MRN toggle, **Receipt Type** and **Update Stock** are hidden (stock is always updated), the menu group is "GRN", prints say "Goods Receipt Note". The sheet columns stay (trailing) so no structure change.
+- **Create GRN** now opens a PO register (all POs waiting for receipt) with search (PO no., vendor, item), date option / range and Pending / Approved filter; **Convert to GRN** opens the receipt for that PO. Special GRN defaults Warehouse MWH and Location Delhi.
+- **GRN Register**: date option / range, type (GRN against PO / Special GRN), search; download CSV, Excel or PDF.
+- Every list table that is exportable (GRN, Requisition, ...) now has a CSV / Excel / PDF download selector.
+- **Stock Transfer**: From Warehouse defaults to MWH; the To list excludes MWH (`/api/lookup?field=Warehouse&exclude=MWH`). Raise Requisition: requesting-warehouse list excludes MWH (MWH is the issuer). Narration/Notes is narrower on both.
+- Choosing an item fills **Units** automatically; the item column is wider. Totals and "Account / GST details" start collapsed.
+- Assumption: GRN documents are posted immediately, so there is no Pending/Approved status on the GRN Register (the PO register has it).

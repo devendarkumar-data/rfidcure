@@ -535,9 +535,11 @@ test('GRN form drops Place of Supply / Submit For Approval / Destination; attach
   const wm = await app.as('wm');
   const meta = (await wm('GET', '/api/meta')).json.modules.flatMap((m) => m.tables).find((x) => x.slug === 'grn-mrn');
   const names = meta.fields.map((f) => f.name);
-  for (const gone of ['Place of Supply', 'Submit For Approval', 'Destination']) assert.ok(!names.includes(gone), `${gone} removed`);
-  for (const need of ['Attachment', 'Receipt Type', 'Invoice No.']) assert.ok(names.includes(need), `${need} present`);
+  for (const gone of ['Place of Supply', 'Submit For Approval', 'Destination', 'Receipt Type', 'Update Stock']) assert.ok(!names.includes(gone), `${gone} removed`);
+  for (const need of ['Attachment', 'Invoice No.']) assert.ok(names.includes(need), `${need} present`);
   assert.equal(meta.fields.find((f) => f.name === 'Attachment').type, 'upload');
+  const lk = (await wm('GET', '/api/lookup?field=Warehouse&exclude=MWH')).json.options.map((o) => o.value.toUpperCase()); assert.ok(!lk.includes('MWH') && lk.length, 'MWH is left out of the destination list');
+  assert.equal((await wm('GET', '/api/wf/reqs?export=xlsx')).status, 200); assert.equal((await wm('GET', '/api/t/grn-mrn?grnType=special')).status, 200);
   const pdf = Buffer.from('%PDF-1.4 test').toString('base64');
   const up = await wm('POST', '/api/attachments', { docType: 'grn', fileName: 'inv 1.pdf', mime: 'application/pdf', data: pdf });
   assert.equal(up.status, 201, up.text);

@@ -42,10 +42,10 @@ export function buildNav(meta) {
     it(has(rq, 'view'), '/requisitions?view=open', 'Issue / Receive (open requisitions)'),
     it(has(tables['stock-transfer'], 'view'), '/t/stock-transfer', 'Stock Transfer'),
   ]);
-  add('wh-grn', 'GRN / MRN', 'inbox', [
+  add('wh-grn', 'GRN', 'inbox', [
     it(has(grn, 'create'), '/grn/new', 'Create GRN'),
     it(has(grn, 'create'), '/grn/manual', 'Special GRN'),
-    it(has(grn, 'view'), '/grn?type=GRN', 'GRN Register'),
+    it(has(grn, 'view'), '/grn', 'GRN Register'),
   ]);
   add('wh-imprest', 'Imprest & Consumption', 'inbox', [
     it(has(tables['imprest-out-new'], 'create'), '/t/imprest-out-new?new=1', 'Imprest Out — New'),

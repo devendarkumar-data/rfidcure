@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import TotalsBlock from '../../components/TotalsBlock.jsx';
+import { COMPANY } from '../../../shared/company.js';
+import { DATE_OPTIONS, rangeFor, downloadCsv } from '../../dateOptions.js';
 import { Link, useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { api, idemKey } from '../../api.js';
 import { BASE_CURRENCY, CURRENCIES, PURCHASE_TYPES } from '../../../shared/po-options.js';
@@ -49,7 +51,7 @@ export function Grid({ cols, lines, onChange, readOnly = false, minLines = 1, er
   const cell = (c, l, i) => {
     const v = l[c.k] ?? '';
     if (readOnly || c.type === 'ro') return c.type === 'number' || c.num ? <span className="tabular-nums">{n2(v)}</span> : <span>{String(v) || <span className="text-slate-300">—</span>}</span>;
-    if (c.type === 'item') return <div className="min-w-[15rem]"><ItemPicker value={l['Item Code'] ? `${l['Item Code']} — ${l.Items || ''}` : ''} disabled={!!l['Intent No']} onChange={({ code, name, unit, brand }) => set(i, { 'Item Code': code, Items: name, ...(describe ? { Description: name } : {}), Units: unit || 'NOS' }) || onItem?.(i, { code, name, unit, brand })} /></div>;
+    if (c.type === 'item') return <div className="min-w-[22rem]"><ItemPicker value={l['Item Code'] ? `${l['Item Code']} — ${l.Items || ''}` : ''} disabled={!!l['Intent No']} onChange={({ code, name, unit, brand }) => set(i, { 'Item Code': code, Items: name, ...(describe ? { Description: name } : {}), Units: unit || 'NOS' }) || onItem?.(i, { code, name, unit, brand })} /></div>;
     if (c.type === 'ref') return <div className="min-w-[10rem]"><Combobox field={c.field} value={v} onChange={(x) => set(i, { [c.k]: x })} /></div>;
     if (c.type === 'select') return <select className="input min-w-[7rem]" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label}>{c.options.map((o) => <option key={o}>{o}</option>)}</select>;
     if (c.type === 'number') return <input className="input min-w-[6rem] text-right" type="number" min="0" step="any" value={v} onChange={(e) => set(i, { [c.k]: e.target.value })} aria-label={c.label} />;
@@ -435,7 +437,7 @@ export function PoForm() {
             <div className="flex flex-wrap gap-2">{stockInfo.rows.map((w) => (
               <div key={w.warehouse} className={`min-w-[5.5rem] rounded border px-2 py-1 ${w.warehouse.toUpperCase() === String(hdr.Location).toUpperCase() ? 'border-brand-600 bg-white' : 'border-slate-200 bg-white'}`}><div className="text-[11px] text-slate-500">{w.warehouse}</div><div className="font-semibold tabular-nums">{n2(w.qty)}</div></div>))}
               <div className="min-w-[5.5rem] rounded border border-slate-300 bg-slate-100 px-2 py-1"><div className="text-[11px] text-slate-500">All warehouses</div><div className="font-semibold tabular-nums">{n2(stockInfo.total)}</div></div></div>
-            <p className="mt-1 text-[11px] text-slate-500">Available = Opening Stock + GRN/MRN − Imprest Out + Imprest In − Consumption. Hospital (imprest) locations are not counted.</p>
+            <p className="mt-1 text-[11px] text-slate-500">Available = Opening Stock + GRN − Imprest Out + Imprest In − Consumption. Hospital (imprest) locations are not counted.</p>
           </div>)}
         <Grid cols={type === 'import' && hdr.Currency ? poCols(type, lines).map((x) => (['Rate', 'Gross', 'Other Discount', 'PKG Charges', 'Line Total', 'Special Rate', 'Last PO Rate', 'Price Book Rate'].includes(x.k) ? { ...x, label: `${x.label} (${money(0, hdr.Currency).replace(/[\d.,\s]/g, '') || hdr.Currency})` } : x)) : poCols(type, lines)} lines={c.lines} onChange={setLines} onItem={onItem} extra={<button type="button" className="btn btn-sm btn-primary" onClick={() => setPicker(true)}>+ Add from approved intents</button>} />
         <dl className="mt-4 ml-auto grid max-w-xs grid-cols-2 gap-1 text-sm">
@@ -593,16 +595,53 @@ export function PoDetail() {
 
 // ---------------------------------------------------------------------------------------------------------------------
 // GRN
+// Purchase Orders waiting to be received: filter, then "Convert to GRN" opens the receipt form for that PO.
+function GrnPoRegister({ pos, onPick, canCreate }) {
+  const [q, setQ] = useState(''); const [st, setSt] = useState(''); const [opt, setOpt] = useState('All'); const [rng, setRng] = useState({ from: '', to: '' });
+  const pickOpt = (o) => { setOpt(o); setRng(o === 'All' ? { from: '', to: '' } : o === 'Date Range' ? rng : rangeFor(o)); };
+  const shown = pos.filter((p) => {
+    const n = q.trim().toLowerCase(); const d = String(p.Date || '');
+    return (!st || (st === 'Pending' ? p.Status === 'Pending Authorization' : p.Status !== 'Pending Authorization')) && (!rng.from || d >= rng.from) && (!rng.to || d <= rng.to)
+      && (!n || `${p['Document No.']} ${p['Vendor Account']} ${p.Warehouse} ${p.lines.map((l) => `${l.itemCode} ${l.items}`).join(' ')}`.toLowerCase().includes(n));
+  });
+  return (
+    <Card title="Purchase Orders to receive" className="mb-4">
+      <div className="mb-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-5">
+        <label className="block"><span className="label">Search</span><input className="input" placeholder="PO number, vendor, item…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search PO" /></label>
+        <label className="block"><span className="label">Date option</span><select className="input" value={opt} onChange={(e) => pickOpt(e.target.value)}>{['All', ...DATE_OPTIONS.filter((o) => o !== 'As on date')].map((o) => <option key={o}>{o}</option>)}</select></label>
+        <label className="block"><span className="label">From</span><input type="date" className="input" value={rng.from} disabled={opt !== 'Date Range'} onChange={(e) => setRng({ ...rng, from: e.target.value })} /></label>
+        <label className="block"><span className="label">To</span><input type="date" className="input" value={rng.to} disabled={opt !== 'Date Range'} onChange={(e) => setRng({ ...rng, to: e.target.value })} /></label>
+        <label className="block"><span className="label">Status</span><select className="input" value={st} onChange={(e) => setSt(e.target.value)}><option value="">All</option><option>Pending</option><option>Approved</option></select></label>
+      </div>
+      <div className="overflow-x-auto rounded-md border border-slate-200">
+        <table className="min-w-full divide-y divide-slate-200 text-sm">
+          <thead><tr>{['PO No.', 'Date', 'Vendor', 'Warehouse', 'Items', 'Balance qty', 'Status', ''].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
+          <tbody className="divide-y divide-slate-100">
+            {!shown.length && <tr><td className="td text-slate-500" colSpan={8}>No Purchase Orders are waiting for receipt{pos.length ? ' for these filters' : ' in your warehouses'}.</td></tr>}
+            {shown.map((p) => (
+              <tr key={p['Document No.']}>
+                <td className="td !py-1 font-medium"><Link className="text-brand-700 hover:underline" to={`/purchasing/po/${encodeURIComponent(p['Document No.'])}`}>{p['Document No.']}</Link></td><td className="td !py-1 whitespace-nowrap">{p.Date}</td><td className="td !py-1">{p['Vendor Account']}</td><td className="td !py-1">{p.Warehouse}</td>
+                <td className="td !py-1 max-w-[18rem] truncate" title={p.lines.map((l) => l.items).join(', ')}>{p.lines.length} line{p.lines.length > 1 ? 's' : ''}: {p.lines.map((l) => l.items).join(', ')}</td>
+                <td className="td !py-1 text-right tabular-nums">{n2(p.lines.reduce((x, l) => x + (Number(l.balance) || 0), 0))}</td><td className="td !py-1">{poLabel(p.Status)}</td>
+                <td className="td !py-1 text-right">{canCreate && <button type="button" className="btn btn-sm btn-primary" onClick={() => onPick(p['Document No.'])}>Convert to GRN</button>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
 export function GrnForm() {
-  const nav = useNavigate(); const toast = useToast(); const [sp] = useSearchParams(); const [key] = useState(() => idemKey());
-  const [pos, setPos] = useState(null); const [po, setPo] = useState(sp.get('po') || '');
+  const nav = useNavigate(); const toast = useToast(); const [sp, setSp] = useSearchParams(); const [key] = useState(() => idemKey());
+  const [pos, setPos] = useState(null); const po = sp.get('po') || ''; const setPo = (v) => setSp(v ? { po: v } : {}, { replace: false });
   const [hdr, setHdr] = useState({ Date: todayIST(), 'Invoice No.': '', 'Invoice Date': '', 'Invoice Value': '', 'Narration-Notes': '', Attachment: '' });
-  const [rec, setRec] = useState({}); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [q, setQ] = useState('');
+  const [rec, setRec] = useState({}); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   useEffect(() => { api.get('/api/wf/pos/open').then((r) => setPos(r.rows)).catch((e) => { setErr(e.message); setPos([]); }); }, []);
   const cur = pos?.find((p) => p['Document No.'] === po);
   useEffect(() => { setRec({}); }, [po]);
   if (!pos) return <Spinner />;
-  const list = pos.filter((p) => !q || `${p['Document No.']} ${p['Vendor Account']}`.toLowerCase().includes(q.toLowerCase()));
   const setR = (ln, k, v) => setRec((s) => ({ ...s, [ln]: { ...(s[ln] || {}), [k]: v } }));
   const save = async () => {
     setErr('');
@@ -616,7 +655,7 @@ export function GrnForm() {
     if (!out.length) return setErr('Enter a received quantity on at least one line');
     setBusy(true);
     try {
-      const header = { ...Object.fromEntries(Object.entries(hdr).filter(([, v]) => !empty(v))), 'Supplier Ref No': po, Warehouse: cur.Warehouse, 'Receipt Type': 'GRN' };
+      const header = { ...Object.fromEntries(Object.entries(hdr).filter(([, v]) => !empty(v))), 'Supplier Ref No': po, Warehouse: cur.Warehouse, Location: COMPANY.state };
       if (header['Invoice Value'] !== undefined) header['Invoice Value'] = num(header['Invoice Value']);
       const r = await api.post('/api/t/grn-mrn', { header, lines: out }, { headers: { 'Idempotency-Key': key } });
       toast.success(r.duplicate ? 'Already saved — duplicate ignored' : `GRN ${r.id} posted; stock updated`);
@@ -625,21 +664,11 @@ export function GrnForm() {
   };
   return (
     <>
-      <PageHeader back={<Back to="/grn">GRN Register</Back>} title="Create GRN" subtitle="Receive goods against a Purchase Order — it appears here as soon as it is created, authorization is not required. Accepted quantity is posted to stock once." />
+      <PageHeader back={<Back to="/grn">GRN Register</Back>} title="Create GRN" subtitle="Pick a Purchase Order from the register and convert it into a GRN — its items and balances are filled in for you. Authorization is not required. Accepted quantity is posted to stock once." actions={<Link to="/grn/manual" className="btn">Special GRN</Link>} />
       <ErrorBox msg={err} />
-      <div className="mb-4 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-md border-2 border-brand-600 bg-brand-50 p-3"><div className="font-semibold text-brand-800">GRN against a PO</div><div className="mt-0.5 text-xs text-slate-600">Pick the Purchase Order below; its items and balances are filled in for you.</div></div>
-        <Link to="/grn/manual" className="rounded-md border border-slate-300 bg-white p-3 hover:border-brand-600"><div className="font-semibold text-slate-800">Special GRN →</div><div className="mt-0.5 text-xs text-slate-600">Choose items yourself (GRN or MRN) and link each line to its PO.</div></Link>
-      </div>
-      <Card title="1. Purchase Order" className="mb-4">
-        {!pos.length ? <p className="text-sm text-slate-500">No Purchase Orders are waiting for receipt in your warehouses.</p> : (<>
-          <input className="input mb-2 sm:max-w-sm" placeholder="Search PO or vendor…" value={q} onChange={(e) => setQ(e.target.value)} />
-          <select className="input" value={po} onChange={(e) => setPo(e.target.value)} aria-label="Purchase order">
-            <option value="">— Select a PO —</option>{list.map((p) => <option key={p['Document No.']} value={p['Document No.']}>{p['Document No.']} · {p['Vendor Account']} · {p.Warehouse} · {poLabel(p.Status)}</option>)}
-          </select>
-          {po && !cur && <p className="mt-2 text-sm text-red-600">PO {po} is not open for receipt (it may be fully received, closed, or outside your warehouses).</p>}
-        </>)}
-      </Card>
+      {!po && <GrnPoRegister pos={pos} onPick={setPo} canCreate />}
+      {po && !cur && <p className="mb-4 text-sm text-red-600">PO {po} is not open for receipt (it may be fully received, closed, or outside your warehouses). <button type="button" className="underline" onClick={() => setPo('')}>Back to the PO register</button></p>}
+      {cur && <p className="mb-3 text-sm">Receiving against <span className="font-semibold">{cur['Document No.']}</span> · {cur['Vendor Account']} <button type="button" className="ml-2 text-brand-700 underline" onClick={() => setPo('')}>Change PO</button></p>}
       {cur && (<>
         <Card title="2. Receipt details" className="mb-4"><div className="grid gap-3 sm:grid-cols-3">
           <div><label className="label">Vendor</label><input className="input" disabled value={cur['Vendor Account']} /></div>
@@ -672,21 +701,24 @@ export function GrnForm() {
 
 export function GrnRegister() {
   const nav = useNavigate(); const { tables } = useAuth(); const [range, setRange] = useState({ from: '', to: '' }); const t = tables['grn-mrn'];
-  const rtype = new URLSearchParams(useLocation().search).get('type'); // GRN | MRN register view from the left menu
+  const [gtype, setGtype] = useState(''); const [opt, setOpt] = useState('All');
+  const pickOpt = (o) => { setOpt(o); setRange(o === 'All' ? { from: '', to: '' } : o === 'Date Range' ? range : rangeFor(o)); };
   // every GRN column from the sheet (field-level access still applies), key ones first and relabelled
   const LABEL = { 'Document No.': 'GRN No.', 'Supplier Ref No': 'PO No.', 'Vendor Account': 'Vendor' };
-  const FIRST = ['Document No.', 'Receipt Type', 'Date', 'Supplier Ref No', 'Vendor Account', 'Type Of Purchase', 'Warehouse', 'Invoice No.', 'Invoice Date', 'Invoice Value'];
+  const FIRST = ['Document No.', 'Date', 'Supplier Ref No', 'Vendor Account', 'Type Of Purchase', 'Warehouse', 'Invoice No.', 'Invoice Date', 'Invoice Value'];
   const names = (t?.fields || []).map((f) => f.name); const ordered = [...FIRST.filter((n) => names.includes(n)), ...names.filter((n) => !FIRST.includes(n) && n !== 'Lines')];
   const columns = ordered.map((name) => ({ name, ...(LABEL[name] ? { label: LABEL[name] } : {}), ...(name === 'Document No.' ? { render: (v) => <span className="font-medium text-brand-700">{v}</span> } : {}), ...(name === 'Invoice Value' ? { type: 'number' } : {}), ...(['Narration-Notes', 'Terms of Delivery'].includes(name) ? { sortable: false, render: (v) => <span className="block max-w-[10rem] truncate" title={v}>{v}</span> } : {}), ...(name === 'Attachment' ? { sortable: false, render: (v) => <AttachmentLinks value={v} /> } : {}) }));
   const canCreate = t?.actions.includes('create');
   return (
     <>
       <PageHeader title={'GRN Register'} actions={t?.actions.includes('create') && <Link className="btn btn-primary" to="/grn/new">+ Create GRN</Link>} />
-      <FilterBar onReset={() => setRange({ from: '', to: '' })}>
-        <FilterItem label="From"><input type="date" className="input" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></FilterItem>
-        <FilterItem label="To"><input type="date" className="input" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></FilterItem>
+      <FilterBar onReset={() => { setRange({ from: '', to: '' }); setGtype(''); setOpt('All'); }}>
+        <FilterItem label="Date option"><select className="input" value={opt} onChange={(e) => pickOpt(e.target.value)}>{['All', ...DATE_OPTIONS.filter((o) => o !== 'As on date')].map((o) => <option key={o}>{o}</option>)}</select></FilterItem>
+        <FilterItem label="Type"><select className="input" value={gtype} onChange={(e) => setGtype(e.target.value)} aria-label="GRN type"><option value="">GRN + Special GRN</option><option value="po">GRN (against PO)</option><option value="special">Special GRN</option></select></FilterItem>
+        <FilterItem label="From"><input type="date" className="input" value={range.from} onChange={(e) => { setOpt('Date Range'); setRange({ ...range, from: e.target.value }); }} /></FilterItem>
+        <FilterItem label="To"><input type="date" className="input" value={range.to} onChange={(e) => { setOpt('Date Range'); setRange({ ...range, to: e.target.value }); }} /></FilterItem>
       </FilterBar>
-      <DataTable endpoint="/api/t/grn-mrn" columns={columns} searchPlaceholder="Search invoice no., PO no., linked PO, item, vendor…" params={rtype === 'GRN' ? { ...range, 'f.Receipt Type': 'GRN' } : range} exportable={t?.actions.includes('export')} exportName="grn" defaultSort={{ col: 'Date', dir: 'desc' }}
+      <DataTable endpoint="/api/t/grn-mrn" columns={columns} searchPlaceholder="Search GRN no., PO no., invoice no., item, vendor…" params={{ ...range, ...(gtype ? { grnType: gtype } : {}) }} exportable={t?.actions.includes('export')} exportName="grn" defaultSort={{ col: 'Date', dir: 'desc' }}
         rowKey={(r) => r['Document No.']} onRowClick={(r) => nav(`/grn/${encodeURIComponent(r['Document No.'])}`)}
         rowActions={(r) => (
           <div className="flex justify-end gap-1">

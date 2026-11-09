@@ -12,6 +12,7 @@ import StatusBadge from '../../components/StatusBadge.jsx';
 import { useToast } from '../../components/Toast.jsx';
 import { Back, ErrorBox, Grid, HistoryCard, KV, RemarksDialog, n2, num, todayIST, useLoad } from './index.jsx';
 
+const NOT_MWH = { exclude: 'MWH' }; // requisitions are raised by the other warehouses, never by the Mother Warehouse
 const PRIORITIES = ['Low', 'Normal', 'High', 'Urgent'];
 const STATUSES = ['Draft', 'Pending Approval', 'Approved', 'Partially Dispatched', 'Dispatched', 'Partially Received', 'Received', 'Rejected', 'Cancelled'];
 const VIEWS = { pending: 'Pending Purchase Requisitions (awaiting approval)', open: 'Open Requisitions (approved, not fully received)', all: 'All Purchase Requisitions' };
@@ -85,10 +86,10 @@ export function ReqForm() {
       <ErrorBox msg={err} />
       <Card title="Header" className="mb-4"><div className="grid gap-3 sm:grid-cols-4">
         <div><label className="label">Date</label><input type="date" className="input" value={hdr.Date} onChange={(e) => setHdr({ ...hdr, Date: e.target.value })} /></div>
-        <div><label className="label">Requesting warehouse *</label><Combobox field="Requesting Warehouse" allowFree={false} value={rw} onChange={(v) => setHdr({ ...hdr, 'Requesting Warehouse': v })} /></div>
+        <div><label className="label">Requesting warehouse *</label><Combobox field="Requesting Warehouse" extraParams={NOT_MWH} allowFree={false} value={rw} onChange={(v) => setHdr({ ...hdr, 'Requesting Warehouse': v })} /></div>
         <div><label className="label">Issuing (Mother) warehouse</label><Combobox field="Issuing Warehouse" allowFree={false} value={iw} onChange={(v) => setHdr({ ...hdr, 'Issuing Warehouse': v })} /></div>
         <div><label className="label">Priority</label><select className="input" value={hdr.Priority} onChange={(e) => setHdr({ ...hdr, Priority: e.target.value })}>{PRIORITIES.map((p) => <option key={p}>{p}</option>)}</select></div>
-        <div className="sm:col-span-4"><label className="label">Notes</label><textarea className="input min-h-[3rem]" value={hdr['Narration-Notes']} onChange={(e) => setHdr({ ...hdr, 'Narration-Notes': e.target.value })} /></div>
+        <div className="sm:col-span-2"><label className="label">Notes</label><textarea className="input h-9 min-h-0 resize-y" value={hdr['Narration-Notes']} onChange={(e) => setHdr({ ...hdr, 'Narration-Notes': e.target.value })} /></div>
       </div></Card>
       <Card title="Items" className="mb-4">
         <Grid cols={cols} lines={shown} describe={false} onChange={(l) => setLines(l)} />

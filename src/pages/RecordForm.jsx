@@ -35,6 +35,7 @@ function VoucherPicker({ kind, value, onPick }) {
   );
 }
 
+const NOT_MWH = { exclude: 'MWH' };
 export default function RecordForm({ table, mode = 'create', initial, onSubmit, onCancel, submitLabel }) {
   const toast = useToast();
   const readOnly = mode === 'view';
@@ -48,7 +49,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
   const [lines, setLines] = useState(() => (initial?.lines || []).map((l, i) => ({ ...l, _k: `i${i}` })));
   const [errors, setErrors] = useState({}); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
 
-  const GRN_ORDER = ['Receipt Type', 'Date', 'Warehouse', 'Document No.', 'Vendor Account', 'Type Of Purchase', 'Supplier Ref No', 'Location', 'Invoice No.', 'Invoice Date', 'Invoice Value', 'Is IGST', 'Update Stock', 'Raise Receipt', 'Attachment', 'Terms Of Delivery', 'Narration-Notes'];
+  const GRN_ORDER = ['Date', 'Warehouse', 'Document No.', 'Vendor Account', 'Type Of Purchase', 'Supplier Ref No', 'Location', 'Invoice No.', 'Invoice Date', 'Invoice Value', 'Is IGST', 'Update Stock', 'Raise Receipt', 'Attachment', 'Terms Of Delivery', 'Narration-Notes'];
   const isGrn = table.slug === 'grn-mrn';
   const ACCT = new Set(['place of supply', 'ship to name', 'ship to address', 'ship to city', 'ship to state', 'ship to pin code', 'bill code', 'is igst', 'ref. doc', 'ref. date']); // account / GST details can be folded away on Imprest forms
   const fields = useMemo(() => {
@@ -59,10 +60,16 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
   }, [table, mode]); // eslint-disable-line react-hooks/exhaustive-deps
   const isOut = table.slug === 'imprest-out-new' && mode === 'create';
   const isIn = table.slug === 'imprest-in-new' && mode === 'create';
-  const foldFields = isOut || isIn ? fields.filter((x) => ACCT.has(x.name.toLowerCase())) : [];
+  const foldFields = isOut || isIn ? fields.filter((x) => ACCT.has(x.name.toLowerCase())) : isGrn ? fields.filter((x) => x.name.toLowerCase() === 'is igst') : [];
   const mainFields = foldFields.length ? fields.filter((x) => !foldFields.includes(x)) : fields;
   const isCons = table.slug === 'material-consumption' && mode === 'create';
   const stockMode = isOut ? 'out' : isIn ? 'in' : isCons ? 'consume' : false;
+  const isTransfer = table.slug === 'stock-transfer' && mode === 'create';
+  const xp = (f) => (IMPREST_WH && ((isIn && f.name === 'To Warehouse') || (isCons && f.name === 'Warehouse')) ? IMPREST_WH : isTransfer && f.name === 'To Warehouse' ? NOT_MWH : undefined); // transfers go out of the Mother Warehouse to the others, never into it
+  useEffect(() => { // Stock Transfer: From Warehouse is the Mother Warehouse (MWH) by default
+    if (!isTransfer || values['From Warehouse']) return;
+    api.get('/api/lookup', { field: 'Warehouse' }).then((r) => { const m = (r.options || []).find((o) => String(o.value).toUpperCase() === 'MWH'); if (m) setValues((v) => (v['From Warehouse'] ? v : { ...v, 'From Warehouse': m.value })); }).catch(() => {});
+  }, [isTransfer]); // eslint-disable-line react-hooks/exhaustive-deps
   const [defWh, setDefWh] = useState('');
   const custTimer = useRef(null);
   useEffect(() => { // the user's own warehouse (or the one being viewed) becomes the default on every line
@@ -118,11 +125,11 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
     <form onSubmit={submit} noValidate aria-label={table.title}>
       {err && <div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
       <div className={`grid gap-x-3 gap-y-2 ${isGrn ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 [&_.input]:h-9 [&_.label]:mb-1 [&_.label]:flex [&_.label]:min-h-[1.25rem] [&_.label]:items-end [&_.label]:text-[11px] [&_textarea.input]:h-9 [&_textarea.input]:min-h-0" : !table.hasLines && fields.length > 8 ? "grid-cols-1 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 [&_.label]:text-[11px] [&_.label]:leading-4" : fields.length > 8 ? "compact grid-cols-2 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 [&_.input]:h-8 [&_.input]:py-0 [&_.input]:text-[13px] [&_.label]:mb-0 [&_.label]:text-[10px] [&_.label]:leading-4 [&_.label]:flex [&_.label]:min-h-[2rem] [&_.label]:items-end" : "sm:grid-cols-2"}`}>
-        {mainFields.map((f) => <Field key={f.name} field={f} value={values[f.name]} onChange={(v) => set(f.name, v)} disabled={readOnly} required={table.required.includes(f.name)} error={errors[f.name]} extraParams={IMPREST_WH && ((isIn && f.name === 'To Warehouse') || (isCons && f.name === 'Warehouse')) ? IMPREST_WH : undefined} />)}
+        {mainFields.map((f) => <Field key={f.name} field={f} value={values[f.name]} onChange={(v) => set(f.name, v)} disabled={readOnly} required={table.required.includes(f.name)} error={errors[f.name]} extraParams={xp(f)} compactNote={isTransfer} />)}
       </div>
-      {foldFields.length > 0 && <Collapsible title="Account / GST details" className="mt-3">
+      {foldFields.length > 0 && <Collapsible title="Account / GST details" className="mt-3" defaultOpen={false}>
         <div className={`grid gap-x-3 gap-y-2 ${isGrn ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 [&_.input]:h-9 [&_.label]:mb-1 [&_.label]:flex [&_.label]:min-h-[1.25rem] [&_.label]:items-end [&_.label]:text-[11px] [&_textarea.input]:h-9 [&_textarea.input]:min-h-0" : !table.hasLines && fields.length > 8 ? "grid-cols-1 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 [&_.label]:text-[11px] [&_.label]:leading-4" : fields.length > 8 ? "compact grid-cols-2 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 [&_.input]:h-8 [&_.input]:py-0 [&_.input]:text-[13px] [&_.label]:mb-0 [&_.label]:text-[10px] [&_.label]:leading-4 [&_.label]:flex [&_.label]:min-h-[2rem] [&_.label]:items-end" : "sm:grid-cols-2"}`}>
-          {foldFields.map((f) => <Field key={f.name} field={f} value={values[f.name]} onChange={(v) => set(f.name, v)} disabled={readOnly} required={table.required.includes(f.name)} error={errors[f.name]} extraParams={IMPREST_WH && ((isIn && f.name === 'To Warehouse') || (isCons && f.name === 'Warehouse')) ? IMPREST_WH : undefined} />)}
+          {foldFields.map((f) => <Field key={f.name} field={f} value={values[f.name]} onChange={(v) => set(f.name, v)} disabled={readOnly} required={table.required.includes(f.name)} error={errors[f.name]} extraParams={xp(f)} compactNote={isTransfer} />)}
         </div>
       </Collapsible>}
       {table.hasLines && (

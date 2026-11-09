@@ -22,7 +22,6 @@ import ImprestPending from './pages/ImprestPending.jsx';
 import ImprestRegister from './pages/ImprestRegister.jsx';
 import ConsumptionPage from './pages/ConsumptionPage.jsx';
 import ApprovalSettings from './pages/ApprovalSettings.jsx';
-import GrnDetailRegister from './pages/workflow/GrnDetailRegister.jsx';
 import { GrnDetail, GrnForm, GrnRegister, IntentDetail, IntentForm, IntentRegister, PoDetail, PoForm, PoRegister } from './pages/workflow/index.jsx';
 import DocPrint from './pages/DocPrint.jsx';
 import IntentPrint from './pages/workflow/IntentPrint.jsx';
@@ -96,7 +95,6 @@ export default function App() {
         <Route path="consumption/register" element={<ImprestRegister kind="cons" />} />
         <Route path="consumption/:mode" element={<ConsumptionPage />} />
         <Route path="admin/approval" element={<ApprovalRoute />} />
-        <Route path="grn/detail" element={<Need table="grn-mrn" action="view"><GrnDetailRegister /></Need>} />
         <Route path="print/:slug/:id" element={<DocPrint />} />
         <Route path="eway/pending" element={<EwayPending />} />
         <Route path="imprest/settle/:ref" element={<ImprestSettle />} />

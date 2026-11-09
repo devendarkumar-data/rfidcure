@@ -87,7 +87,7 @@ function tableMeta(ctx, t) {
   else allowed = allowed.filter((a) => ['view', 'export'].includes(a));
   if (t.slug === 'purchase-indent' && !mayRaiseIntent(ctx)) allowed = allowed.filter((a) => !['create', 'edit'].includes(a)); // only MWH raises indents
   return {
-    slug: t.slug, title: t.tab, module: t.module, kind: t.kind, stage: t.stage, idCol: t.idCol, actions: allowed, posts: !!t.post,
+    slug: t.slug, title: t.slug === 'grn-mrn' ? 'GRN' : t.tab, module: t.module, kind: t.kind, stage: t.stage, idCol: t.idCol, actions: allowed, posts: !!t.post,
     required: t.required, hasLines: t.hasLines && t.lineFields.length > 0, itemField: t.itemField, sort: t.sort,
     fields: t.fields.filter((f) => !(t.hide || []).includes(f.name)).map((f) => fieldMeta(ctx, f)).filter((f) => !f.hidden),
     lineFields: t.lineFields.filter((f) => !(t.hideLines || []).includes(f.name)).map((f) => fieldMeta(ctx, f)).filter((f) => !f.hidden),
@@ -206,7 +206,12 @@ export default async function handler(req, res) {
 
     if (seg[0] === 'wf') {
       const body = ['POST', 'PUT'].includes(req.method) ? await readBody(req) : null; const idem = req.headers['idempotency-key'];
-      const csv = async (r, name) => { await audit(store, { user: ctx.user, module: name, action: 'Export', remarks: `${r.total} rows` }); return send(res, 200, toCsv(Object.keys(r.rows[0] || { 'Document No.': 1 }).filter((k) => k !== 'actions'), r.rows), { ...outHeaders, 'Content-Disposition': `attachment; filename="${name}.csv"` }); };
+      const csv = async (r, name) => {
+        await audit(store, { user: ctx.user, module: name, action: 'Export', remarks: `${r.total} rows` });
+        const cols = Object.keys(r.rows[0] || { 'Document No.': 1 }).filter((k) => k !== 'actions');
+        if (q.export === 'xlsx') return send(res, 200, await toXlsx(name, cols, r.rows), { ...outHeaders, 'Content-Disposition': `attachment; filename="${name}.xlsx"` });
+        return send(res, 200, toCsv(cols, r.rows), { ...outHeaders, 'Content-Disposition': `attachment; filename="${name}.csv"` });
+      };
       const r2 = seg.slice(1).join('/');
       if (r2 === 'intents' && req.method === 'GET') { const r = await wf.listIntents(ctx, q); return q.export ? csv(r, 'purchase-intents') : ok(r); }
       if (r2 === 'intents/get' && req.method === 'GET') return ok(await wf.getIntent(ctx, q.id));
@@ -243,7 +248,7 @@ export default async function handler(req, res) {
       }
       throw notFound('Unknown endpoint');
     }
-    if (path === 'lookup' && req.method === 'GET') return ok(await crud.lookup(ctx, q.field, q.q, 30, q.scopeOnly === '1', { warehouse: q.warehouse, all: q.all, imprest: q.imprest, purchaseType: q.purchaseType, vendor: q.vendor, item: q.item }));
+    if (path === 'lookup' && req.method === 'GET') return ok(await crud.lookup(ctx, q.field, q.q, 30, q.scopeOnly === '1', { warehouse: q.warehouse, all: q.all, imprest: q.imprest, exclude: q.exclude, purchaseType: q.purchaseType, vendor: q.vendor, item: q.item }));
     if (path === 'imprest/consumption' && req.method === 'GET') return ok(await imprest.consumptionList(ctx, q.status));
     if (path === 'imprest/bill' && req.method === 'POST') return ok(await imprest.updateBill(ctx, await readBody(req)));
     if (path === 'imprest/register' && req.method === 'GET') {

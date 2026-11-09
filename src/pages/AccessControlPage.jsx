@@ -60,7 +60,7 @@ function GroupRows({ mod, rows, roles, levels, busy, onSet }) {
       <tr><td colSpan={roles.length + 1} className="sticky left-0 bg-slate-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{mod}</td></tr>
       {rows.map((r) => (
         <tr key={r.tab} className="hover:bg-slate-50">
-          <td className="sticky left-0 z-10 border-b border-slate-100 bg-white px-3 py-1.5 font-medium">{r.tab.replace(/\s{2,}/g, ' ')}</td>
+          <td className="sticky left-0 z-10 border-b border-slate-100 bg-white px-3 py-1.5 font-medium">{r.tab.replace(/\s{2,}/g, ' ').replace('GRN MRN', 'GRN')}</td>
           {roles.map((role) => {
             const c = r.levels[role.key]; const isBusy = busy === `${r.tab}|${role.key}`;
             return (

@@ -41,8 +41,18 @@ export default function DataTable({ endpoint, columns, params, rowActions, expor
   useEffect(() => { load(); }, [load, refreshKey, tick]);
 
   const toggle = (c) => { if (c.sortable === false) return; if (sort === c.name) setDir(dir === 'asc' ? 'desc' : 'asc'); else { setSort(c.name); setDir('asc'); } setPage(1); };
+  const [fmt, setFmt] = useState('csv');
   const doExport = async () => {
-    try { await download(endpoint, { q: dq, sort, dir, ...JSON.parse(pjson), export: 'csv' }, `${exportName || 'export'}.csv`); } catch (e) { toast.error(e.message); }
+    try {
+      const base = { q: dq, sort, dir, ...JSON.parse(pjson) };
+      if (fmt !== 'pdf') return await download(endpoint, { ...base, export: fmt }, `${exportName || 'export'}.${fmt === 'xlsx' ? 'xlsx' : 'csv'}`);
+      let all = []; // PDF: fetch every page, then draw the visible columns
+      for (let pg = 1, pages = 1; pg <= pages && pg <= 50; pg++) { const r = await api.get(endpoint, { ...base, page: pg, pageSize: 200 }); all = all.concat(r.rows || []); pages = r.pages || 1; }
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' }); doc.setFontSize(12); doc.text(String(exportName || 'export').replace(/[-_]/g, ' '), 30, 30);
+      autoTable(doc, { startY: 40, styles: { fontSize: 7 }, headStyles: { fillColor: [11, 74, 143] }, head: [columns.map((c) => c.label || c.name)], body: all.map((r) => columns.map((c) => { const v = r[c.name]; return v === null || v === undefined ? '' : String(v); })) });
+      doc.save(`${exportName || 'export'}.pdf`);
+    } catch (e) { toast.error(e.message); }
   };
   const rows = data?.rows || [];
 
@@ -58,7 +68,7 @@ export default function DataTable({ endpoint, columns, params, rowActions, expor
           )}
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {toolbar}
-            {exportable && <button className="btn" onClick={doExport}><Icon name="download" className="h-4 w-4" /> Export CSV</button>}
+            {exportable && <><select className="input !w-auto" value={fmt} onChange={(e) => setFmt(e.target.value)} aria-label="Download format"><option value="csv">CSV</option><option value="xlsx">Excel</option><option value="pdf">PDF</option></select><button className="btn" onClick={doExport}><Icon name="download" className="h-4 w-4" /> Download</button></>}
           </div>
         </div>
       )}
