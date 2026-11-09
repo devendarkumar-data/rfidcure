@@ -656,3 +656,21 @@ test('same vendor name as Domestic and International: separate prefix and separa
   assert.equal((await dom()).json.id, 'TWD/26-27/1002');
   assert.equal((await imp()).json.id, 'TWI/26-27/1002');
 });
+
+test('Imprest Out creates a virtual warehouse per location; Imprest In takes back only the batches sent, others stay untouched', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const pw = 'Op@Strong2026x';
+  await app.store.append('Users', [{ 'User ID': 'entop4', 'User Name': 'entop4', Role: 'Entry Operator', Branch: 'MWH', Status: 'Active', Password: pw }]);
+  await app.store.append('Item Master', [{ 'Master Id': 'IM-V', 'Item Name': 'Virtual Screw', Code: 'VS1', Brand: 'ACME', 'Item Category': 'Implants' }]);
+  await app.store.append('Opening Stock', ['B1', 'B2', 'B3'].map((b) => ({ Warehouse: 'MWH', 'Item Code': 'VS1', 'Item Name': 'Virtual Screw', 'Batch Number': b, Quantity: 60, 'Expiry Date': '2031-01-01', 'Stock Value': 3000 })));
+  const e = await app.as('entop4', pw); const sa = await app.as('sa');
+  const qty = async (wh, batch) => (((await e('GET', `/api/lookup?field=Stock Item&warehouse=${encodeURIComponent(wh)}&q=VS1`)).json.options || []).filter((x) => x.batch === batch).reduce((s, x) => s + x.qty, 0));
+  const out = await e('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-28', 'Customer Account': 'AMES HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'VS1', Quantity: 50, Batch: 'B1' }, { Warehouse: 'MWH', 'Item Code': 'VS1', Quantity: 20, Batch: 'B2' }] });
+  assert.equal(out.status, 201, out.text);
+  assert.deepEqual([await qty('AMES HOSPITAL', 'B1'), await qty('AMES HOSPITAL', 'B2'), await qty('AMES HOSPITAL', 'B3')], [50, 20, 0], 'the virtual warehouse holds only what was sent');
+  const back = (lines) => e('POST', '/api/t/imprest-in-new', { header: { Date: '2026-10-29', 'To Warehouse': 'AMES HOSPITAL', 'Imprest Ref': out.json.id }, lines });
+  assert.equal((await back([{ Warehouse: 'MWH', 'Item Code': 'VS1', Quantity: 5, Batch: 'B3' }])).status, 422, 'a batch that was never sent cannot be taken back');
+  assert.equal((await back([{ Warehouse: 'MWH', 'Item Code': 'VS1', Quantity: 51, Batch: 'B1' }])).status, 422, 'not more than was sent');
+  const ok = await back([{ Warehouse: 'MWH', 'Item Code': 'VS1', Quantity: 10, Batch: 'B1' }]); assert.equal(ok.status, 201, ok.text);
+  assert.deepEqual([await qty('AMES HOSPITAL', 'B1'), await qty('AMES HOSPITAL', 'B2'), await qty('MWH', 'B1'), await qty('MWH', 'B2'), await qty('MWH', 'B3')], [40, 20, 20, 40, 60], 'only the 10 of B1 moved back');
+});
