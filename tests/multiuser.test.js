@@ -687,3 +687,16 @@ test('HSN is picked up from the Item Master on indent, PO, Imprest Out/In, Consu
   const pi = await sa('POST', '/api/wf/intents', { header: { Date: '2026-10-28', 'Requesting Warehouse': 'MWH' }, lines: [{ 'Item Code': 'HS1', Items: 'Hsn Screw', Quantity: 3 }] });
   if (pi.status === 201) assert.equal((await sa('GET', `/api/wf/intents/${encodeURIComponent(pi.json.id)}`)).json.lines?.[0]?.HSN ?? '90211000', '90211000');
 });
+
+test('warehouse roles that run Imprest see Customer Account and HSN on the Imprest Out form', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const pw = 'Op@Strong2026x';
+  await app.store.append('Users', ['Mother Warehouse Manager', 'Mother Warehouse Operator', 'Data Entry Operator'].map((role, i) => ({ 'User ID': `cu${i}`, 'User Name': `cu${i}`, Role: role, Branch: 'MWH', Status: 'Active', Password: pw })));
+  for (let i = 0; i < 3; i++) {
+    const u = await app.as(`cu${i}`, pw);
+    const m = (await u('GET', '/api/meta')).json.modules.flatMap((x) => x.tables).find((x) => x.slug === 'imprest-out-new');
+    assert.ok(m, `cu${i} sees Imprest Out`);
+    assert.ok(m.fields.some((f) => f.name === 'Customer Account'), `cu${i}: Customer Account`);
+    assert.ok(m.lineFields.some((f) => f.name === 'HSN'), `cu${i}: HSN`);
+  }
+});

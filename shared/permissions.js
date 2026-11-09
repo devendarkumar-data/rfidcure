@@ -72,23 +72,23 @@ export const ROLE_SCOPE = {
 const w = 'w', r = 'r', n = 'n';
 export const FIELD_GROUPS = ['item', 'batch', 'expiry', 'quantity', 'customer', 'tax', 'status'];
 export const ROLE_FIELD_ACCESS = {
-  grn_special:       { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: w, status: w },
+  grn_special:       { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   grn_operator:      { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: n, status: w },
   eway_operator:     { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   entry_operator:    { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   all:               { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   super_admin:       { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   admin:             { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
-  warehouse_manager: { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: n, status: w },
+  warehouse_manager: { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   purchase:          { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: n, status: w },
   sales:             { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   finance:           { item: n, batch: n, expiry: n, quantity: n, customer: w, tax: w, status: w },
   auditor:           { item: n, batch: n, expiry: n, quantity: n, customer: n, tax: n, status: r },
-  data_entry:        { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: n, status: n },
+  data_entry:        { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: n },
   purchase_manager:  { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: w, status: w },
-  warehouse_operator: { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: n, status: w },
-  mother_warehouse_manager: { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: w, status: w },
-  mother_warehouse_operator: { item: w, batch: w, expiry: w, quantity: w, customer: n, tax: n, status: w },
+  warehouse_operator: { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
+  mother_warehouse_manager: { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
+  mother_warehouse_operator: { item: w, batch: w, expiry: w, quantity: w, customer: w, tax: w, status: w },
   approver:          { item: r, batch: r, expiry: r, quantity: r, customer: n, tax: r, status: r },
 };
 
