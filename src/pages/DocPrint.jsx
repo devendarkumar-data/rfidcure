@@ -6,7 +6,7 @@ import Spinner from '../components/Spinner.jsx';
 // Printable document (A4) for Imprest Out / Imprest In / Material Consumption. Opened from the registers by clicking the document number.
 export const PRINTABLE = { 'imprest-out-new': 'IMPREST OUT', 'imprest-in-new': 'IMPREST IN', 'material-consumption': 'MATERIAL CONSUMPTION', 'grn-mrn': 'GOODS RECEIPT NOTE' };
 export const printPath = (slug, id) => `/print/${slug}/${encodeURIComponent(id)}`;
-const HIDE_HEAD = new Set(['Lines', 'DocNo', 'Document No.', 'Return Closed', 'Ref. Doc', 'Ref. Date', 'Is IGST', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State']);
+const HIDE_HEAD = new Set(['Lines', 'DocNo', 'Document No.', 'Return Closed', 'Ref. Doc', 'Ref. Date', 'Is IGST', 'Imprest Ref', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State']);
 const HIDE_LINE = new Set(['_k', '_name', 'Warehouse Type']);
 const LABEL = { Items: 'Item Name', Item: 'Item Name', Quantity: 'Qty', Batch: 'Batch No', HSN: 'HSN Code', 'Imprest Ref': 'Imprest Voucher No.' };
 // Line columns of every printed document, in this order (a column with no data is left out).
@@ -17,11 +17,19 @@ const border = '1px solid #000';
 export default function DocPrint() {
   const { slug, id: idParam } = useParams(); const id = decodeURIComponent(idParam || '');
   const [data, setData] = useState(null); const [err, setErr] = useState('');
+  const [outRec, setOutRec] = useState(null);
   useEffect(() => { api.get(`/api/t/${slug}/record`, { id }).then(setData).catch((e) => setErr(e.message)); }, [slug, id]);
+  const ref = data?.record?.['Imprest Ref'];
+  // Older Imprest In / Consumption documents carry no Doctor: take it from the Imprest Out they were raised against.
+  useEffect(() => { if (ref && ['imprest-in-new', 'material-consumption'].includes(slug)) api.get('/api/t/imprest-out-new/record', { id: ref }).then((r) => setOutRec(r.record)).catch(() => {}); }, [ref, slug]);
   if (!PRINTABLE[slug]) return <div className="card p-4 text-sm">This document cannot be printed.</div>;
   if (err) return <div role="alert" className="card p-4 text-sm text-red-600">{err}</div>;
   if (!data) return <Spinner />;
-  const head = Object.entries(data.record || {}).filter(([k, v]) => !k.startsWith('_') && !k.startsWith('__') && !HIDE_HEAD.has(k) && v !== '' && v !== null && v !== undefined);
+  const rec = { ...(data.record || {}) };
+  if (slug === 'imprest-in-new') rec['Imprest In Doc No'] = rec.DocNo || id;
+  if (outRec) for (const k of ['Customer Account', 'Doctor', 'Surgery', 'Sales Executive']) if (!rec[k] && outRec[k]) rec[k] = outRec[k];
+  const FIRST = ['Date', 'Imprest In Doc No', 'Consumption Doc No', 'Group Doc No', 'Doctor'];
+  const head = Object.entries(rec).sort(([a], [b]) => (FIRST.includes(a) ? FIRST.indexOf(a) : 99) - (FIRST.includes(b) ? FIRST.indexOf(b) : 99)).filter(([k, v]) => !k.startsWith('_') && !k.startsWith('__') && !HIDE_HEAD.has(k) && v !== '' && v !== null && v !== undefined);
   const lines = data.lines || [];
   const has = (k) => lines.some((x) => x[k] !== '' && x[k] !== null && x[k] !== undefined);
   const cols = LINE_ORDER.filter((k) => has(k) && !(k === 'Item' && has('Items')));

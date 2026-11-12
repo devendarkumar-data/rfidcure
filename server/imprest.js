@@ -129,7 +129,7 @@ export async function receive(ctx, body, idem) {
   {
     if (!back.length) throw unprocessable('Enter the quantity taken back');
     const key = idem ? `${String(idem).replace(/[^A-Za-z0-9-]/g, '').slice(0, 56)}-in` : undefined;
-    const r = await createRecord(ctx, TABLE_BY_SLUG[IN], { header: { Date: date, 'To Warehouse': p.hospital, 'Imprest Ref': ref, ...(sstr(body._group) ? { 'Group Doc No': sstr(body._group) } : {}), 'Narration / Notes': sstr(body.narration) || `Return against ${ref}` }, lines: back }, key);
+    const r = await createRecord(ctx, TABLE_BY_SLUG[IN], { header: { Date: date, 'To Warehouse': p.hospital, 'Imprest Ref': ref, ...people(out), ...(sstr(body._group) ? { 'Group Doc No': sstr(body._group) } : {}), 'Narration / Notes': sstr(body.narration) || `Return against ${ref}` }, lines: back }, key);
     result.inDoc = r.id;
   }
   return { ...result, summary: { returned: rq(back.reduce((s, l) => s + l.Quantity, 0)), toConsume: rq(p.balance - back.reduce((s, l) => s + l.Quantity, 0)) }, trail: await trail(ctx, ref) };
@@ -154,9 +154,12 @@ export async function consume(ctx, body, idem) {
   if (!used.length) throw unprocessable('Enter the consumed quantity');
   const billNo = sstr(body.billNo);
   const key = idem ? `${String(idem).replace(/[^A-Za-z0-9-]/g, '').slice(0, 56)}-cons` : undefined;
-  const r = await createRecord(ctx, TABLE_BY_SLUG[CONS], { header: { Warehouse: p.hospital, 'Imprest Ref': ref, ...(sstr(body._group) ? { 'Group Doc No': sstr(body._group), 'Imprest In Doc No': sstr(body._inDoc) } : {}), 'Bill Status': billNo ? 'Billed' : 'Pending Bill', ...(billNo ? { 'Bill No': billNo } : {}), ...(sstr(body.billDate) ? { 'Bill Date': normDate(body.billDate) } : {}), 'Narration / Notes': sstr(body.narration) || `Consumed against ${ref}` }, lines: used }, key);
+  const r = await createRecord(ctx, TABLE_BY_SLUG[CONS], { header: { Warehouse: p.hospital, 'Imprest Ref': ref, ...people(out), ...(sstr(body._group) ? { 'Group Doc No': sstr(body._group), 'Imprest In Doc No': sstr(body._inDoc) } : {}), 'Bill Status': billNo ? 'Billed' : 'Pending Bill', ...(billNo ? { 'Bill No': billNo } : {}), ...(sstr(body.billDate) ? { 'Bill Date': normDate(body.billDate) } : {}), 'Narration / Notes': sstr(body.narration) || `Consumed against ${ref}` }, lines: used }, key);
   return { ref, consumptionDoc: r.id, consumed: rq(used.reduce((s, l) => s + l.Quantity, 0)), trail: await trail(ctx, ref) };
 }
+
+// Doctor / customer details carried from the Imprest Out onto the Imprest In and Consumption saved against it.
+const people = (o) => Object.fromEntries(['Customer Account', 'Doctor', 'Surgery', 'Sales Executive', 'Business Head'].filter((k) => sstr(o[k])).map((k) => [k, sstr(o[k])]));
 
 // Group register: one group per Imprest Out voucher, with its Imprest In / Consumption documents listed date-wise underneath.
 export async function groups(ctx) {
@@ -196,11 +199,11 @@ export async function settle(ctx, body, idem) {
   }
   if (!anyBack && !anyUsed) throw unprocessable('Enter the quantity taken back and/or consumed');
   const date = normDate(body.date) || today();
-  const group = anyBack && anyUsed ? await groupDocNo(ctx.store, date) : ''; // one Group Doc No ties the Imprest In and the Consumption saved together
+  const group = await groupDocNo(ctx.store, date); // every save from the voucher screen gets a Group Doc No; when both are saved together it ties the Imprest In and the Consumption
   const out2 = { ref, inDoc: null, consumptionDoc: null, groupDoc: group || null };
   if (anyBack) out2.inDoc = (await receive(ctx, { ref, date, narration: body.narration, _group: group, lines: rows.map((l) => ({ key: l.key, returned: l.returned })) }, idem)).inDoc;
   if (anyUsed) { const r = await consume(ctx, { ref, narration: body.narration, _group: group, _inDoc: out2.inDoc || '', lines: rows.map((l) => ({ key: l.key, consumed: l.consumed })) }, idem); out2.consumptionDoc = r.consumptionDoc; }
-  if (group) { const { rows: inRows } = await ctx.store.read(TABLE_BY_SLUG[IN].tab, { fresh: true }); const row = inRows.find((x) => sstr(x.DocNo) === out2.inDoc); if (row) await ctx.store.updateRow(TABLE_BY_SLUG[IN].tab, row.__row, { 'Consumption Doc No': out2.consumptionDoc }, { col: 'DocNo', val: out2.inDoc }); }
+  if (group && out2.inDoc && out2.consumptionDoc) { const { rows: inRows } = await ctx.store.read(TABLE_BY_SLUG[IN].tab, { fresh: true }); const row = inRows.find((x) => sstr(x.DocNo) === out2.inDoc); if (row) await ctx.store.updateRow(TABLE_BY_SLUG[IN].tab, row.__row, { 'Consumption Doc No': out2.consumptionDoc }, { col: 'DocNo', val: out2.inDoc }); }
   return { ...out2, trail: await trail(ctx, ref) };
 }
 
