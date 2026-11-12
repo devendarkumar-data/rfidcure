@@ -704,8 +704,8 @@ export function GrnRegister({ special = false }) {
   const pickOpt = (o) => { setOpt(o); setRange(o === 'All' ? { from: '', to: '' } : o === 'Date Range' ? range : rangeFor(o)); };
   // every GRN column from the sheet (field-level access still applies), key ones first and relabelled
   const LABEL = { 'Document No.': special ? 'Special GRN No.' : 'GRN No.', 'Supplier Ref No': 'PO No.', 'Vendor Account': 'Vendor' };
-  const FIRST = special ? ['Document No.', 'Date', 'Warehouse', 'Vendor Account', 'Location', 'Narration-Notes'] : ['Document No.', 'Date', 'Supplier Ref No', 'Vendor Account', 'Type Of Purchase', 'Warehouse', 'Invoice No.', 'Invoice Date', 'Invoice Value'];
-  const NO_ACCT = ['Invoice Value', 'Invoice Date', 'Invoice No.', 'Is IGST', 'Terms of Delivery', 'Type Of Purchase', 'Supplier Ref No', 'Raise Receipt', 'Receipt Type'];
+  const FIRST = special ? ['Document No.', 'Date', 'Warehouse', 'Vendor Account', 'Invoice No.', 'Invoice Date', 'Invoice Value', 'Location', 'Narration-Notes'] : ['Document No.', 'Date', 'Supplier Ref No', 'Vendor Account', 'Type Of Purchase', 'Warehouse', 'Invoice No.', 'Invoice Date', 'Invoice Value'];
+  const NO_ACCT = ['Is IGST', 'Terms of Delivery', 'Type Of Purchase', 'Supplier Ref No', 'Raise Receipt', 'Receipt Type'];
   const names = (t?.fields || []).map((f) => f.name).filter((n) => !special || !NO_ACCT.includes(n)); const ordered = [...FIRST.filter((n) => names.includes(n)), ...names.filter((n) => !FIRST.includes(n) && n !== 'Lines')];
   const columns = ordered.map((name) => ({ name, ...(LABEL[name] ? { label: LABEL[name] } : {}), ...(name === 'Document No.' ? { render: (v) => <span className="font-medium text-brand-700">{v}</span> } : {}), ...(name === 'Invoice Value' ? { type: 'number' } : {}), ...(['Narration-Notes', 'Terms of Delivery'].includes(name) ? { sortable: false, render: (v) => <span className="block max-w-[10rem] truncate" title={v}>{v}</span> } : {}), ...(name === 'Attachment' ? { sortable: false, render: (v) => <AttachmentLinks value={v} /> } : {}) }));
   const canCreate = t?.actions.includes('create');
