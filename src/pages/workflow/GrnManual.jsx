@@ -34,7 +34,7 @@ export default function GrnManual() {
   };
   return (
     <>
-      <PageHeader back={<Back to="/grn/special">Special GRN Register</Back>} title="Special GRN" subtitle="Receive goods that need not follow a PO: add the items yourself. Unlike Create GRN it is not linked to a Purchase Order; it carries the accounting details (invoice, rates, discounts, GST)." />
+      <PageHeader back={<Back to="/grn/special">Special GRN Register</Back>} title="Create Special GRN" subtitle="Receive goods that need not follow a PO: add the items yourself. Unlike Create GRN it is not linked to a Purchase Order; it carries the accounting details (invoice, rates, discounts, GST)." />
       <Card><RecordForm table={special} mode="create" initial={{ header: { 'Update Stock': 'Yes', Location: COMPANY.state, ...(wh ? { Warehouse: wh } : {}) } }} onSubmit={create} onCancel={() => nav('/grn/special')} submitLabel="Save & post" /></Card>
     </>
   );

@@ -663,7 +663,7 @@ export function GrnForm() {
   };
   return (
     <>
-      <PageHeader back={<Back to="/grn">GRN Register</Back>} title="Create GRN" subtitle="Pick a Purchase Order from the register and convert it into a GRN — its items and balances are filled in for you. Authorization is not required. Accepted quantity is posted to stock once." actions={<Link to="/grn/manual" className="btn">Special GRN</Link>} />
+      <PageHeader back={<Back to="/grn">GRN Register</Back>} title="Create GRN" subtitle="Pick a Purchase Order from the register and convert it into a GRN — its items and balances are filled in for you. Authorization is not required. Accepted quantity is posted to stock once." />
       <ErrorBox msg={err} />
       {!po && <GrnPoRegister pos={pos} onPick={setPo} canCreate />}
       {po && !cur && <p className="mb-4 text-sm text-red-600">PO {po} is not open for receipt (it may be fully received, closed, or outside your warehouses). <button type="button" className="underline" onClick={() => setPo('')}>Back to the PO register</button></p>}
@@ -711,7 +711,7 @@ export function GrnRegister({ special = false }) {
   const canCreate = t?.actions.includes('create');
   return (
     <>
-      <PageHeader title={special ? 'Special GRN Register' : 'GRN Register'} actions={t?.actions.includes('create') && (special ? <Link className="btn btn-primary" to="/grn/manual">+ Special GRN</Link> : <Link className="btn btn-primary" to="/grn/new">+ Create GRN</Link>)} />
+      <PageHeader title={special ? 'Special GRN Register' : 'GRN Register'} actions={t?.actions.includes('create') && (special ? <Link className="btn btn-primary" to="/grn/manual">+ Create Special GRN</Link> : <Link className="btn btn-primary" to="/grn/new">+ Create GRN</Link>)} />
       <FilterBar onReset={() => { setRange({ from: '', to: '' }); setOpt('All'); }}>
         <FilterItem label="Date option"><select className="input" value={opt} onChange={(e) => pickOpt(e.target.value)}>{['All', ...DATE_OPTIONS.filter((o) => o !== 'As on date')].map((o) => <option key={o}>{o}</option>)}</select></FilterItem>
         <FilterItem label="From"><input type="date" className="input" value={range.from} onChange={(e) => { setOpt('Date Range'); setRange({ ...range, from: e.target.value }); }} /></FilterItem>

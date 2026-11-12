@@ -45,8 +45,10 @@ export function buildNav(meta) {
   ]);
   add('wh-grn', 'GRN', 'inbox', [
     it(has(grn, 'create'), '/grn/new', 'Create GRN'),
-    it(has(grn, 'create'), '/grn/manual', 'Special GRN'),
     it(has(grn, 'view'), '/grn', 'GRN Register'),
+  ]);
+  add('wh-sgrn', 'Special GRN', 'inbox', [
+    it(has(grn, 'create'), '/grn/manual', 'Create Special GRN'),
     it(has(grn, 'view'), '/grn/special', 'Special GRN Register'),
   ]);
   add('wh-imprest', 'Imprest & Consumption', 'inbox', [
