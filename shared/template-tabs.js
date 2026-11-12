@@ -305,7 +305,9 @@ export default [
    "Dispatch Pincode",
    "Dispatch State",
    "Imprest Ref",
-   "Lines"
+   "Lines",
+   "Group Doc No",
+   "Consumption Doc No"
   ]
  },
  {
@@ -582,7 +584,9 @@ export default [
    "Bill Date",
    "Imprest Ref",
    "Bill Status",
-   "Lines"
+   "Lines",
+   "Group Doc No",
+   "Imprest In Doc No"
   ]
  },
  {

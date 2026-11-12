@@ -22,6 +22,16 @@ export function scopedBalances(ctx, balances, warehouse) {
   return [...balances.values()].filter((e) => inScope(ctx, e.warehouse) && (!w || e.warehouse === w));
 }
 
+// Virtual (hospital / imprest) warehouses shown in Live Stock when asked for (virtual=1): every one for an all-warehouse user,
+// otherwise only those that hold imprest sent from the user's own warehouses.
+export async function virtualWarehouses(ctx) {
+  const hosp = await hospitalSet(ctx.store);
+  if (ctx.user.scope.mode !== 'assigned') return hosp;
+  const { visibleHospitals } = await import('./imprest.js');
+  const mineSet = await visibleHospitals(ctx);
+  return new Set([...hosp].filter((h) => mineSet.has(h)));
+}
+
 export async function stockBalances(ctx, q = {}) {
   needReports(ctx); needStockFields(ctx);
   if (q.export && !can(ctx.user.role, 'reports', 'export')) throw forbidden();
@@ -29,11 +39,13 @@ export async function stockBalances(ctx, q = {}) {
   const hosp = q.hospitals === '1' ? new Set() : await hospitalSet(ctx.store); // hospital (imprest) locations are not stock warehouses
   const open = q.master ? computeBalances(opening, []) : null; // Stock Master: opening and live quantity side by side
   const t = today(); const needle = sstr(q.q).toLowerCase();
-  let rows = scopedBalances(ctx, balances, q.warehouse).filter((e) => !hosp.has(e.warehouse)).filter((e) => (q.showZero ? true : Math.abs(e.qty) > 1e-9 || (open && Math.abs(open.get(e.key)?.qty || 0) > 1e-9)));
+  const virt = q.virtual === '1' ? await virtualWarehouses(ctx) : new Set(); const w0 = sstr(q.warehouse).toUpperCase();
+  if (w0 && !inScope(ctx, w0) && ![...virt].some((v) => v.toUpperCase() === w0)) throw forbidden(`You are not assigned to warehouse ${w0}`);
+  let rows = [...balances.values()].filter((e) => ((inScope(ctx, e.warehouse) && !hosp.has(e.warehouse)) || virt.has(e.warehouse)) && (!w0 || e.warehouse.toUpperCase() === w0)).filter((e) => (q.showZero ? true : Math.abs(e.qty) > 1e-9 || (open && Math.abs(open.get(e.key)?.qty || 0) > 1e-9)));
   if (needle) rows = rows.filter((e) => `${e.itemCode} ${e.itemName} ${e.batch} ${e.brand}`.toLowerCase().includes(needle));
   const shaped = rows.map((e) => {
     const days = e.expiry ? daysBetween(t, e.expiry) : null;
-    return { Warehouse: e.warehouse, 'Item Code': e.itemCode, 'Item Name': e.itemName, Category: e.category, Brand: e.brand, 'Batch Number': e.batch, 'Expiry Date': e.expiry, ...(open ? { 'Opening Qty': open.get(e.key)?.qty || 0 } : {}), Quantity: e.qty, 'Stock Value': e.value, Rate: e.qty > 0 ? round2(e.value / e.qty) : 0, 'Days To Expiry': days, Flag: e.qty < 0 ? 'Negative' : days !== null && days < 0 ? 'Expired' : days !== null && days <= 90 ? 'Expiring' : '' };
+    return { Warehouse: e.warehouse, 'Warehouse Type': virt.has(e.warehouse) ? 'Virtual' : 'Physical', 'Item Code': e.itemCode, 'Item Name': e.itemName, Category: e.category, Brand: e.brand, 'Batch Number': e.batch, 'Expiry Date': e.expiry, ...(open ? { 'Opening Qty': open.get(e.key)?.qty || 0 } : {}), Quantity: e.qty, 'Stock Value': e.value, Rate: e.qty > 0 ? round2(e.value / e.qty) : 0, 'Days To Expiry': days, Flag: e.qty < 0 ? 'Negative' : days !== null && days < 0 ? 'Expired' : days !== null && days <= 90 ? 'Expiring' : '' };
   }).filter((r) => (!q.flag || r.Flag.toLowerCase() === q.flag.toLowerCase()));
   const sortCol = ['Warehouse', 'Item Code', 'Item Name', 'Batch Number', 'Expiry Date', 'Quantity', 'Stock Value', 'Days To Expiry'].includes(q.sort) ? q.sort : 'Item Code';
   const dir = q.dir === 'desc' ? -1 : 1;
@@ -62,20 +74,20 @@ export async function stockLevels(ctx, q = {}) {
 export async function stockSummary(ctx, q = {}) {
   needReports(ctx); needStockFields(ctx);
   const { balances } = await loadStock(ctx.store);
-  const hosp = await hospitalSet(ctx.store);
+  const hosp = await hospitalSet(ctx.store); const virt = q.virtual === '1' ? await virtualWarehouses(ctx) : new Set();
   const items = new Map(); const whs = new Set();
-  for (const e of scopedBalances(ctx, balances, q.warehouse).filter((x) => !hosp.has(x.warehouse))) {
+  for (const e of [...balances.values()].filter((x) => (inScope(ctx, x.warehouse) && !hosp.has(x.warehouse)) || virt.has(x.warehouse))) {
     if (Math.abs(e.qty) < 1e-9) continue;
     whs.add(e.warehouse);
-    const it = items.get(e.itemCode) || items.set(e.itemCode, { itemCode: e.itemCode, itemName: e.itemName, total: 0, value: 0, by: {} }).get(e.itemCode);
-    it.by[e.warehouse] = round2((it.by[e.warehouse] || 0) + e.qty); it.total = round2(it.total + e.qty); it.value = round2(it.value + e.value);
+    const it = items.get(e.itemCode) || items.set(e.itemCode, { itemCode: e.itemCode, itemName: e.itemName, total: 0, all: 0, value: 0, by: {} }).get(e.itemCode);
+    it.by[e.warehouse] = round2((it.by[e.warehouse] || 0) + e.qty); it.all = round2((it.all || 0) + e.qty); if (!virt.has(e.warehouse)) { it.total = round2(it.total + e.qty); it.value = round2(it.value + e.value); } // total / value stay physical; 'all' adds the stock sitting at hospitals
   }
   const needle = sstr(q.q).toLowerCase();
   let rows = [...items.values()].filter((i) => !needle || `${i.itemCode} ${i.itemName}`.toLowerCase().includes(needle)).sort((a, b) => b.total - a.total);
   const total = rows.length;
   const pageSize = Math.min(100, Math.max(1, parseInt(q.pageSize, 10) || 20));
   const page = Math.max(1, parseInt(q.page, 10) || 1);
-  return { warehouses: [...whs].sort(whOrder), rows: rows.slice((page - 1) * pageSize, page * pageSize), total, page, pageSize, pages: Math.max(1, Math.ceil(total / pageSize)) };
+  return { warehouses: [...whs].sort((a, b) => (virt.has(a) - virt.has(b)) || whOrder(a, b)), virtual: [...virt].filter((v) => whs.has(v)), rows: rows.slice((page - 1) * pageSize, page * pageSize), total, page, pageSize, pages: Math.max(1, Math.ceil(total / pageSize)) };
 }
 
 // FEFO-ordered batches of one item in one warehouse, for the line-item pickers in forms.

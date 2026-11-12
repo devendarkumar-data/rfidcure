@@ -6,7 +6,7 @@ import Spinner from '../components/Spinner.jsx';
 // Printable document (A4) for Imprest Out / Imprest In / Material Consumption. Opened from the registers by clicking the document number.
 export const PRINTABLE = { 'imprest-out-new': 'IMPREST OUT', 'imprest-in-new': 'IMPREST IN', 'material-consumption': 'MATERIAL CONSUMPTION', 'grn-mrn': 'GOODS RECEIPT NOTE' };
 export const printPath = (slug, id) => `/print/${slug}/${encodeURIComponent(id)}`;
-const HIDE_HEAD = new Set(['Lines', 'DocNo', 'Document No.', 'Return Closed', 'Ref. Doc', 'Ref. Date', 'Is IGST', 'Location', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State']);
+const HIDE_HEAD = new Set(['Imprest Ref', 'Lines', 'DocNo', 'Document No.', 'Return Closed', 'Ref. Doc', 'Ref. Date', 'Is IGST', 'Location', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State']);
 const HIDE_LINE = new Set(['_k', '_name', 'Warehouse Type']);
 const LABEL = { Items: 'Item Name', Item: 'Item Name', Quantity: 'Qty', Batch: 'Batch No', HSN: 'HSN Code' };
 // Line columns of every printed document, in this order (a column with no data is left out).

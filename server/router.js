@@ -293,6 +293,7 @@ export default async function handler(req, res) {
     if (path === 'stock/opening/row' && req.method === 'PUT') return ok(await opening.editOpeningRow(ctx, await readBody(req)));
     if (path === 'stock/opening/template' && req.method === 'GET' && q.format === 'xlsx') return send(res, 200, await toXlsx('Opening Stock', opening.OPENING_HEADERS, []), { ...outHeaders, 'Content-Disposition': 'attachment; filename="opening-stock-template.xlsx"' });
     if (path === 'stock/opening/template' && req.method === 'GET') return send(res, 200, toCsv(opening.OPENING_HEADERS, []), { ...outHeaders, 'Content-Disposition': 'attachment; filename="opening-stock-template.csv"' });
+    if (path === 'stock/virtual' && req.method === 'GET') { return ok({ warehouses: [...await reports.virtualWarehouses(ctx)].sort() }); }
     if (path === 'stock/levels' && req.method === 'GET') return ok(await reports.stockLevels(ctx, q));
     if (path === 'stock/summary' && req.method === 'GET') return ok(await reports.stockSummary(ctx, q));
     if (path === 'stock/batches' && req.method === 'GET') return ok(await reports.stockBatches(ctx, q));

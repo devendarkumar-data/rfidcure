@@ -12,7 +12,7 @@ import { Back } from './index.jsx';
 
 const DEFAULT_WH = 'MWH'; // Mother Warehouse
 
-// Special GRN: the whole form is open, items are added by hand, and each line has a "PO No" column to link it to a Purchase Order.
+// Special GRN: the whole form is open, items are added by hand, not linked to any Purchase Order, no invoice number / date, no accounting terms.
 export default function GrnManual() {
   const nav = useNavigate(); const toast = useToast(); const { tables } = useAuth(); const table = tables['grn-mrn'];
   const [wh, setWh] = useState(null);
@@ -24,8 +24,8 @@ export default function GrnManual() {
   }, []);
   if (!table || wh === null) return <Spinner />;
   // Special GRN carries no accounting terms: rates, taxes, discounts, invoice value and the GST block are left to the PO-based GRN
-  const NO_HEAD = new Set(['Invoice Value', 'Invoice Date', 'Is IGST', 'Terms of Delivery', 'Type Of Purchase', 'Supplier Ref No', 'Raise Receipt']);
-  const NO_LINE = new Set(['Rate', 'Gross', 'Other Discount', 'Taxable Value', 'CGST', 'IGST', 'Price Book Rate', 'Special Rate', 'MRP', 'Price Type', 'Division', 'Item Group']);
+  const NO_HEAD = new Set(['Invoice Value', 'Invoice Date', 'Is IGST', 'Terms of Delivery', 'Type Of Purchase', 'Supplier Ref No', 'Invoice No.', 'Raise Receipt']);
+  const NO_LINE = new Set(['PO No', 'PO Line', 'Ordered Qty', 'Received Qty', 'Short Close', 'Excess Decision', 'Rate', 'Gross', 'Other Discount', 'Taxable Value', 'CGST', 'IGST', 'Price Book Rate', 'Special Rate', 'MRP', 'Price Type', 'Division', 'Item Group']);
   const special = { ...table, noAccounts: true, fields: table.fields.filter((f) => !NO_HEAD.has(f.name)), lineFields: table.lineFields.filter((f) => !NO_LINE.has(f.name)) };
   const create = async (payload, key) => {
     const r = await api.post('/api/t/grn-mrn', { ...payload, header: { 'Update Stock': 'Yes', ...payload.header, 'Receipt Type': 'Special GRN' } }, { headers: { 'Idempotency-Key': key || idemKey() } });
@@ -34,7 +34,7 @@ export default function GrnManual() {
   };
   return (
     <>
-      <PageHeader back={<Back to="/grn/special">Special GRN Register</Back>} title="Special GRN" subtitle="Receive goods that need not follow a whole PO: add the items yourself. In the PO No column pick the Purchase Order a line belongs to (leave blank for goods with no PO); linked lines reduce that PO's balance." />
+      <PageHeader back={<Back to="/grn/special">Special GRN Register</Back>} title="Special GRN" subtitle="Receive goods that need not follow a whole PO: add the items yourself. Special GRN is not linked to a Purchase Order and carries no invoice number, date or accounting terms." />
       <Card><RecordForm table={special} mode="create" initial={{ header: { 'Update Stock': 'Yes', Location: COMPANY.state, ...(wh ? { Warehouse: wh } : {}) } }} onSubmit={create} onCancel={() => nav('/grn/special')} submitLabel="Save & post" /></Card>
     </>
   );

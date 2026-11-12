@@ -5,7 +5,7 @@ import { assertCan, inScope, parseLines } from './access.js';
 import { audit } from './audit.js';
 import { createRecord, hospitalSet, imprestLinked } from './crud.js';
 import { keyOf, loadStock } from './stock.js';
-import { HttpError, bad, notFound, normDate, sstr, today, toNum, unprocessable } from './util.js';
+import { HttpError, bad, fyOf, notFound, normDate, sstr, today, toNum, unprocessable } from './util.js';
 
 const OUT = 'imprest-out-new', IN = 'imprest-in-new', CONS = 'material-consumption';
 const gkey = (code, batch) => `${sstr(code)}|${sstr(batch)}`;
@@ -54,6 +54,12 @@ export async function validateVoucher(ctx, kind, header, lines) {
     const bal = rq(open.reduce((s, g) => s + g.balance, 0));
     if (q > bal + 1e-9) throw unprocessable(`${code}${batch ? ` (batch ${batch})` : ''}: ${q} is more than the ${bal} still open on voucher ${ref}`);
   }
+}
+
+// Virtual (hospital) warehouses this user may see: those that received an Imprest Out from one of the user's own warehouses.
+export async function visibleHospitals(ctx) {
+  const { outs, ins, cons } = await load(ctx);
+  return new Set(outs.filter((o) => sstr(o.DocNo)).map((o) => position(o, ins, cons)).filter((p) => mine(ctx, p)).map((p) => p.hospital));
 }
 
 export async function pending(ctx) {
@@ -116,7 +122,7 @@ export async function receive(ctx, body, idem) {
   {
     if (!back.length) throw unprocessable('Enter the quantity taken back');
     const key = idem ? `${String(idem).replace(/[^A-Za-z0-9-]/g, '').slice(0, 56)}-in` : undefined;
-    const r = await createRecord(ctx, TABLE_BY_SLUG[IN], { header: { Date: date, 'To Warehouse': p.hospital, 'Imprest Ref': ref, 'Narration / Notes': sstr(body.narration) || `Return against ${ref}` }, lines: back }, key);
+    const r = await createRecord(ctx, TABLE_BY_SLUG[IN], { header: { Date: date, 'To Warehouse': p.hospital, 'Imprest Ref': ref, ...(sstr(body._group) ? { 'Group Doc No': sstr(body._group) } : {}), 'Narration / Notes': sstr(body.narration) || `Return against ${ref}` }, lines: back }, key);
     result.inDoc = r.id;
   }
   return { ...result, summary: { returned: rq(back.reduce((s, l) => s + l.Quantity, 0)), toConsume: rq(p.balance - back.reduce((s, l) => s + l.Quantity, 0)) }, trail: await trail(ctx, ref) };
@@ -141,8 +147,15 @@ export async function consume(ctx, body, idem) {
   if (!used.length) throw unprocessable('Enter the consumed quantity');
   const billNo = sstr(body.billNo);
   const key = idem ? `${String(idem).replace(/[^A-Za-z0-9-]/g, '').slice(0, 56)}-cons` : undefined;
-  const r = await createRecord(ctx, TABLE_BY_SLUG[CONS], { header: { Warehouse: p.hospital, 'Imprest Ref': ref, 'Bill Status': billNo ? 'Billed' : 'Pending Bill', ...(billNo ? { 'Bill No': billNo } : {}), ...(sstr(body.billDate) ? { 'Bill Date': normDate(body.billDate) } : {}), 'Narration / Notes': sstr(body.narration) || `Consumed against ${ref}` }, lines: used }, key);
+  const r = await createRecord(ctx, TABLE_BY_SLUG[CONS], { header: { Warehouse: p.hospital, 'Imprest Ref': ref, ...(sstr(body._group) ? { 'Group Doc No': sstr(body._group), 'Imprest In Doc No': sstr(body._inDoc) } : {}), 'Bill Status': billNo ? 'Billed' : 'Pending Bill', ...(billNo ? { 'Bill No': billNo } : {}), ...(sstr(body.billDate) ? { 'Bill Date': normDate(body.billDate) } : {}), 'Narration / Notes': sstr(body.narration) || `Consumed against ${ref}` }, lines: used }, key);
   return { ref, consumptionDoc: r.id, consumed: rq(used.reduce((s, l) => s + l.Quantity, 0)), trail: await trail(ctx, ref) };
+}
+
+// Group Doc No: IIC/<financial year>/<5-digit sequence>, shared by the Imprest In and Consumption saved together.
+async function groupDocNo(store, date) {
+  const prefix = `IIC/${fyOf(date)}/`; let max = 0;
+  for (const tab of [TABLE_BY_SLUG[IN].tab, TABLE_BY_SLUG[CONS].tab]) for (const r of (await store.read(tab, { fresh: true })).rows) { const g = sstr(r['Group Doc No']); if (g.startsWith(prefix)) max = Math.max(max, parseInt(g.slice(prefix.length), 10) || 0); }
+  return `${prefix}${String(max + 1).padStart(5, '0')}`;
 }
 
 // Imprest In and Consumption in one go: per item/batch the user enters what was taken back and what the hospital used;
@@ -162,9 +175,12 @@ export async function settle(ctx, body, idem) {
     if (r > 0) anyBack = true; if (c > 0) anyUsed = true;
   }
   if (!anyBack && !anyUsed) throw unprocessable('Enter the quantity taken back and/or consumed');
-  const out2 = { ref, inDoc: null, consumptionDoc: null };
-  if (anyBack) out2.inDoc = (await receive(ctx, { ref, date: body.date, narration: body.narration, lines: rows.map((l) => ({ key: l.key, returned: l.returned })) }, idem)).inDoc;
-  if (anyUsed) { const r = await consume(ctx, { ref, narration: body.narration, lines: rows.map((l) => ({ key: l.key, consumed: l.consumed })) }, idem); out2.consumptionDoc = r.consumptionDoc; }
+  const date = normDate(body.date) || today();
+  const group = anyBack && anyUsed ? await groupDocNo(ctx.store, date) : ''; // one Group Doc No ties the Imprest In and the Consumption saved together
+  const out2 = { ref, inDoc: null, consumptionDoc: null, groupDoc: group || null };
+  if (anyBack) out2.inDoc = (await receive(ctx, { ref, date, narration: body.narration, _group: group, lines: rows.map((l) => ({ key: l.key, returned: l.returned })) }, idem)).inDoc;
+  if (anyUsed) { const r = await consume(ctx, { ref, narration: body.narration, _group: group, _inDoc: out2.inDoc || '', lines: rows.map((l) => ({ key: l.key, consumed: l.consumed })) }, idem); out2.consumptionDoc = r.consumptionDoc; }
+  if (group) { const { rows: inRows } = await ctx.store.read(TABLE_BY_SLUG[IN].tab, { fresh: true }); const row = inRows.find((x) => sstr(x.DocNo) === out2.inDoc); if (row) await ctx.store.updateRow(TABLE_BY_SLUG[IN].tab, row.__row, { 'Consumption Doc No': out2.consumptionDoc }, { col: 'DocNo', val: out2.inDoc }); }
   return { ...out2, trail: await trail(ctx, ref) };
 }
 
@@ -199,7 +215,7 @@ export async function updateBill(ctx, body) {
 }
 
 // ---- Imprest Out / Imprest In / Consumption registers (one row per item line, columns as in the Focus register export) ----
-export const REGISTER_COLUMNS = ['DocNo', 'Date', 'Customer A/c Name', 'Issues/Receipts', 'Doctor Name', 'Warehouse 1', 'Warehouse 2', 'Item Code', 'Item Name', 'Unit Name', 'Narration', 'Quantity', 'Item Brand', 'Batch', 'Net Amount', 'Authorize Status', 'Base Link Status', 'Expiry Date', 'Location Name', 'Manufacturing Date', 'Base Link Doc Date', 'Base Link Doc No', 'Link Status', 'Created User', 'Item HSN/SAC', 'Rate'];
+export const REGISTER_COLUMNS = ['DocNo', 'Date', 'Customer A/c Name', 'Issues/Receipts', 'Doctor Name', 'Warehouse 1', 'Warehouse 2', 'Item Code', 'Item Name', 'Unit Name', 'Narration', 'Quantity', 'Item Brand', 'Batch', 'Net Amount', 'Authorize Status', 'Base Link Status', 'Expiry Date', 'Location Name', 'Manufacturing Date', 'Base Link Doc Date', 'Base Link Doc No', 'Link Status', 'Created User', 'Item HSN/SAC', 'Rate', 'Group Doc No', 'Imprest In Doc No', 'Consumption Doc No'];
 export async function register(ctx, type) {
   assertCan(ctx, TABLE_BY_SLUG[type === 'cons' ? CONS : type === 'in' ? IN : OUT], 'view');
   const { outs, ins, cons, ledger } = await load(ctx);
@@ -216,7 +232,7 @@ export async function register(ctx, type) {
       'Item Name': sstr(l.Items || l.Item || l.Description), 'Unit Name': sstr(l.Units || l.Unit), Narration: sstr(h['Narration / Notes']), Quantity: qty, 'Item Brand': brand(code), Batch: sstr(l.Batch),
       'Net Amount': Math.round((qty * rate + tax) * 100) / 100, 'Authorize Status': 'Authorized', 'Base Link Status': base ? 'Linked' : '', 'Expiry Date': normDate(l['Expiry Date']) || '', 'Location Name': sstr(h['Place of Supply'] || h.Location),
       'Manufacturing Date': normDate(l['Manufacturing Date']) || '', 'Base Link Doc Date': base ? normDate(base.Date) : '', 'Base Link Doc No': base ? sstr(base.DocNo) : '', 'Link Status': '', 'Created User': sstr(led(no)?.User),
-      'Item HSN/SAC': sstr(l.HSN), Rate: rate, hospital, status: '', ref: base ? sstr(base.DocNo) : '', warehouse: sstr(l.Warehouse) };
+      'Item HSN/SAC': sstr(l.HSN), Rate: rate, 'Group Doc No': sstr(h['Group Doc No']), 'Imprest In Doc No': kind === 'Receipts' ? no : sstr(h['Imprest In Doc No']), 'Consumption Doc No': sstr(h['Consumption Doc No']) || (kind === 'Consumption' ? no : ''), hospital, status: '', ref: base ? sstr(base.DocNo) : '', warehouse: sstr(l.Warehouse) };
   };
   if (type === 'out') {
     for (const o of outs.filter((x) => sstr(x.DocNo))) {

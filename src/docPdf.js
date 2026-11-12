@@ -5,7 +5,7 @@ export async function downloadDocPdf(type, no, lines, company = 'Cure Surgicals'
   const d = lines[0] || {}; const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
   doc.setFontSize(14); doc.text(company, 40, 40); doc.setFontSize(12); doc.text(TITLE[type] || 'DOCUMENT', 40, 58);
   doc.setFontSize(9);
-  const head = [['Document No', no], ['Date', d.date], ['Customer A/c', d['Customer A/c Name']], ['Hospital', d['Warehouse 2']], ['Doctor', d['Doctor Name']], ['Location', d['Location Name']], ['Against', d['Base Link Doc No']], ['Narration', d.Narration]].filter((r) => r[1]);
+  const head = [['Document No', no], ['Date', d.date], ['Customer A/c', d['Customer A/c Name']], ['Hospital', d['Warehouse 2']], ['Doctor', d['Doctor Name']], ['Location', d['Location Name']], ['Group Doc No', d['Group Doc No']], ['Imprest In Doc No', d['Imprest In Doc No']], ['Consumption Doc No', d['Consumption Doc No']], ['Narration', d.Narration]].filter((r) => r[1]);
   head.forEach(([k, v], i) => { const x = 40 + (i % 2) * 400, y = 78 + Math.floor(i / 2) * 14; doc.text(`${k}: ${v}`, x, y); });
   const qty = lines.reduce((s, l) => s + (Number(l.Quantity) || 0), 0), net = lines.reduce((s, l) => s + (Number(l['Net Amount']) || 0), 0);
   autoTable(doc, {

@@ -291,3 +291,12 @@ Inventory > **Stock Master**: opening quantity and live quantity per warehouse /
 - **Dropdowns**: ↑ ↓ move (list scrolls), Enter picks, Esc closes, Tab / Shift+Tab accept the highlighted match and move on.
 - **Imprest In + Consumption together**: on the Imprest In screen for a voucher, enter per item/batch both *Taken back* and *Consumed*; one Save posts the Imprest In and the Consumption (`POST /api/imprest/settle`; back + consumed may not exceed the open balance).
 - Imprest Out batch selection is first-expiry-first-out (unchanged).
+
+## Round: group doc, live stock with virtual warehouses, Special GRN trimmed
+- Menu: *Imprest In (direct)* and *Consumption (direct)* are removed; *Imprest In - Pending* is the entry point for taking imprest back / consuming.
+- **Special GRN** is no longer linked to a PO and has no Invoice No. / Invoice Date (nor any rate / tax / discount fields). **Create GRN** (against a PO) is unchanged.
+- **Imprest In - Pending → voucher** now lets the user choose per save: *One transaction (Imprest In + Consumption)*, *Imprest In only*, or *Consumption only*. Quick fills: Take all back, Consume all, Rest comes back (type the consumed quantities, the remainder is filled as taken back). The one-transaction save links the two documents with a **Group Doc No** `IIC/<FY>/<seq>`; single saves have none.
+- New trailing headers (add them to the sheet after the last column): *Imprest In — New*: **Group Doc No**, **Consumption Doc No**; *Material Consumption*: **Group Doc No**, **Imprest In Doc No**. They are hidden on the forms and appear in the registers, the Excel/CSV and the PDFs.
+- PDFs / prints of Imprest In and Consumption no longer show *Imprest Ref*; they show Group Doc No, Imprest In Doc No and Consumption Doc No (when present).
+- **Live Stock Overview** and **Batch-wise Stock** include the **virtual (hospital) warehouses** (tick box, on by default): a Warehouse Type column, virtual columns marked, *Total (physical)* vs *With hospitals*. Users see the hospitals that hold imprest sent from their own warehouses; all-warehouse users see all. `?virtual=1` on `/api/stock/summary` and `/api/stock/balances`; `GET /api/stock/virtual`.
+- Imprest In lines now carry HSN Code like Imprest Out.

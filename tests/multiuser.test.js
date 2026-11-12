@@ -724,4 +724,21 @@ test('Imprest In and Consumption are saved together against one Imprest Out', as
   const ok = await sa('POST', '/api/imprest/settle', { ref: out.json.id, date: '2026-11-05', lines: [{ key, returned: 30, consumed: 20 }] });
   assert.equal(ok.status, 201, ok.text); assert.ok(ok.json.inDoc && ok.json.consumptionDoc);
   const p = ok.json.trail.position; assert.deepEqual([p.returned, p.consumed, p.balance], [30, 20, 50]);
+  assert.match(ok.json.groupDoc, /^IIC\/\d{2}-\d{2}\/00001$/);
+  const rin = (await sa('GET', '/api/imprest/register?type=in')).json.rows.find((x) => x.no === ok.json.inDoc), rc = (await sa('GET', '/api/imprest/register?type=cons')).json.rows.find((x) => x.no === ok.json.consumptionDoc);
+  assert.deepEqual([rin['Group Doc No'], rin['Consumption Doc No'], rc['Group Doc No'], rc['Imprest In Doc No']], [ok.json.groupDoc, ok.json.consumptionDoc, ok.json.groupDoc, ok.json.inDoc], 'both documents carry the same Group Doc No and point at each other');
+  const only = await sa('POST', '/api/imprest/settle', { ref: out.json.id, lines: [{ key, returned: 10, consumed: 0 }] }); assert.equal(only.status, 201); assert.equal(only.json.groupDoc, null, 'a single transaction has no group number');
+});
+
+test('Live stock can include the virtual (hospital) warehouses', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  await app.store.append('Item Master', [{ 'Master Id': 'IM-L', 'Item Name': 'Live Rod', Code: 'LR1', Brand: 'ACME', 'Item Category': 'Implants' }]);
+  await app.store.append('Opening Stock', [{ Warehouse: 'MWH', 'Item Code': 'LR1', 'Item Name': 'Live Rod', 'Batch Number': 'L-1', Quantity: 40, 'Expiry Date': '2031-01-01', 'Stock Value': 100 }]);
+  const sa = await app.as('sa');
+  assert.equal((await sa('POST', '/api/t/imprest-out-new', { header: { Date: '2026-11-01', 'Customer Account': 'LIVE HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'LR1', Quantity: 15, Batch: 'L-1' }] })).status, 201);
+  const plain = (await sa('GET', '/api/stock/summary?q=LR1')).json; assert.ok(!plain.warehouses.includes('LIVE HOSPITAL'));
+  const withV = (await sa('GET', '/api/stock/summary?q=LR1&virtual=1')).json; const row = withV.rows[0];
+  assert.ok(withV.warehouses.includes('LIVE HOSPITAL') && withV.virtual.includes('LIVE HOSPITAL')); assert.deepEqual([row.by.MWH, row.by['LIVE HOSPITAL'], row.total, row.all], [25, 15, 25, 40]);
+  const bal = (await sa('GET', '/api/stock/balances?q=LR1&virtual=1')).json.rows; assert.deepEqual(bal.map((x) => [x.Warehouse, x['Warehouse Type']]).sort(), [['LIVE HOSPITAL', 'Virtual'], ['MWH', 'Physical']]);
+  assert.equal((await sa('GET', '/api/stock/virtual')).json.warehouses[0], 'LIVE HOSPITAL');
 });

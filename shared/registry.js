@@ -88,7 +88,7 @@ function decorate(f, tableOpts = {}) {
 const IMH = 'DocNo:Alphanumeric-Autogen|Date:Date|Customer Account:Dropdown|Surgery:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Location:Dropdown|Companies:Dropdown|Narration / Notes:Text|Business Head:Dropdown|OT Name:Text|Place of Supply:Dropdown|Is IGST:Dropdown|Ref. Doc:Text|Ref. Date:Date|Ship to Name:Text|Ship to Address:Long text|Ship to City:Dropdown|Ship to State:Dropdown|Ship to Pin code:Text|To Warehouse:Dropdown|Dispatch Name:Text|Dispatch City:Dropdown|Dispatch Address:Text|Dispatch Pincode:Text|Dispatch State:Dropdown|Imprest Ref:Text';
 const IMH_OUT = 'DocNo:Alphanumeric-Autogen|Date:Date|Customer Account:Dropdown|Surgery:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Location:Dropdown|Companies:Dropdown|Narration / Notes:Text|Business Head:Dropdown|OT Name:Text|Place of Supply:Dropdown|Is IGST:Dropdown|Ref. Doc:Text|Ref. Date:Date|Ship to Name:Text|Ship to Address:Long text|Ship to City:Dropdown|Ship to State:Dropdown|Ship to Pin code:Text|To Warehouse:Dropdown|Dispatch Name:Text|Dispatch City:Dropdown|Dispatch Address:Text|Dispatch Pincode:Text|Dispatch State:Dropdown|Supplier:Dropdown|Bill Code:Text|Return Closed:Text';
 const IML = 'Consumption Type:Dropdown:Consumption as Against PO,Broken,OTC|Warehouse:Dropdown|Item:Dropdown|Description:Autofill|Units:Autofill|HSN:Text|Quantity:Number|Rate:Number|Gross:Calculated|Batch:Text|Expiry Date:Date';
-const IML_IN = 'Consumption Type:Dropdown:Consumption as Against PO,Broken,OTC|Warehouse:Dropdown|Item:Dropdown|Description:Autofill|Units:Autofill|Quantity:Number|Rate:Number|Gross:Calculated|Batch:Text|Expiry Date:Date';
+const IML_IN = 'Consumption Type:Dropdown:Consumption as Against PO,Broken,OTC|Warehouse:Dropdown|Item:Dropdown|Description:Autofill|Units:Autofill|HSN:Text|Quantity:Number|Rate:Number|Gross:Calculated|Batch:Text|Expiry Date:Date';
 const IML_OUT = 'Warehouse:Dropdown|Item:Dropdown|Description:Autofill|Units:Autofill|HSN:Text|Stock in hand:Calculated|Quantity:Number|L-Surgery Item Set:Text|Batch:Text|Expiry Date:Date|Rate:Number|Gross:Calculated|CGST:Number|SGST:Number|CESS:Number|Taxable Value:Calculated';
 const EWH = 'Document No.:Alphanumeric-Autogen|Date:Date|Ref. Doc:Text|Supply Type:Dropdown:Outward,Inward|Document Type:Dropdown:Tax Invoice,Delivery Challan|Transporter Name:Text|Transporter ID:Text|Transport Mode:Dropdown:Road,Rail,Air,Ship|Vehicle No.:Text|Distance (KM):Number|Ship to State:Dropdown|Dispatch State:Dropdown|E-Way Bill No.:Text|Valid Upto:Date';
 const EWL = 'Item:Dropdown|HSN:Text|Quantity:Number|Taxable Value:Number|CGST:Number|SGST:Number|IGST:Number';
@@ -124,7 +124,7 @@ export const SPECS = [
   { tab: 'Imprest Out — New', kind: 'doc', stage: 'imprest', prefix: 'IIO', post: 'imprest-out', wh: ['To Warehouse'], required: ['Date'], form: IMH_OUT, lines: IML_OUT, hide: ['Delivery Date', 'Return Closed', 'To Warehouse', 'Location', 'Is IGST', 'Ref. Date', 'Supplier', 'Ref. Doc', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State'] },
   { tab: 'Imprest Out Register', kind: 'list', stage: 'imprest', wh: ['To Warehouse'] },
   { tab: 'Imprest Out Pending', kind: 'list', stage: 'imprest', wh: ['To Warehouse'] },
-  { tab: 'Imprest In — New', kind: 'doc', stage: 'imprest', prefix: 'IIN', post: 'imprest-in', wh: ['To Warehouse'], required: ['Date', 'To Warehouse'], form: IMH, lines: IML_IN, hide: ['Ref. Doc', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State'] },
+  { tab: 'Imprest In — New', kind: 'doc', stage: 'imprest', prefix: 'IIN', post: 'imprest-in', wh: ['To Warehouse'], required: ['Date', 'To Warehouse'], form: IMH, lines: IML_IN, hide: ['Group Doc No', 'Consumption Doc No', 'Ref. Doc', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State'] },
   { tab: 'Imprest In Register', kind: 'list', stage: 'imprest', wh: ['To Warehouse'] },
   { tab: 'Imprest In Pending', kind: 'list', stage: 'imprest', wh: ['To Warehouse'] },
 
@@ -150,7 +150,7 @@ export const SPECS = [
   { tab: 'RFID Replacement', kind: 'log', stage: 'admin', required: ['Old RFID Tag', 'New RFID Tag'], form: 'Reason:Dropdown:Damaged,Lost,Unreadable' },
   { tab: 'RFID Deactivation', kind: 'log', stage: 'admin', required: ['RFID Tag'], form: 'Reason:Dropdown:Consumed,Expired,Damaged' },
 
-  { tab: 'Material Consumption', kind: 'doc', stage: 'consumption', prefix: 'MC', post: 'consumption', wh: ['Warehouse'], required: ['Warehouse'],
+  { tab: 'Material Consumption', kind: 'doc', stage: 'consumption', prefix: 'MC', post: 'consumption', wh: ['Warehouse'], required: ['Warehouse'], hide: ['Group Doc No', 'Imprest In Doc No'],
     form: 'Document No:Alphanumeric-Autogen|Customer Account:Dropdown|Location:Dropdown|Warehouse:Dropdown|Doctor:Dropdown|Sales Executive:Dropdown|Narration / Notes:Text|Business Head:Dropdown|Submit for Approval:Dropdown|Bill No:Text|Bill Date:Date|Imprest Ref:Text|Bill Status:Dropdown:Pending Bill,Billed',
     lines: 'Consumption Type:Dropdown:Consumption as Against PO,Broken,OTC|Item:Dropdown|Description:Autofill|Units:Text|HSN:Text|Quantity:Number|Batch:Text|Expiry Date:Date|Rate:Number|Gross:Calculated|Posting:Text' },
 

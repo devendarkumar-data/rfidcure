@@ -52,11 +52,9 @@ export function buildNav(meta) {
   add('wh-imprest', 'Imprest & Consumption', 'inbox', [
     it(has(tables['imprest-out-new'], 'create'), '/t/imprest-out-new?new=1', 'Create Imprest Out'),
     it(has(tables['imprest-out-new'], 'view'), '/imprest/register/out', 'Imprest Out Register'),
-    it(has(tables['imprest-in-new'], 'create'), '/imprest/pending', 'Imprest In — Pending vouchers'),
-    it(has(tables['imprest-in-new'], 'create'), '/t/imprest-in-new?new=1&manual=1', 'Imprest In (direct)'),
+    it(has(tables['imprest-in-new'], 'create'), '/imprest/pending', 'Imprest In - Pending'),
     it(has(tables['imprest-in-new'], 'view'), '/imprest/register/in', 'Imprest In Register'),
     it(has(tables['material-consumption'], 'view'), '/consumption/pending', 'Consumption Pending'),
-    it(has(tables['material-consumption'], 'create'), '/t/material-consumption?new=1&manual=1', 'Consumption (direct)'),
     it(has(tables['material-consumption'], 'view'), '/consumption/register', 'Consumption Register'),
   ]);
 
