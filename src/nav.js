@@ -58,6 +58,7 @@ export function buildNav(meta) {
     it(has(tables['imprest-in-new'], 'view'), '/imprest/register/in', 'Imprest In Register'),
     it(has(tables['material-consumption'], 'view'), '/consumption/pending', 'Consumption Pending'),
     it(has(tables['material-consumption'], 'view'), '/consumption/register', 'Consumption Register'),
+    it(has(tables['imprest-out-new'], 'view'), '/imprest/groups', 'Imprest Group Register'),
   ]);
 
   const ewo = tables['e-way-bill-outward']; const ewi = tables['e-way-bill-inward'];

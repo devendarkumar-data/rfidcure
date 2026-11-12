@@ -728,6 +728,9 @@ test('Imprest In and Consumption are saved together against one Imprest Out', as
   const rin = (await sa('GET', '/api/imprest/register?type=in')).json.rows.find((x) => x.no === ok.json.inDoc), rc = (await sa('GET', '/api/imprest/register?type=cons')).json.rows.find((x) => x.no === ok.json.consumptionDoc);
   assert.deepEqual([rin['Group Doc No'], rin['Consumption Doc No'], rc['Group Doc No'], rc['Imprest In Doc No']], [ok.json.groupDoc, ok.json.consumptionDoc, ok.json.groupDoc, ok.json.inDoc], 'both documents carry the same Group Doc No and point at each other');
   const only = await sa('POST', '/api/imprest/settle', { ref: out.json.id, lines: [{ key, returned: 10, consumed: 0 }] }); assert.equal(only.status, 201); assert.equal(only.json.groupDoc, null, 'a single transaction has no group number');
+  const g = (await sa('GET', '/api/imprest/groups')).json.rows.find((x) => x.ref === out.json.id);
+  assert.deepEqual([g.counts.out, g.counts.in, g.counts.cons], [1, 2, 1], 'the voucher group counts its Imprest Out / In / Consumption documents');
+  assert.ok(g.events.every((e, i, a) => !i || String(a[i - 1].date) <= String(e.date)), 'documents under the voucher are date-wise');
 });
 
 test('Live stock can include the virtual (hospital) warehouses', async (t) => {

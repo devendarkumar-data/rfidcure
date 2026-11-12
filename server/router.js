@@ -268,6 +268,7 @@ export default async function handler(req, res) {
     if (path === 'imprest/pending' && req.method === 'GET') return ok(await imprest.pending(ctx));
     if (path === 'imprest/trail' && req.method === 'GET') return ok(await imprest.trail(ctx, q.ref));
     if (path === 'imprest/return' && req.method === 'POST') return ok(await imprest.receive(ctx, await readBody(req), req.headers['idempotency-key']), 201);
+    if (path === 'imprest/groups' && req.method === 'GET') return ok(await imprest.groups(ctx));
     if (path === 'imprest/settle' && req.method === 'POST') return ok(await imprest.settle(ctx, await readBody(req), req.headers['idempotency-key']), 201);
     if (path === 'imprest/consume' && req.method === 'POST') return ok(await imprest.consume(ctx, await readBody(req), req.headers['idempotency-key']), 201);
     if (path === 'imprest/consumption-queue' && req.method === 'GET') return ok(await imprest.consumptionQueue(ctx));

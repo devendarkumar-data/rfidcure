@@ -85,11 +85,9 @@ export async function consumptionQueue(ctx) {
   return { rows };
 }
 
-export async function trail(ctx, ref) {
-  assertCan(ctx, TABLE_BY_SLUG[OUT], 'view');
-  const { outs, ins, cons, ledger } = await load(ctx);
-  const out = outs.find((o) => sstr(o.DocNo) === sstr(ref)); if (!out) throw notFound('Imprest Out not found');
-  const p = position(out, ins, cons); if (!mine(ctx, p)) throw new HttpError(403, 'Not your imprest');
+// The documents of one Imprest Out voucher - the Out itself, every Imprest In and every Consumption against it - date-wise.
+const TYPE_ORDER = { 'Imprest Out': 0, 'Imprest In': 1, Consumption: 2 };
+function eventsOf(p, ins, cons, ledger) {
   const who = (no) => sstr(ledger.find((r) => sstr(r.Doc) === no)?.User);
   const when = (no) => normDate(ledger.find((r) => sstr(r.Doc) === no)?.Date) || '';
   const sum = (d) => parseLines(d.Lines).reduce((s, l) => s + toNum(l.Quantity), 0);
@@ -98,6 +96,15 @@ export async function trail(ctx, ref) {
     ...ins.filter((d) => sstr(d['Imprest Ref']) === p.ref).map((d) => ({ type: 'Imprest In', no: sstr(d.DocNo), date: normDate(d.Date), qty: rq(sum(d)), by: who(sstr(d.DocNo)), note: 'Returned to warehouse' })),
     ...cons.filter((d) => sstr(d['Imprest Ref']) === p.ref).map((d) => ({ type: 'Consumption', no: sstr(d['Document No']), date: normDate(d.Date) || when(sstr(d['Document No'])), qty: rq(sum(d)), by: who(sstr(d['Document No'])), note: `Against bill ${sstr(d['Bill No'])}`.trim() })),
   ];
+  return events.sort((a, b) => String(a.date).localeCompare(String(b.date)) || TYPE_ORDER[a.type] - TYPE_ORDER[b.type] || a.no.localeCompare(b.no));
+}
+
+export async function trail(ctx, ref) {
+  assertCan(ctx, TABLE_BY_SLUG[OUT], 'view');
+  const { outs, ins, cons, ledger } = await load(ctx);
+  const out = outs.find((o) => sstr(o.DocNo) === sstr(ref)); if (!out) throw notFound('Imprest Out not found');
+  const p = position(out, ins, cons); if (!mine(ctx, p)) throw new HttpError(403, 'Not your imprest');
+  const events = eventsOf(p, ins, cons, ledger);
   return { position: p, events };
 }
 
@@ -149,6 +156,19 @@ export async function consume(ctx, body, idem) {
   const key = idem ? `${String(idem).replace(/[^A-Za-z0-9-]/g, '').slice(0, 56)}-cons` : undefined;
   const r = await createRecord(ctx, TABLE_BY_SLUG[CONS], { header: { Warehouse: p.hospital, 'Imprest Ref': ref, ...(sstr(body._group) ? { 'Group Doc No': sstr(body._group), 'Imprest In Doc No': sstr(body._inDoc) } : {}), 'Bill Status': billNo ? 'Billed' : 'Pending Bill', ...(billNo ? { 'Bill No': billNo } : {}), ...(sstr(body.billDate) ? { 'Bill Date': normDate(body.billDate) } : {}), 'Narration / Notes': sstr(body.narration) || `Consumed against ${ref}` }, lines: used }, key);
   return { ref, consumptionDoc: r.id, consumed: rq(used.reduce((s, l) => s + l.Quantity, 0)), trail: await trail(ctx, ref) };
+}
+
+// Group register: one group per Imprest Out voucher, with its Imprest In / Consumption documents listed date-wise underneath.
+export async function groups(ctx) {
+  assertCan(ctx, TABLE_BY_SLUG[OUT], 'view');
+  const { outs, ins, cons, ledger } = await load(ctx);
+  const rows = outs.filter((o) => sstr(o.DocNo)).map((o) => ({ o, p: position(o, ins, cons) })).filter(({ p }) => mine(ctx, p)).map(({ o, p }) => {
+    const events = eventsOf(p, ins, cons, ledger);
+    return { ref: p.ref, date: p.date, hospital: p.hospital, doctor: sstr(o.Doctor), dispatched: p.dispatched, returned: p.returned, consumed: p.consumed, balance: p.balance, status: p.status,
+      counts: { out: 1, in: events.filter((e) => e.type === 'Imprest In').length, cons: events.filter((e) => e.type === 'Consumption').length }, events };
+  });
+  rows.sort((a, b) => String(b.date).localeCompare(String(a.date)) || b.ref.localeCompare(a.ref));
+  return { rows };
 }
 
 // Group Doc No: IIC/<financial year>/<5-digit sequence>, shared by the Imprest In and Consumption saved together.
@@ -228,7 +248,7 @@ export async function register(ctx, type) {
     const qty = toNum(l.Quantity), rate = toNum(l.Rate);
     const tax = toNum(l.CGST) + toNum(l.SGST) + toNum(l.CESS) + toNum(l.IGST);
     const code = sstr(l['Item Code']);
-    return { no, date, 'Customer A/c Name': sstr(h['Customer Account']), 'Issues/Receipts': kind, 'Doctor Name': sstr(h.Doctor), 'Warehouse 1': sstr(l.Warehouse), 'Warehouse 2': hospital, 'Item Code': code,
+    return { no, date, 'Customer A/c Name': sstr(h['Customer Account']), Surgery: sstr(h.Surgery), 'Sales Executive': sstr(h['Sales Executive']), 'Business Head': sstr(h['Business Head']), 'Issues/Receipts': kind, 'Doctor Name': sstr(h.Doctor), 'Warehouse 1': sstr(l.Warehouse), 'Warehouse 2': hospital, 'Item Code': code,
       'Item Name': sstr(l.Items || l.Item || l.Description), 'Unit Name': sstr(l.Units || l.Unit), Narration: sstr(h['Narration / Notes']), Quantity: qty, 'Item Brand': brand(code), Batch: sstr(l.Batch),
       'Net Amount': Math.round((qty * rate + tax) * 100) / 100, 'Authorize Status': 'Authorized', 'Base Link Status': base ? 'Linked' : '', 'Expiry Date': normDate(l['Expiry Date']) || '', 'Location Name': sstr(h['Place of Supply'] || h.Location),
       'Manufacturing Date': normDate(l['Manufacturing Date']) || '', 'Base Link Doc Date': base ? normDate(base.Date) : '', 'Base Link Doc No': base ? sstr(base.DocNo) : '', 'Link Status': '', 'Created User': sstr(led(no)?.User),
