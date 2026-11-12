@@ -47,6 +47,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
   const [values, setValues] = useState(() => {
     const v = { ...(initial?.header || {}) };
     if (mode === 'create' && table.fields.some((f) => f.name === 'Date' && !f.readonly) && !v.Date) v.Date = todayIST();
+    if (mode === 'create' && table.slug === 'grn-mrn' && v['Update Stock'] === undefined && table.fields.some((f) => f.name === 'Update Stock')) v['Update Stock'] = 'Yes';
     if (mode === 'create' && ['imprest-out-new', 'imprest-in-new'].includes(table.slug)) { if (!v.Companies) v.Companies = COMPANY.name; if (!v['Place of Supply']) v['Place of Supply'] = COMPANY.state; } // our own company; place of supply is our state
     return v;
   });
@@ -71,7 +72,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
     return () => clearTimeout(t);
   }, [values, lines]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const GRN_ORDER = ['Date', 'Warehouse', 'Document No.', 'Vendor Account', 'Type Of Purchase', 'Supplier Ref No', 'Location', 'Invoice No.', 'Invoice Date', 'Invoice Value', 'Is IGST', 'Update Stock', 'Raise Receipt', 'Attachment', 'Terms Of Delivery', 'Narration-Notes'];
+  const GRN_ORDER = ['Date', 'Warehouse', 'Document No.', 'Vendor Account', 'Type Of Purchase', 'Supplier Ref No', 'Location', 'Place of Supply', 'Destination', 'Invoice No.', 'Invoice Date', 'Invoice Value', 'Is IGST', 'Update Stock', 'Raise Receipt', 'Submit For Approval', 'Attachment', 'Terms Of Delivery', 'Narration-Notes'];
   const isGrn = table.slug === 'grn-mrn';
   const ACCT = new Set(['place of supply', 'ship to name', 'ship to address', 'ship to city', 'ship to state', 'ship to pin code', 'bill code', 'is igst', 'ref. doc', 'ref. date']); // account / GST details can be folded away on Imprest forms
   const fields = useMemo(() => {

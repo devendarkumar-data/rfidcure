@@ -25,7 +25,7 @@ export default function GrnManual() {
   if (!table || wh === null) return <Spinner />;
   // Special GRN: no accounting terms and no PO link - no rates, taxes, discounts, invoice no. / date / value, GST block, supplier ref or PO No.
   // (accounting belongs to Create GRN, which is received against a PO)
-  const NO_HEAD = new Set(['Supplier Ref No', 'Raise Receipt', 'Invoice Value', 'Invoice Date', 'Is IGST', 'Terms of Delivery', 'Type Of Purchase', 'Invoice No.']);
+  const NO_HEAD = new Set(['Supplier Ref No', 'Raise Receipt', 'Invoice Value', 'Invoice Date', 'Is IGST', 'Terms of Delivery', 'Type Of Purchase', 'Invoice No.', 'Place of Supply', 'Submit For Approval', 'Destination', 'Update Stock']);
   const NO_LINE = new Set(['PO No', 'PO Line', 'Ordered Qty', 'Received Qty', 'Short Close', 'Excess Decision', 'Rate', 'Gross', 'Other Discount', 'Taxable Value', 'CGST', 'IGST', 'Price Book Rate', 'Special Rate', 'MRP', 'Price Type', 'Division', 'Item Group']);
   const special = { ...table, noAccounts: true, fields: table.fields.filter((f) => !NO_HEAD.has(f.name)), lineFields: table.lineFields.filter((f) => !NO_LINE.has(f.name)) };
   const create = async (payload, key) => {

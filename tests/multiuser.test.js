@@ -535,7 +535,8 @@ test('GRN form drops Place of Supply / Submit For Approval / Destination; attach
   const wm = await app.as('wm');
   const meta = (await wm('GET', '/api/meta')).json.modules.flatMap((m) => m.tables).find((x) => x.slug === 'grn-mrn');
   const names = meta.fields.map((f) => f.name);
-  for (const gone of ['Place of Supply', 'Submit For Approval', 'Destination', 'Receipt Type', 'Update Stock']) assert.ok(!names.includes(gone), `${gone} removed`);
+  for (const gone of ['Receipt Type']) assert.ok(!names.includes(gone), `${gone} removed`);
+  for (const need0 of ['Place of Supply', 'Submit For Approval', 'Destination', 'Update Stock']) assert.ok(names.includes(need0), `${need0} present on GRN`);
   for (const need of ['Attachment', 'Invoice No.']) assert.ok(names.includes(need), `${need} present`);
   assert.equal(meta.fields.find((f) => f.name === 'Attachment').type, 'upload');
   const lk = (await wm('GET', '/api/lookup?field=Warehouse&exclude=MWH')).json.options.map((o) => o.value.toUpperCase()); assert.ok(!lk.includes('MWH') && lk.length, 'MWH is left out of the destination list');
