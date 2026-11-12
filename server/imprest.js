@@ -145,6 +145,29 @@ export async function consume(ctx, body, idem) {
   return { ref, consumptionDoc: r.id, consumed: rq(used.reduce((s, l) => s + l.Quantity, 0)), trail: await trail(ctx, ref) };
 }
 
+// Imprest In and Consumption in one go: per item/batch the user enters what was taken back and what the hospital used;
+// both are checked together first (back + used <= open balance), then posted as an Imprest In and a Consumption against the same Imprest Out.
+export async function settle(ctx, body, idem) {
+  const ref = sstr(body?.ref); if (!ref) throw bad('Choose the Imprest Out');
+  const { outs, ins, cons } = await load(ctx);
+  const out = outs.find((o) => sstr(o.DocNo) === ref); if (!out) throw notFound('Imprest Out not found');
+  const p = position(out, ins, cons); if (!mine(ctx, p)) throw new HttpError(403, 'This imprest was not dispatched from your warehouse');
+  if (p.balance <= 0) throw unprocessable(`${ref} is already closed`);
+  const rows = Array.isArray(body.lines) ? body.lines : []; const get = (k) => rows.find((l) => sstr(l.key) === k) || {};
+  let anyBack = false, anyUsed = false;
+  for (const g of p.lines) {
+    const r = toNum(get(g.key).returned), c = toNum(get(g.key).consumed);
+    if (r < 0 || c < 0 || !Number.isFinite(r) || !Number.isFinite(c)) throw bad(`${g.code}: quantity is not valid`);
+    if (r + c > g.balance + 1e-9) throw unprocessable(`${g.code} (batch ${g.batch}): taken back ${r} + consumed ${c} is more than the ${g.balance} open`);
+    if (r > 0) anyBack = true; if (c > 0) anyUsed = true;
+  }
+  if (!anyBack && !anyUsed) throw unprocessable('Enter the quantity taken back and/or consumed');
+  const out2 = { ref, inDoc: null, consumptionDoc: null };
+  if (anyBack) out2.inDoc = (await receive(ctx, { ref, date: body.date, narration: body.narration, lines: rows.map((l) => ({ key: l.key, returned: l.returned })) }, idem)).inDoc;
+  if (anyUsed) { const r = await consume(ctx, { ref, narration: body.narration, lines: rows.map((l) => ({ key: l.key, consumed: l.consumed })) }, idem); out2.consumptionDoc = r.consumptionDoc; }
+  return { ...out2, trail: await trail(ctx, ref) };
+}
+
 // ---- Consumption pending (bill not yet updated) / register (billed) ------------------------------------------------
 const billStatus = (r) => sstr(r['Bill Status']) || (sstr(r['Bill No']) ? 'Billed' : 'Pending Bill');
 export async function consumptionList(ctx, status) {

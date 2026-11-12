@@ -35,30 +35,18 @@ export default function ImprestSettle() {
   const lines = (cur?.lines || []).filter((l) => l.balance > 0);
   const returned = (l) => Math.min(l.balance, Math.max(0, num(back[l.key])));
     const totR = lines.reduce((s, l) => s + returned(l), 0);
-  const none = false;
   const over = lines.find((l) => num(back[l.key]) > l.balance);
   const totC = lines.reduce((s, l) => s + Math.max(0, num(conv[l.key])), 0);
   const overAll = lines.find((l) => num(back[l.key]) + num(conv[l.key]) > l.balance + 1e-9);
-  const convert = async () => { // the quantity the hospital used, entered by hand - becomes a Consumption against this Imprest Out
-    setErr('');
-    if (overAll) { setErr(`${overAll.code}: taken back + converted cannot be more than the ${overAll.balance} open.`); return; }
-    if (!(totC > 0)) { setErr('Enter the quantity to convert into consumption.'); return; }
-    setBusy(true);
-    try {
-      const r = await api.post('/api/imprest/consume', { ref, lines: lines.map((l) => ({ key: l.key, consumed: Math.max(0, num(conv[l.key])) })) }, { headers: { 'Idempotency-Key': idemKey() } });
-      toast.success(`Consumption ${r.consumptionDoc}: ${r.consumed} converted into consumption`);
-      setConv({}); setBack({}); setData(r.trail);
-    } catch (x) { setErr(x.message); } finally { setBusy(false); }
-  };
-
-  const submit = async (e) => {
+  const submit = async (e) => { // one save: Imprest In for what came back + Consumption for what the hospital used
     e.preventDefault(); setErr('');
-    if (!none && (over || overAll)) { setErr(`${over.code}: returned quantity cannot be more than the ${over.balance} pending.`); return; }
+    if (overAll) { setErr(`${overAll.code}: taken back + consumed cannot be more than the ${overAll.balance} open.`); return; }
+    if (!(totR > 0 || totC > 0)) { setErr('Enter the quantity taken back and/or consumed.'); return; }
     setBusy(true);
     try {
-      const r = await api.post('/api/imprest/return', { ref, date: hdr.date, narration: hdr.narration, noReturn: none, lines: lines.map((l) => ({ key: l.key, returned: returned(l) })) }, { headers: { 'Idempotency-Key': key } });
-      toast.success(none ? `${ref}: nothing returned - enter consumption` : `Imprest In ${r.inDoc} saved: ${r.summary.returned} taken back`);
-      setDone(r); setKey(idemKey());
+      const r = await api.post('/api/imprest/settle', { ref, date: hdr.date, narration: hdr.narration, lines: lines.map((l) => ({ key: l.key, returned: returned(l), consumed: Math.max(0, num(conv[l.key])) })) }, { headers: { 'Idempotency-Key': key } });
+      toast.success([r.inDoc && `Imprest In ${r.inDoc}`, r.consumptionDoc && `Consumption ${r.consumptionDoc}`].filter(Boolean).join(' + ') + ' saved');
+      setBack({}); setConv({}); setKey(idemKey()); setData(r.trail); setDone(null); load();
     } catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
 
@@ -71,10 +59,10 @@ export default function ImprestSettle() {
       {done && <div className="mb-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">{done.inDoc ? `Imprest In ${done.inDoc} saved: ${done.summary.returned} taken back. ` : 'Marked as nothing returned. '}{done.summary.toConsume > 0 && <>{done.summary.toConsume} is still open: it can be returned later (Imprest In again) or entered as consumption in <Link className="underline" to="/consumption/pending">Consumption Pending</Link>. </>}<Link className="underline" to="/imprest/pending">Back to Imprest In Pending</Link></div>}
       {cur && lines.length > 0 && !done && (
         <form onSubmit={submit} noValidate>
-          <Card title="How much was taken back?">
+          <Card title="Taken back and consumed">
             <div className="overflow-x-auto rounded-md border border-slate-200">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead><tr><th className="th">#</th><th className="th">Item</th><th className="th">Batch</th><th className="th">Expiry</th><th className="th text-right">Open</th><th className="th text-right">Taken back (Imprest In qty)</th><th className="th text-right">Convert into consumption</th></tr></thead>
+                <thead><tr><th className="th">#</th><th className="th">Item</th><th className="th">Batch</th><th className="th">Expiry</th><th className="th text-right">Open</th><th className="th text-right">Taken back (Imprest In qty)</th><th className="th text-right">Consumed (Consumption qty)</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {lines.map((l, i) => (
                     <tr key={l.key}>
@@ -88,14 +76,14 @@ export default function ImprestSettle() {
                 <tfoot><tr className="bg-slate-50 font-semibold"><td className="td" colSpan={5}>Total</td><td className="td text-right tabular-nums">{Math.round(totR * 1e6) / 1e6}</td><td className="td text-right tabular-nums">{Math.round(totC * 1e6) / 1e6}</td></tr></tfoot>
               </table>
             </div>
-            <p className="mt-2 text-xs text-slate-500">Enter only the quantity actually taken back (e.g. 50 of 100 now, the rest on another day, or all 100 at once). The part the hospital used can be entered in the last column and saved with <b>Convert into consumption</b>. Nothing is consumed automatically.</p>
+            <p className="mt-2 text-xs text-slate-500">Enter only the quantity actually taken back (e.g. 50 of 100 now, the rest on another day, or all 100 at once). What the hospital used goes in the last column. One <b>Save</b> posts the Imprest In and the Consumption together; anything left open stays pending. Nothing is consumed automatically.</p>
           </Card>
           <Card title="Date" className="mt-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div><label className="label" htmlFor="im-date">Date</label><input id="im-date" type="date" className="input" value={hdr.date} onChange={(e) => setHdr({ ...hdr, date: e.target.value })} /></div>
               <div className="lg:col-span-2"><label className="label" htmlFor="im-note">Narration</label><input id="im-note" className="input" value={hdr.narration} onChange={(e) => setHdr({ ...hdr, narration: e.target.value })} /></div>
             </div>
-            <div className="mt-3 flex flex-wrap justify-end gap-2"><button type="button" className="btn" disabled={busy} onClick={convert}>{`Convert into consumption (${Math.round(totC * 1e6) / 1e6})`}</button><button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : none ? 'Save: nothing returned' : `Save Imprest In (${Math.round(totR * 1e6) / 1e6})`}</button></div>
+            <div className="mt-3 flex flex-wrap justify-end gap-2"><button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : `Save — Imprest In ${Math.round(totR * 1e6) / 1e6} + Consumption ${Math.round(totC * 1e6) / 1e6}`}</button></div>
           </Card>
         </form>
       )}

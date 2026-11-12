@@ -24,6 +24,8 @@ export function rangeFor(opt, now = new Date()) {
     default: return { from: '', to: '' };
   }
 }
+// Screen dates are shown DD-MM-YY (stored and exported as ISO yyyy-mm-dd).
+export const fmtDate = (v) => { const m = /^(\d{4})-(\d{2})-(\d{2})(?:$|T)/.exec(String(v ?? '')); return m ? `${m[3]}-${m[2]}-${m[1].slice(2)}` : v; };
 export const natCompare = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true });
 export function downloadCsv(name, headers, rows) {
   const esc = (v) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };

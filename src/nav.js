@@ -13,6 +13,7 @@ export function buildNav(meta) {
   const it = (cond, to, label) => (cond ? { to, label } : null);
 
   if (f.dashboard) sections.push({ key: 'dashboard', label: 'Dashboard', icon: 'dashboard', to: '/', items: [] });
+  sections.push({ key: 'drafts', label: 'Unsaved drafts', icon: 'inbox', to: '/drafts', items: [] }); // auto-saved forms that were never saved
 
   // Masters (item / vendor / warehouse / hospital first, then the other masters of module M03)
   const m03 = (meta.modules.find((m) => m.code === 'M03')?.tables || []).filter((t) => !DEDICATED_SLUGS.includes(t.slug));
@@ -46,15 +47,16 @@ export function buildNav(meta) {
     it(has(grn, 'create'), '/grn/new', 'Create GRN'),
     it(has(grn, 'create'), '/grn/manual', 'Special GRN'),
     it(has(grn, 'view'), '/grn', 'GRN Register'),
+    it(has(grn, 'view'), '/grn/special', 'Special GRN Register'),
   ]);
   add('wh-imprest', 'Imprest & Consumption', 'inbox', [
-    it(has(tables['imprest-out-new'], 'create'), '/t/imprest-out-new?new=1', 'Imprest Out — New'),
+    it(has(tables['imprest-out-new'], 'create'), '/t/imprest-out-new?new=1', 'Create Imprest Out'),
     it(has(tables['imprest-out-new'], 'view'), '/imprest/register/out', 'Imprest Out Register'),
-    it(has(tables['imprest-in-new'], 'create'), '/imprest/pending', 'Imprest In — Pending'),
-    it(has(tables['imprest-in-new'], 'create'), '/t/imprest-in-new?new=1&manual=1', 'Imprest In — New'),
+    it(has(tables['imprest-in-new'], 'create'), '/imprest/pending', 'Imprest In — Pending vouchers'),
+    it(has(tables['imprest-in-new'], 'create'), '/t/imprest-in-new?new=1&manual=1', 'Imprest In (direct)'),
     it(has(tables['imprest-in-new'], 'view'), '/imprest/register/in', 'Imprest In Register'),
     it(has(tables['material-consumption'], 'view'), '/consumption/pending', 'Consumption Pending'),
-    it(has(tables['material-consumption'], 'create'), '/t/material-consumption?new=1&manual=1', 'Consumption — New'),
+    it(has(tables['material-consumption'], 'create'), '/t/material-consumption?new=1&manual=1', 'Consumption (direct)'),
     it(has(tables['material-consumption'], 'view'), '/consumption/register', 'Consumption Register'),
   ]);
 

@@ -7,6 +7,7 @@ import Spinner from './Spinner.jsx';
 import StatusBadge from './StatusBadge.jsx';
 import { useToast } from './Toast.jsx';
 
+import { fmtDate } from '../dateOptions.js';
 const fmtNum = (v) => (v === '' || v === null || v === undefined || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString('en-IN', { maximumFractionDigits: 2 }));
 
 export function renderCell(col, v, row) {
@@ -14,7 +15,7 @@ export function renderCell(col, v, row) {
   if (v === '' || v === null || v === undefined) return <span className="text-slate-300">—</span>;
   if (col.type === 'number') return <span className="tabular-nums">{fmtNum(v)}</span>;
   if (/status|flag/i.test(col.name)) return <StatusBadge value={v} />;
-  const s = String(v);
+  const s = String(fmtDate(v));
   return s.length > 80 ? <span title={s}>{s.slice(0, 80)}…</span> : s;
 }
 
@@ -33,7 +34,7 @@ export default function DataTable({ endpoint, columns, params, rowActions, expor
   const load = useCallback(async () => {
     const my = ++seq.current; setBusy(true); setErr('');
     try {
-      const r = await api.get(endpoint, { q: dq, sort, dir, page, pageSize, ...JSON.parse(pjson) });
+      const r = await api.get(endpoint, { q: dq, ...(sort ? { sort, dir } : {}), page, pageSize, ...JSON.parse(pjson) });
       if (my === seq.current) setData(r);
     } catch (e) { if (my === seq.current) { setErr(e.message); setData(null); } } finally { if (my === seq.current) setBusy(false); }
   }, [endpoint, dq, sort, dir, page, pageSize, pjson]);
@@ -44,7 +45,7 @@ export default function DataTable({ endpoint, columns, params, rowActions, expor
   const [fmt, setFmt] = useState('csv');
   const doExport = async () => {
     try {
-      const base = { q: dq, sort, dir, ...JSON.parse(pjson) };
+      const base = { q: dq, ...(sort ? { sort, dir } : {}), ...JSON.parse(pjson) };
       if (fmt !== 'pdf') return await download(endpoint, { ...base, export: fmt }, `${exportName || 'export'}.${fmt === 'xlsx' ? 'xlsx' : 'csv'}`);
       let all = []; // PDF: fetch every page, then draw the visible columns
       for (let pg = 1, pages = 1; pg <= pages && pg <= 50; pg++) { const r = await api.get(endpoint, { ...base, page: pg, pageSize: 200 }); all = all.concat(r.rows || []); pages = r.pages || 1; }

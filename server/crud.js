@@ -213,7 +213,7 @@ export async function listRecords(ctx, table, q = {}, opts = {}) {
     if (!rowVisible(ctx, table, r, lines)) continue;
     if (dateCol && (q.from || q.to)) { const d = normDate(r[dateCol]); if ((q.from && d < q.from) || (q.to && d > q.to)) continue; }
     if (filters.some(([k, v]) => sstr(r[k]).toLowerCase() !== v.toLowerCase())) continue;
-    if (table.slug === 'grn-mrn' && (q.grnType === 'po' || q.grnType === 'special') && (q.grnType === 'po') !== !!sstr(r['Supplier Ref No'])) continue; // GRN against a PO carries the PO number; a Special GRN does not
+    if (table.slug === 'grn-mrn' && (q.grnType === 'po' || q.grnType === 'special') && (q.grnType === 'po') === (sstr(r['Receipt Type']) === 'Special GRN' || !sstr(r['Supplier Ref No']))) continue; // GRN against a PO carries the PO number; a Special GRN does not
     if (needle) {
       let hay = cols.map((f) => sstr(r[f.name])).join(' ').toLowerCase();
       if (lines) hay += ' ' + lines.map((l) => Object.values(maskLines(ctx, [l])[0]).join(' ')).join(' ').toLowerCase();

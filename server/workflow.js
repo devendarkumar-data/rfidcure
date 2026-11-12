@@ -641,7 +641,7 @@ export async function poItemInfo(ctx, q = {}) {
   }
   const it = (await itemCatalog(ctx.store)).get(code) || {};
   const stockOf = await currentStockMap(ctx);
-  // physical warehouses only (hospital / imprest locations are not stock warehouses): Opening Stock + GRN/MRN - Imprest Out + Imprest In - Consumption, as the stock engine posts it
+  // physical warehouses only (hospital / imprest locations are not stock warehouses): Opening Stock + GRN - Imprest Out + Imprest In - Consumption, as the stock engine posts it
   const whs = await assignableWarehouses(ctx.store);
   const byWarehouse = whs.map((w) => ({ warehouse: w, qty: stockOf(w, code) }));
   return { lastRate: last?.rate || 0, reorderLevel: it.minStock || 0, brand: it.brand || '', unit: it.unit || '', hsn: it.hsn || '', currentStock: stockOf(sstr(q.warehouse), code), name: it.name || '', byWarehouse, total: Math.round(byWarehouse.reduce((a, x) => a + x.qty, 0) * 1e6) / 1e6 };

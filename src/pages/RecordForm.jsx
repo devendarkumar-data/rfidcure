@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { api, idemKey } from '../api.js';
+import { useAuth } from '../auth.jsx';
+import { getDraft, saveDraft, removeDraft } from '../drafts.js';
+import { fmtDate } from '../dateOptions.js';
 import { COMPANY } from '../../shared/company.js';
 import Collapsible from '../components/Collapsible.jsx';
 import TotalsBlock from '../components/TotalsBlock.jsx';
@@ -48,6 +52,24 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
   });
   const [lines, setLines] = useState(() => (initial?.lines || []).map((l, i) => ({ ...l, _k: `i${i}` })));
   const [errors, setErrors] = useState({}); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+
+  // Auto-save: a new document is kept in this browser every second or two, so a closed tab / lost session does not lose the entry.
+  const { user: me } = useAuth(); const loc = useLocation(); const draftId = mode === 'create' ? table.slug : null;
+  const [draft, setDraft] = useState(() => (draftId && me ? getDraft(me.id, draftId) : null));
+  const restore = (d) => { setValues(d.data.values || {}); setLines((d.data.lines || []).map((l, i) => ({ ...l, _k: `d${i}` }))); setDraft(null); };
+  const first = useRef(true); const dirty = useRef(false);
+  useEffect(() => { if (draft && new URLSearchParams(loc.search).get('resume') === '1') restore(draft); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!draftId || !me) return undefined;
+    if (first.current) { first.current = false; return undefined; }
+    dirty.current = true;
+    const t = setTimeout(() => {
+      const lineData = lines.map(({ _k, ...rest }) => rest).filter((l) => Object.values(l).some((x) => x !== '' && x !== null && x !== undefined && typeof x !== 'object'));
+      const filled = lineData.length > 0 || Object.entries(values).some(([k, v]) => v && !['Date', 'Companies', 'Place of Supply', 'Warehouse', 'Location', 'Update Stock', 'Receipt Type', 'From Warehouse'].includes(k));
+      if (filled) saveDraft(me.id, draftId, { slug: table.slug, title: String(table.title || table.slug), path: `${loc.pathname}${loc.search.includes('?') ? loc.search : '?new=1'}${loc.search.includes('resume=1') ? '' : '&resume=1'}` }, { values, lines: lineData });
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [values, lines]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const GRN_ORDER = ['Date', 'Warehouse', 'Document No.', 'Vendor Account', 'Type Of Purchase', 'Supplier Ref No', 'Location', 'Invoice No.', 'Invoice Date', 'Invoice Value', 'Is IGST', 'Update Stock', 'Raise Receipt', 'Attachment', 'Terms Of Delivery', 'Narration-Notes'];
   const isGrn = table.slug === 'grn-mrn';
@@ -117,12 +139,18 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
     try {
       const payload = table.hasLines ? { header, lines: outLines } : { header };
       const r = await onSubmit(payload, key);
+      if (draftId && me) removeDraft(me.id, draftId); // saved: the draft is no longer needed
       for (const w of r?.warnings || []) toast.warn(w);
     } catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
 
   return (
     <form onSubmit={submit} noValidate aria-label={table.title}>
+      {draft && <div className="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <span>You have an unsaved {table.title} from {fmtDate(draft.savedAt)} {new Date(draft.savedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}.</span>
+        <button type="button" className="btn btn-sm btn-primary" onClick={() => restore(draft)}>Restore it</button>
+        <button type="button" className="btn btn-sm" onClick={() => { removeDraft(me.id, draftId); setDraft(null); }}>Discard</button>
+      </div>}
       {err && <div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
       <div className={`grid gap-x-3 gap-y-2 ${isGrn ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 [&_.input]:h-9 [&_.label]:mb-1 [&_.label]:flex [&_.label]:min-h-[1.25rem] [&_.label]:items-end [&_.label]:text-[11px] [&_textarea.input]:h-9 [&_textarea.input]:min-h-0" : !table.hasLines && fields.length > 8 ? "grid-cols-1 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 [&_.label]:text-[11px] [&_.label]:leading-4" : fields.length > 8 ? "compact grid-cols-2 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 [&_.input]:h-8 [&_.input]:py-0 [&_.input]:text-[13px] [&_.label]:mb-0 [&_.label]:text-[10px] [&_.label]:leading-4 [&_.label]:flex [&_.label]:min-h-[2rem] [&_.label]:items-end" : "sm:grid-cols-2"}`}>
         {mainFields.map((f) => <Field key={f.name} field={f} value={values[f.name]} onChange={(v) => set(f.name, v)} disabled={readOnly} required={table.required.includes(f.name)} error={errors[f.name]} extraParams={xp(f)} compactNote={isTransfer} />)}
@@ -140,7 +168,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
           <LinesEditor lineFields={table.lineFields} itemField={table.itemField} lines={lines} onChange={setLines} readOnly={readOnly}
             batchMode={table.posts && !INWARD.has(table.slug) ? 'pick' : 'enter'} getWarehouse={getWarehouse}
             autoBatch={!!stockMode} lookupParams={isGrn ? (f, l) => (f.name === 'PO No' ? { vendor: values['Vendor Account'] || undefined, item: l['Item Code'] || undefined } : undefined) : undefined} fifo={isOut} stockPick={isOut ? false : stockMode} stockWh={isOut ? (l) => l.Warehouse : isIn ? () => values['To Warehouse'] : isCons ? () => values.Warehouse : null} scopeWarehouse={isOut || isIn} lineDefaults={(isOut || isIn) && defWh ? { Warehouse: defWh } : isCons ? { 'Consumption Type': 'Against Bill' } : null} />
-          {table.lineFields.some((lf) => lf.name === 'Quantity') && lines.length > 0 && (() => {
+          {!table.noAccounts && table.lineFields.some((lf) => lf.name === 'Quantity') && lines.length > 0 && (() => {
             const n = (v) => Number(v) || 0;
             const tax = (k) => lines.reduce((x, l) => x + n(l.Quantity) * n(l.Rate) * n(l[k]) / 100, 0);
             const igstOn = /^y/i.test(String(values['Is IGST'] ?? ''));

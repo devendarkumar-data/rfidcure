@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import TotalsBlock from '../../components/TotalsBlock.jsx';
 import { COMPANY } from '../../../shared/company.js';
-import { DATE_OPTIONS, rangeFor, downloadCsv } from '../../dateOptions.js';
+import { fmtDate, DATE_OPTIONS, rangeFor, downloadCsv } from '../../dateOptions.js';
 import { Link, useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { api, idemKey } from '../../api.js';
 import { BASE_CURRENCY, CURRENCIES, PURCHASE_TYPES } from '../../../shared/po-options.js';
@@ -508,7 +508,6 @@ export function PoRegister() {
         <FilterItem label="From"><input type="date" className="input" value={f.from} onChange={(e) => setF({ from: e.target.value })} /></FilterItem>
         <FilterItem label="To"><input type="date" className="input" value={f.to} onChange={(e) => setF({ to: e.target.value })} /></FilterItem>
         <FilterItem label="Vendor"><input className="input" value={f.vendor} onChange={(e) => setF({ vendor: e.target.value })} /></FilterItem>
-        <FilterItem label="Type"><select className="input" value={f.type} onChange={(e) => setF({ type: e.target.value })}><option value="">All</option><option value="domestic">Domestic</option><option value="import">Import</option></select></FilterItem>
       </FilterBar>
       <DataTable key={view} endpoint="/api/wf/pos" columns={columns} params={f} refreshKey={rk} exportable exportName={`purchase-orders-${view}`} searchPlaceholder="Search PO, vendor, item, intent…" defaultSort={{ col: 'Date', dir: 'desc' }}
         rowKey={(r) => r['Document No.']} onRowClick={(r) => nav(`/purchasing/po/${encodeURIComponent(r['Document No.'])}`)}
@@ -620,7 +619,7 @@ function GrnPoRegister({ pos, onPick, canCreate }) {
             {!shown.length && <tr><td className="td text-slate-500" colSpan={8}>No Purchase Orders are waiting for receipt{pos.length ? ' for these filters' : ' in your warehouses'}.</td></tr>}
             {shown.map((p) => (
               <tr key={p['Document No.']}>
-                <td className="td !py-1 font-medium"><Link className="text-brand-700 hover:underline" to={`/purchasing/po/${encodeURIComponent(p['Document No.'])}`}>{p['Document No.']}</Link></td><td className="td !py-1 whitespace-nowrap">{p.Date}</td><td className="td !py-1">{p['Vendor Account']}</td><td className="td !py-1">{p.Warehouse}</td>
+                <td className="td !py-1 font-medium"><Link className="text-brand-700 hover:underline" to={`/purchasing/po/${encodeURIComponent(p['Document No.'])}`}>{p['Document No.']}</Link></td><td className="td !py-1 whitespace-nowrap">{fmtDate(p.Date)}</td><td className="td !py-1">{p['Vendor Account']}</td><td className="td !py-1">{p.Warehouse}</td>
                 <td className="td !py-1 max-w-[18rem] truncate" title={p.lines.map((l) => l.items).join(', ')}>{p.lines.length} line{p.lines.length > 1 ? 's' : ''}: {p.lines.map((l) => l.items).join(', ')}</td>
                 <td className="td !py-1 text-right tabular-nums">{n2(p.lines.reduce((x, l) => x + (Number(l.balance) || 0), 0))}</td><td className="td !py-1">{poLabel(p.Status)}</td>
                 <td className="td !py-1 text-right">{canCreate && <button type="button" className="btn btn-sm btn-primary" onClick={() => onPick(p['Document No.'])}>Convert to GRN</button>}</td>
@@ -699,26 +698,26 @@ export function GrnForm() {
   );
 }
 
-export function GrnRegister() {
+export function GrnRegister({ special = false }) {
   const nav = useNavigate(); const { tables } = useAuth(); const [range, setRange] = useState({ from: '', to: '' }); const t = tables['grn-mrn'];
-  const [gtype, setGtype] = useState(''); const [opt, setOpt] = useState('All');
+  const gtype = special ? 'special' : 'po'; const [opt, setOpt] = useState('All');
   const pickOpt = (o) => { setOpt(o); setRange(o === 'All' ? { from: '', to: '' } : o === 'Date Range' ? range : rangeFor(o)); };
   // every GRN column from the sheet (field-level access still applies), key ones first and relabelled
-  const LABEL = { 'Document No.': 'GRN No.', 'Supplier Ref No': 'PO No.', 'Vendor Account': 'Vendor' };
-  const FIRST = ['Document No.', 'Date', 'Supplier Ref No', 'Vendor Account', 'Type Of Purchase', 'Warehouse', 'Invoice No.', 'Invoice Date', 'Invoice Value'];
-  const names = (t?.fields || []).map((f) => f.name); const ordered = [...FIRST.filter((n) => names.includes(n)), ...names.filter((n) => !FIRST.includes(n) && n !== 'Lines')];
+  const LABEL = { 'Document No.': special ? 'Special GRN No.' : 'GRN No.', 'Supplier Ref No': 'PO No.', 'Vendor Account': 'Vendor' };
+  const FIRST = special ? ['Document No.', 'Date', 'Warehouse', 'Vendor Account', 'Location', 'Narration-Notes'] : ['Document No.', 'Date', 'Supplier Ref No', 'Vendor Account', 'Type Of Purchase', 'Warehouse', 'Invoice No.', 'Invoice Date', 'Invoice Value'];
+  const NO_ACCT = ['Invoice Value', 'Invoice Date', 'Invoice No.', 'Is IGST', 'Terms of Delivery', 'Type Of Purchase', 'Supplier Ref No', 'Raise Receipt', 'Receipt Type'];
+  const names = (t?.fields || []).map((f) => f.name).filter((n) => !special || !NO_ACCT.includes(n)); const ordered = [...FIRST.filter((n) => names.includes(n)), ...names.filter((n) => !FIRST.includes(n) && n !== 'Lines')];
   const columns = ordered.map((name) => ({ name, ...(LABEL[name] ? { label: LABEL[name] } : {}), ...(name === 'Document No.' ? { render: (v) => <span className="font-medium text-brand-700">{v}</span> } : {}), ...(name === 'Invoice Value' ? { type: 'number' } : {}), ...(['Narration-Notes', 'Terms of Delivery'].includes(name) ? { sortable: false, render: (v) => <span className="block max-w-[10rem] truncate" title={v}>{v}</span> } : {}), ...(name === 'Attachment' ? { sortable: false, render: (v) => <AttachmentLinks value={v} /> } : {}) }));
   const canCreate = t?.actions.includes('create');
   return (
     <>
-      <PageHeader title={'GRN Register'} actions={t?.actions.includes('create') && <Link className="btn btn-primary" to="/grn/new">+ Create GRN</Link>} />
-      <FilterBar onReset={() => { setRange({ from: '', to: '' }); setGtype(''); setOpt('All'); }}>
+      <PageHeader title={special ? 'Special GRN Register' : 'GRN Register'} actions={t?.actions.includes('create') && (special ? <Link className="btn btn-primary" to="/grn/manual">+ Special GRN</Link> : <Link className="btn btn-primary" to="/grn/new">+ Create GRN</Link>)} />
+      <FilterBar onReset={() => { setRange({ from: '', to: '' }); setOpt('All'); }}>
         <FilterItem label="Date option"><select className="input" value={opt} onChange={(e) => pickOpt(e.target.value)}>{['All', ...DATE_OPTIONS.filter((o) => o !== 'As on date')].map((o) => <option key={o}>{o}</option>)}</select></FilterItem>
-        <FilterItem label="Type"><select className="input" value={gtype} onChange={(e) => setGtype(e.target.value)} aria-label="GRN type"><option value="">GRN + Special GRN</option><option value="po">GRN (against PO)</option><option value="special">Special GRN</option></select></FilterItem>
         <FilterItem label="From"><input type="date" className="input" value={range.from} onChange={(e) => { setOpt('Date Range'); setRange({ ...range, from: e.target.value }); }} /></FilterItem>
         <FilterItem label="To"><input type="date" className="input" value={range.to} onChange={(e) => { setOpt('Date Range'); setRange({ ...range, to: e.target.value }); }} /></FilterItem>
       </FilterBar>
-      <DataTable endpoint="/api/t/grn-mrn" columns={columns} searchPlaceholder="Search GRN no., PO no., invoice no., item, vendor…" params={{ ...range, ...(gtype ? { grnType: gtype } : {}) }} exportable={t?.actions.includes('export')} exportName="grn" defaultSort={{ col: 'Date', dir: 'desc' }}
+      <DataTable endpoint="/api/t/grn-mrn" columns={columns} searchPlaceholder="Search GRN no., PO no., invoice no., item, vendor…" params={{ ...range, grnType: gtype }} exportable={t?.actions.includes('export')} exportName={special ? 'special-grn' : 'grn'} defaultSort={{ col: 'Date', dir: 'desc' }}
         rowKey={(r) => r['Document No.']} onRowClick={(r) => nav(`/grn/${encodeURIComponent(r['Document No.'])}`)}
         rowActions={(r) => (
           <div className="flex justify-end gap-1">

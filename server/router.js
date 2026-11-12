@@ -87,7 +87,7 @@ function tableMeta(ctx, t) {
   else allowed = allowed.filter((a) => ['view', 'export'].includes(a));
   if (t.slug === 'purchase-indent' && !mayRaiseIntent(ctx)) allowed = allowed.filter((a) => !['create', 'edit'].includes(a)); // only MWH raises indents
   return {
-    slug: t.slug, title: t.slug === 'grn-mrn' ? 'GRN' : t.tab, module: t.module, kind: t.kind, stage: t.stage, idCol: t.idCol, actions: allowed, posts: !!t.post,
+    slug: t.slug, title: t.slug === 'grn-mrn' ? 'GRN' : t.tab.replace(/\s+—\s+New$/, ''), module: t.module, kind: t.kind, stage: t.stage, idCol: t.idCol, actions: allowed, posts: !!t.post,
     required: t.required, hasLines: t.hasLines && t.lineFields.length > 0, itemField: t.itemField, sort: t.sort,
     fields: t.fields.filter((f) => !(t.hide || []).includes(f.name)).map((f) => fieldMeta(ctx, f)).filter((f) => !f.hidden),
     lineFields: t.lineFields.filter((f) => !(t.hideLines || []).includes(f.name)).map((f) => fieldMeta(ctx, f)).filter((f) => !f.hidden),
@@ -268,6 +268,7 @@ export default async function handler(req, res) {
     if (path === 'imprest/pending' && req.method === 'GET') return ok(await imprest.pending(ctx));
     if (path === 'imprest/trail' && req.method === 'GET') return ok(await imprest.trail(ctx, q.ref));
     if (path === 'imprest/return' && req.method === 'POST') return ok(await imprest.receive(ctx, await readBody(req), req.headers['idempotency-key']), 201);
+    if (path === 'imprest/settle' && req.method === 'POST') return ok(await imprest.settle(ctx, await readBody(req), req.headers['idempotency-key']), 201);
     if (path === 'imprest/consume' && req.method === 'POST') return ok(await imprest.consume(ctx, await readBody(req), req.headers['idempotency-key']), 201);
     if (path === 'imprest/consumption-queue' && req.method === 'GET') return ok(await imprest.consumptionQueue(ctx));
     if (path === 'lookup/customer' && req.method === 'GET') return ok(await crud.customerDetails(ctx, q.name));

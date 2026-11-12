@@ -23,15 +23,19 @@ export default function GrnManual() {
     }).catch(() => setWh(''));
   }, []);
   if (!table || wh === null) return <Spinner />;
+  // Special GRN carries no accounting terms: rates, taxes, discounts, invoice value and the GST block are left to the PO-based GRN
+  const NO_HEAD = new Set(['Invoice Value', 'Invoice Date', 'Is IGST', 'Terms of Delivery', 'Type Of Purchase', 'Supplier Ref No', 'Raise Receipt']);
+  const NO_LINE = new Set(['Rate', 'Gross', 'Other Discount', 'Taxable Value', 'CGST', 'IGST', 'Price Book Rate', 'Special Rate', 'MRP', 'Price Type', 'Division', 'Item Group']);
+  const special = { ...table, noAccounts: true, fields: table.fields.filter((f) => !NO_HEAD.has(f.name)), lineFields: table.lineFields.filter((f) => !NO_LINE.has(f.name)) };
   const create = async (payload, key) => {
-    const r = await api.post('/api/t/grn-mrn', { ...payload, header: { 'Update Stock': 'Yes', ...payload.header } }, { headers: { 'Idempotency-Key': key || idemKey() } });
-    toast.success(r.duplicate ? 'Already saved — duplicate ignored' : `GRN ${r.id} posted; stock updated`);
+    const r = await api.post('/api/t/grn-mrn', { ...payload, header: { 'Update Stock': 'Yes', ...payload.header, 'Receipt Type': 'Special GRN' } }, { headers: { 'Idempotency-Key': key || idemKey() } });
+    toast.success(r.duplicate ? 'Already saved — duplicate ignored' : `Special GRN ${r.id} posted; stock updated`);
     nav(`/grn/${encodeURIComponent(r.id)}`);
   };
   return (
     <>
-      <PageHeader back={<Back to="/grn/new">Create GRN</Back>} title="Special GRN" subtitle="Receive goods that need not follow a whole PO: add the items yourself. In the PO No column pick the Purchase Order a line belongs to (leave blank for goods with no PO); linked lines reduce that PO's balance." />
-      <Card><RecordForm table={table} mode="create" initial={{ header: { 'Update Stock': 'Yes', Location: COMPANY.state, ...(wh ? { Warehouse: wh } : {}) } }} onSubmit={create} onCancel={() => nav('/grn/new')} submitLabel="Save & post" /></Card>
+      <PageHeader back={<Back to="/grn/special">Special GRN Register</Back>} title="Special GRN" subtitle="Receive goods that need not follow a whole PO: add the items yourself. In the PO No column pick the Purchase Order a line belongs to (leave blank for goods with no PO); linked lines reduce that PO's balance." />
+      <Card><RecordForm table={special} mode="create" initial={{ header: { 'Update Stock': 'Yes', Location: COMPANY.state, ...(wh ? { Warehouse: wh } : {}) } }} onSubmit={create} onCancel={() => nav('/grn/special')} submitLabel="Save & post" /></Card>
     </>
   );
 }

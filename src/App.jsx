@@ -22,6 +22,7 @@ import ImprestPending from './pages/ImprestPending.jsx';
 import ImprestRegister from './pages/ImprestRegister.jsx';
 import ConsumptionPage from './pages/ConsumptionPage.jsx';
 import ApprovalSettings from './pages/ApprovalSettings.jsx';
+import Drafts from './pages/Drafts.jsx';
 import { GrnDetail, GrnForm, GrnRegister, IntentDetail, IntentForm, IntentRegister, PoDetail, PoForm, PoRegister } from './pages/workflow/index.jsx';
 import DocPrint from './pages/DocPrint.jsx';
 import IntentPrint from './pages/workflow/IntentPrint.jsx';
@@ -64,6 +65,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route element={<Protected />}>
         <Route index element={<Home />} />
+        <Route path="drafts" element={<Drafts />} />
         <Route path="change-password" element={<ChangePassword />} />
         <Route path="t/:slug" element={<TableRoute />} />
 
@@ -81,6 +83,7 @@ export default function App() {
         <Route path="reports" element={<Need feature="reports"><ReportsIndex /></Need>} />
         <Route path="reports/:key" element={<Need feature="reports"><ReportPage /></Need>} />
         <Route path="grn" element={<Need table="grn-mrn"><GrnRegister /></Need>} />
+        <Route path="grn/special" element={<Need table="grn-mrn"><GrnRegister special /></Need>} />
         <Route path="grn/manual" element={<Need table="grn-mrn" action="create"><GrnManual /></Need>} />
         <Route path="grn/new" element={<Need table="grn-mrn" action="create"><GrnForm /></Need>} />
         <Route path="grn/:id" element={<Need table="grn-mrn"><GrnDetail /></Need>} />

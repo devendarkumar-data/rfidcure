@@ -7,7 +7,7 @@ import Card from '../components/Card.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import Spinner from '../components/Spinner.jsx';
 import { downloadDocPdf } from '../docPdf.js';
-import { DATE_OPTIONS, rangeFor, natCompare, downloadCsv } from '../dateOptions.js';
+import { fmtDate, DATE_OPTIONS, rangeFor, natCompare, downloadCsv } from '../dateOptions.js';
 
 const TONE = { Open: 'bg-amber-50 text-amber-800', Closed: 'bg-green-50 text-green-800' };
 
@@ -31,7 +31,7 @@ export default function ImprestRegister({ kind }) {
       .sort((a, b) => String(b.date).localeCompare(String(a.date)) || natCompare(b.no, a.no));
   }, [rows, q, rng, wh, st, cols]);
   const whs = useMemo(() => [...new Set((rows || []).map((r) => r['Warehouse 2']).filter(Boolean))].sort(), [rows]);
-  const cell = (r, c) => (c === 'DocNo' ? r.no : c === 'Date' ? r.date : r[c] ?? '');
+  const cell = (r, c) => (c === 'DocNo' ? r.no : c === 'Date' ? r.date : r[c] ?? ''); const show = (r, c) => fmtDate(cell(r, c));
   const total = (c) => Math.round(shown.reduce((s, r) => s + (Number(r[c]) || 0), 0) * 100) / 100;
   const run = () => {
     if (out === 'Printer') window.print();
@@ -65,7 +65,7 @@ export default function ImprestRegister({ kind }) {
                   <td className="td !py-1"><button type="button" className="text-brand-700 hover:underline" title="Download this document as PDF" onClick={() => pdf(r.no)}>PDF</button></td>
                   {cols.map((c) => (
                     <td key={c} className={`td !py-1 whitespace-nowrap ${NUM.has(c) ? 'text-right tabular-nums' : ''}`}>
-                      {c === 'DocNo' ? <Link className="font-medium text-brand-700 hover:underline" to={printPath(SLUG[type], r.no)} title="Open / print document">{r.no}</Link> : cell(r, c)}
+                      {c === 'DocNo' ? <Link className="font-medium text-brand-700 hover:underline" to={printPath(SLUG[type], r.no)} title="Open / print document">{r.no}</Link> : show(r, c)}
                     </td>
                   ))}
                 </tr>

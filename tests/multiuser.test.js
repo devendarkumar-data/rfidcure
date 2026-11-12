@@ -547,10 +547,10 @@ test('GRN form drops Place of Supply / Submit For Approval / Destination; attach
   assert.equal((await wm('POST', '/api/attachments', { docType: 'grn', fileName: 'big.pdf', mime: 'application/pdf', data: 'A'.repeat(2_100_000) })).status, 400);
   const dl = (await wm('GET', `/api/attachments/get?id=${up.json.id}`)).json;
   assert.deepEqual([dl.name, dl.mime, dl.data], ['inv 1.pdf', 'application/pdf', pdf]);
-  const r = await wm('POST', '/api/t/grn-mrn', { ...grn('MWH', [{ 'Item Code': 'A1', Quantity: 1, Rate: 1, Batch: 'ATT-1', 'Expiry Date': '2031-01-01' }]), header: { Date: '2026-11-01', Warehouse: 'MWH', 'Invoice No.': 'INV-7788', Attachment: `${up.json.id}|inv 1.pdf`, 'Receipt Type': 'MRN', 'Update Stock': 'Yes' } });
+  const r = await wm('POST', '/api/t/grn-mrn', { ...grn('MWH', [{ 'Item Code': 'A1', Quantity: 1, Rate: 1, Batch: 'ATT-1', 'Expiry Date': '2031-01-01' }]), header: { Date: '2026-11-01', Warehouse: 'MWH', 'Invoice No.': 'INV-7788', Attachment: `${up.json.id}|inv 1.pdf`, 'Receipt Type': 'Special GRN', 'Update Stock': 'Yes' } });
   assert.equal(r.status, 201, r.text);
   const found = (await wm('GET', '/api/t/grn-mrn?q=INV-7788')).json;
-  assert.equal(found.rows.length, 1); assert.equal(found.rows[0]['Receipt Type'], 'MRN');
+  assert.equal(found.rows.length, 1); assert.equal(found.rows[0]['Receipt Type'], 'Special GRN');
 });
 
 test('Vendor Master: Vendor Name required, Default Currency hidden, Allowed Currency is a multi-select from the Currency Master', async (t) => {
@@ -699,4 +699,29 @@ test('warehouse roles that run Imprest see Customer Account and HSN on the Impre
     assert.ok(m.fields.some((f) => f.name === 'Customer Account'), `cu${i}: Customer Account`);
     assert.ok(m.lineFields.some((f) => f.name === 'HSN'), `cu${i}: HSN`);
   }
+});
+
+test('Special GRN posts without any accounting terms and has its own register filter', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  await app.store.append('Item Master', [{ 'Master Id': 'IM-S', 'Item Name': 'Special Pin', Code: 'SP1', Brand: 'ACME', 'Item Category': 'Implants', HSN: '9021' }]);
+  const sa = await app.as('sa');
+  const r = await sa('POST', '/api/t/grn-mrn', { header: { Date: '2026-11-10', Warehouse: 'MWH', Location: 'Delhi', 'Update Stock': 'Yes', 'Receipt Type': 'Special GRN' }, lines: [{ 'Item Code': 'SP1', Items: 'Special Pin', Quantity: 7, Batch: 'S-1', 'Expiry Date': '2030-05-01' }] });
+  assert.equal(r.status, 201, r.text);
+  const sp = (await sa('GET', '/api/t/grn-mrn?grnType=special')).json; assert.ok(sp.rows.some((x) => x['Document No.'] === r.json.id));
+  assert.ok(!(await sa('GET', '/api/t/grn-mrn?grnType=po')).json.rows.some((x) => x['Document No.'] === r.json.id), 'not in the GRN (PO) register');
+  const stock = await sa('GET', '/api/stock/batches?warehouse=MWH&code=SP1'); assert.equal(stock.json.batches?.[0]?.qty ?? stock.json.rows?.[0]?.qty, 7);
+});
+
+test('Imprest In and Consumption are saved together against one Imprest Out', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  await app.store.append('Item Master', [{ 'Master Id': 'IM-D', 'Item Name': 'Dual Plate', Code: 'DP1', Brand: 'ACME', 'Item Category': 'Implants' }]);
+  await app.store.append('Opening Stock', [{ Warehouse: 'MWH', 'Item Code': 'DP1', 'Item Name': 'Dual Plate', 'Batch Number': 'D-1', Quantity: 100, 'Expiry Date': '2031-01-01', 'Stock Value': 100 }]);
+  const sa = await app.as('sa');
+  const out = await sa('POST', '/api/t/imprest-out-new', { header: { Date: '2026-11-01', 'Customer Account': 'DUAL HOSPITAL' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'DP1', Quantity: 100, Batch: 'D-1' }] });
+  assert.equal(out.status, 201, out.text);
+  const tr = (await sa('GET', `/api/imprest/trail?ref=${encodeURIComponent(out.json.id)}`)).json; const key = tr.position.lines[0].key;
+  const bad = await sa('POST', '/api/imprest/settle', { ref: out.json.id, lines: [{ key, returned: 60, consumed: 50 }] }); assert.equal(bad.status, 422, 'back + consumed cannot exceed the open balance');
+  const ok = await sa('POST', '/api/imprest/settle', { ref: out.json.id, date: '2026-11-05', lines: [{ key, returned: 30, consumed: 20 }] });
+  assert.equal(ok.status, 201, ok.text); assert.ok(ok.json.inDoc && ok.json.consumptionDoc);
+  const p = ok.json.trail.position; assert.deepEqual([p.returned, p.consumed, p.balance], [30, 20, 50]);
 });
