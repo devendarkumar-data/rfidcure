@@ -12,10 +12,10 @@ import { Back } from './index.jsx';
 
 const DEFAULT_WH = 'MWH'; // Mother Warehouse
 
-// Special GRN: the whole form is open, items are added by hand, not linked to any Purchase Order, no invoice number / date, no accounting terms.
+// Special GRN: items are added by hand, not linked to any Purchase Order, with the accounting details.
 export default function GrnManual() {
   const nav = useNavigate(); const toast = useToast(); const { tables } = useAuth(); const table = tables['grn-mrn'];
-  const [wh, setWh] = useState(null); const [acct, setAcct] = useState(false); // Special GRN: plain (no accounting) or with accounting details
+  const [wh, setWh] = useState(null); // Special GRN carries the accounting details (invoice, rates, discounts, GST) but is never linked to a PO
   useEffect(() => { // MWH when the user may use it, otherwise their only warehouse
     api.get('/api/lookup', { field: 'Warehouse', scopeOnly: '1' }).then((r) => {
       const o = (r.options || []).map((x) => x.value);
@@ -23,10 +23,10 @@ export default function GrnManual() {
     }).catch(() => setWh(''));
   }, []);
   if (!table || wh === null) return <Spinner />;
-  // Special GRN carries no accounting terms: rates, taxes, discounts, invoice value and the GST block are left to the PO-based GRN
-  const NO_HEAD = new Set(['Supplier Ref No', 'Raise Receipt', ...(acct ? [] : ['Invoice Value', 'Invoice Date', 'Is IGST', 'Terms of Delivery', 'Type Of Purchase', 'Invoice No.'])]);
-  const NO_LINE = new Set(['PO No', 'PO Line', 'Ordered Qty', 'Received Qty', 'Short Close', 'Excess Decision', ...(acct ? [] : ['Rate', 'Gross', 'Other Discount', 'Taxable Value', 'CGST', 'IGST', 'Price Book Rate', 'Special Rate', 'MRP', 'Price Type', 'Division', 'Item Group'])]);
-  const special = { ...table, noAccounts: !acct, fields: table.fields.filter((f) => !NO_HEAD.has(f.name)), lineFields: table.lineFields.filter((f) => !NO_LINE.has(f.name)) };
+  // Special GRN: same accounting form as Create GRN, but no PO link (no Supplier Ref No / PO No columns)
+  const NO_HEAD = new Set(['Supplier Ref No', 'Raise Receipt']);
+  const NO_LINE = new Set(['PO No', 'PO Line', 'Ordered Qty', 'Received Qty', 'Short Close', 'Excess Decision']);
+  const special = { ...table, fields: table.fields.filter((f) => !NO_HEAD.has(f.name)), lineFields: table.lineFields.filter((f) => !NO_LINE.has(f.name)) };
   const create = async (payload, key) => {
     const r = await api.post('/api/t/grn-mrn', { ...payload, header: { 'Update Stock': 'Yes', ...payload.header, 'Receipt Type': 'Special GRN' } }, { headers: { 'Idempotency-Key': key || idemKey() } });
     toast.success(r.duplicate ? 'Already saved — duplicate ignored' : `Special GRN ${r.id} posted; stock updated`);
@@ -34,8 +34,7 @@ export default function GrnManual() {
   };
   return (
     <>
-      <PageHeader back={<Back to="/grn/special">Special GRN Register</Back>} title="Special GRN" subtitle="Receive goods that need not follow a PO: add the items yourself. A Special GRN is never linked to a Purchase Order. Tick the box below only when it must carry accounting details." />
-      <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={acct} onChange={(e) => setAcct(e.target.checked)} /> <span><b>With accounting details</b> — invoice no. / date / value, rates, discounts, GST and totals</span></label>
+      <PageHeader back={<Back to="/grn/special">Special GRN Register</Back>} title="Special GRN" subtitle="Receive goods that need not follow a PO: add the items yourself. Unlike Create GRN it is not linked to a Purchase Order; it carries the accounting details (invoice, rates, discounts, GST)." />
       <Card><RecordForm table={special} mode="create" initial={{ header: { 'Update Stock': 'Yes', Location: COMPANY.state, ...(wh ? { Warehouse: wh } : {}) } }} onSubmit={create} onCancel={() => nav('/grn/special')} submitLabel="Save & post" /></Card>
     </>
   );
