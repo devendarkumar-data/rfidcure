@@ -57,6 +57,14 @@ export const REPORTS = [
     } },
   { key: 'warehouse-stock', group: 'Stock', title: 'Warehouse-wise Live Stock (batch level)', stage: 'reports', ok: stockOk, columns: stockCols, dateCol: 'Expiry Date', statusCol: 'Flag',
     run: async (ctx) => { needStockFields(ctx); const { balances } = await loadStock(ctx.store); const { classify } = await locations(ctx); return { rows: batchRows(ctx, balances, (e) => classify(e.warehouse) === 'Warehouse') }; } },
+  { key: 'expiry-report', group: 'Stock', title: 'Expiry Report', stage: 'reports', ok: stockOk, columns: ['Warehouse', 'Item Code', 'Item Name', 'Category', 'Brand', 'Batch Number', 'Expiry Date', 'Days To Expiry', 'Expiry Tag', 'Quantity', 'Rate', 'Stock Value'], dateCol: 'Expiry Date', dateAsc: true, statusCol: 'Expiry Tag', statusLabel: 'Tag',
+    run: async (ctx) => {
+      needStockFields(ctx); const { balances } = await loadStock(ctx.store);
+      const tag = (d) => (d === null ? 'No expiry' : d < 0 ? 'Expired' : d <= 30 ? '0-30 days' : d <= 60 ? '31-60 days' : d <= 90 ? '61-90 days' : d <= 180 ? '91-180 days' : 'Over 180 days');
+      const rows = batchRows(ctx, balances, (e) => e.qty > 0).map(({ Flag, ...r }) => ({ ...r, 'Expiry Tag': tag(r['Days To Expiry']) }));
+      rows.sort((a, b) => (a['Days To Expiry'] ?? 1e9) - (b['Days To Expiry'] ?? 1e9)); // earliest expiry first
+      return { rows };
+    } },
   { key: 'virtual-stock', group: 'Stock', title: 'Virtual Warehouse / Hospital Stock (incl. in transit)', stage: 'reports', ok: stockOk, columns: ['Location', 'Location Type', ...stockCols.slice(1)], dateCol: 'Expiry Date', statusCol: 'Flag',
     run: async (ctx) => {
       needStockFields(ctx); const { balances } = await loadStock(ctx.store); const { classify } = await locations(ctx);
@@ -134,6 +142,8 @@ export async function runReport(ctx, key, q = {}) {
   const needle = lc(q.q);
   rows = rows.filter((r) => {
     if (q.warehouse && !whCols.some((c) => lc(r[c]) === lc(q.warehouse)) && !(r['Requesting Warehouse'] || r['Issuing Warehouse'] || r['From Warehouse'] || r['To Warehouse'] ? [r['Requesting Warehouse'], r['Issuing Warehouse'], r['From Warehouse'], r['To Warehouse']].some((w) => lc(w) === lc(q.warehouse)) : false)) return false;
+    if (q.brand && lc(r.Brand) !== lc(q.brand)) return false;
+    if (q.category && lc(r.Category) !== lc(q.category)) return false;
     if (q.item && !(itemCols.some((c) => lc(r[c]).includes(lc(q.item))) || lc(r['Item Summary']).includes(lc(q.item)))) return false;
     if (q.status && def.statusCol && lc(r[def.statusCol]) !== lc(q.status)) return false;
     if ((q.from || q.to) && def.dateCol) { const d = dateOf(r[def.dateCol]); if (!d || (q.from && d < q.from) || (q.to && d > q.to)) return false; }
@@ -143,9 +153,10 @@ export async function runReport(ctx, key, q = {}) {
   if (q.sort && columns.includes(q.sort)) {
     const dir = q.dir === 'desc' ? -1 : 1;
     rows = [...rows].sort((a, b) => dir * ((typeof a[q.sort] === 'number' && typeof b[q.sort] === 'number') ? a[q.sort] - b[q.sort] : String(a[q.sort] ?? '').localeCompare(String(b[q.sort] ?? ''), undefined, { numeric: true })));
-  } else if (def.dateCol && columns.includes(def.dateCol)) rows = [...rows].sort((a, b) => dateOf(b[def.dateCol]).localeCompare(dateOf(a[def.dateCol])));
+  } else if (def.dateCol && columns.includes(def.dateCol)) rows = [...rows].sort((a, b) => (def.dateAsc ? (dateOf(a[def.dateCol]) || '9').localeCompare(dateOf(b[def.dateCol]) || '9') : dateOf(b[def.dateCol]).localeCompare(dateOf(a[def.dateCol]))));
   const statuses = def.statusCol ? [...new Set(res.rows.map((r) => sstr(r[def.statusCol])).filter(Boolean))].sort() : [];
-  const meta = { key, title: def.title, group: def.group, columns, hasDate: !!def.dateCol, statuses };
+  const uniq = (c) => (columns.includes(c) ? [...new Set(res.rows.map((r) => sstr(r[c])).filter(Boolean))].sort() : []);
+  const meta = { key, title: def.title, group: def.group, columns, hasDate: !!def.dateCol, statuses, statusLabel: def.statusLabel || 'Status', brands: uniq('Brand'), categories: uniq('Category') };
   if (q.export) return { ...meta, rows: rows.slice(0, 50000), total: rows.length };
   const pageSize = Math.min(200, Math.max(1, parseInt(q.pageSize, 10) || 25)); const pages = Math.max(1, Math.ceil(rows.length / pageSize)); const page = Math.min(pages, Math.max(1, parseInt(q.page, 10) || 1));
   const totals = {}; for (const c of columns) if (rows.length && rows.every((r) => typeof r[c] === 'number') && /qty|quantity|value|total|stock|amount/i.test(c) && !/rate|days|level/i.test(c)) totals[c] = round2(rows.reduce((s, r) => s + r[c], 0));

@@ -15,6 +15,17 @@ test('report engine: filters, scope, export, virtual stock', async (t) => {
     assert.equal((await rep(au, 'warehouse-stock')).status, 403); // auditor: no quantities
     assert.equal((await rep(sa, 'nope')).status, 404);
   });
+  await t.test('expiry report: tag per batch, tag/brand/warehouse/expiry-date filters, earliest first, auditor blocked', async () => {
+    const all = (await rep(sa, 'expiry-report', '?pageSize=200')).json;
+    assert.ok(all.total > 0 && all.columns.includes('Expiry Tag') && all.statusLabel === 'Tag');
+    assert.ok(all.rows.every((r) => r.Quantity > 0), 'only batches in stock');
+    const days = all.rows.map((r) => r['Days To Expiry'] ?? 1e9); assert.deepEqual(days, [...days].sort((x, y) => x - y), 'earliest expiry first');
+    for (const r of all.rows) assert.equal(r['Expiry Tag'] === 'Expired', r['Days To Expiry'] !== null && r['Days To Expiry'] < 0);
+    const tag = all.statuses[0]; const one = (await rep(sa, 'expiry-report', `?status=${encodeURIComponent(tag)}&pageSize=200`)).json;
+    assert.ok(one.total > 0 && one.rows.every((r) => r['Expiry Tag'] === tag));
+    if (all.brands.length) assert.ok((await rep(sa, 'expiry-report', `?brand=${encodeURIComponent(all.brands[0])}`)).json.rows.every((r) => r.Brand === all.brands[0]));
+    assert.equal((await rep(au, 'expiry-report')).status, 403);
+  });
   await t.test('warehouse stock: scope, warehouse + item + status filters, pagination, totals', async () => {
     const r = (await rep(sa, 'warehouse-stock', '?pageSize=2')).json; assert.equal(r.total, 6); assert.equal(r.rows.length, 2); assert.equal(r.pages, 3);
     assert.equal((await rep(sa, 'warehouse-stock', '?warehouse=DWH')).json.total, 2);
