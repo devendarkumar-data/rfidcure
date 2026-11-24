@@ -62,7 +62,7 @@ export default function ImprestRegister({ kind }) {
               {!shown.length && <tr><td className="td text-slate-500" colSpan={cols.length + 1}>No entries.</td></tr>}
               {shown.map((r, i) => (
                 <tr key={`${r.no}-${i}`}>
-                  <td className="td !py-1"><button type="button" className="text-brand-700 hover:underline" title="Download this document as PDF" onClick={() => pdf(r.no)}>PDF</button></td>
+                  <td className="td !py-1"><button type="button" className="text-brand-700 hover:underline" title="Download this document as PDF" onClick={() => pdf(r.no)}>PDF</button>{type === 'out' && r.editable && <Link className="ml-2 text-amber-700 hover:underline" title="You can change this Imprest Out for one hour after creating it" to={`/imprest/out/${encodeURIComponent(r.no)}/edit`}>Edit</Link>}</td>
                   {cols.map((c) => (
                     <td key={c} className={`td !py-1 whitespace-nowrap ${NUM.has(c) ? 'text-right tabular-nums' : ''}`}>
                       {c === 'DocNo' ? <Link className="font-medium text-brand-700 hover:underline" to={printPath(SLUG[type], r.no)} title="Open / print document">{r.no}</Link> : show(r, c)}

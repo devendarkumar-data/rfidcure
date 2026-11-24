@@ -23,6 +23,7 @@ import ImprestRegister from './pages/ImprestRegister.jsx';
 import ConsumptionPage from './pages/ConsumptionPage.jsx';
 import ApprovalSettings from './pages/ApprovalSettings.jsx';
 import Drafts from './pages/Drafts.jsx';
+import ImprestOutEdit from './pages/ImprestOutEdit.jsx';
 import ImprestGroups from './pages/ImprestGroups.jsx';
 import { GrnDetail, GrnForm, GrnRegister, IntentDetail, IntentForm, IntentRegister, PoDetail, PoForm, PoRegister } from './pages/workflow/index.jsx';
 import DocPrint from './pages/DocPrint.jsx';
@@ -68,6 +69,7 @@ export default function App() {
         <Route index element={<Home />} />
         <Route path="drafts" element={<Drafts />} />
         <Route path="imprest/groups" element={<ImprestGroups />} />
+        <Route path="imprest/out/:id/edit" element={<ImprestOutEdit />} />
         <Route path="change-password" element={<ChangePassword />} />
         <Route path="t/:slug" element={<TableRoute />} />
 

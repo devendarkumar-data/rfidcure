@@ -776,3 +776,28 @@ test('surgery set: saved with items, readable by warehouse users, short stock bl
   const ok = await sa('POST', '/api/t/imprest-out-new', { header: hdr, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 2 }] });
   assert.equal(ok.status, 201, ok.text);
 });
+
+test('imprest out: creator may change quantities for one hour, others and later edits are refused, stock follows', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa'); const wm = await app.as('wm');
+  const hdr = { Date: '2026-11-11', 'Customer Account': 'Edit Hospital', Surgery: 'Spine', Doctor: 'Dr X' };
+  const o = await sa('POST', '/api/t/imprest-out-new', { header: hdr, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 4 }] }); assert.equal(o.status, 201, o.text);
+  const mwh = async () => (await sa('GET', '/api/stock/balances?q=A1&warehouse=MWH&pageSize=200')).json.totals.quantity;
+  const before = await mwh();
+  assert.equal((await sa('GET', `/api/imprest/out/editable?id=${encodeURIComponent(o.json.id)}`)).json.editable, true);
+  const reg = (await sa('GET', '/api/imprest/register?type=out')).json.rows; assert.ok(reg.filter((r) => r.no === o.json.id).every((r) => r.editable === true));
+  const other = await wm('PUT', `/api/imprest/out/edit?id=${encodeURIComponent(o.json.id)}`, { lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 1 }] });
+  assert.equal(other.status, 403, 'only the creator');
+  const e = await sa('PUT', `/api/imprest/out/edit?id=${encodeURIComponent(o.json.id)}`, { header: { Doctor: 'Dr Y' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 6 }] });
+  assert.equal(e.status, 200, e.text);
+  assert.equal(await mwh(), before - 2, 'two more units left the warehouse');
+  const rec = (await sa('GET', `/api/t/imprest-out-new/record?id=${encodeURIComponent(o.json.id)}`)).json;
+  assert.equal(rec.record.Doctor, 'Dr Y'); assert.equal(rec.lines.reduce((s, l) => s + Number(l.Quantity), 0), 6);
+  const big = await sa('PUT', `/api/imprest/out/edit?id=${encodeURIComponent(o.json.id)}`, { lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 9999 }] });
+  assert.equal(big.status, 422, 'not enough stock'); assert.equal(await mwh(), before - 2, 'unchanged after a refused edit');
+  // after the hour: simulate by moving the audit time back
+  const al = await app.store.read('Audit Logs', { fresh: true }); const row = al.rows.find((r) => r.Document_No === o.json.id && r.Action === 'Create');
+  await app.store.updateRow('Audit Logs', row.__row, { Created_Date: '2026-11-01', Created_Time: '09:00:00' });
+  const late = await sa('PUT', `/api/imprest/out/edit?id=${encodeURIComponent(o.json.id)}`, { lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 1 }] });
+  assert.equal(late.status, 403, 'window closed');
+});

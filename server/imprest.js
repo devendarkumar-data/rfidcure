@@ -1,11 +1,12 @@
 // Imprest flow: Out -> Imprest In (quantity taken back, entered on Imprest In Pending) -> Consumption (remainder, entered manually from Consumption Pending, with bill).
 // Every In / Consumption carries the Imprest Ref of its Out, so each Out has a complete trail. Statuses: Pending Return / Pending Consumption / Closed.
-import { TABLE_BY_SLUG } from '../shared/registry.js';
+import { TABLE_BY_SLUG, TAB } from '../shared/registry.js';
 import { assertCan, inScope, parseLines } from './access.js';
 import { audit } from './audit.js';
-import { createRecord, hospitalSet, imprestLinked } from './crud.js';
-import { keyOf, loadStock } from './stock.js';
-import { HttpError, bad, fyOf, notFound, normDate, sstr, today, toNum, unprocessable } from './util.js';
+import { createRecord, findRow, hospitalSet, imprestLinked, itemCatalog, stripInternal, validateHeader, validateLines } from './crud.js';
+import { POSTERS } from './posting.js';
+import { StockView, findNegatives, keyOf, loadStock } from './stock.js';
+import { HttpError, bad, conflict, forbidden, fyOf, notFound, normDate, sstr, today, toNum, unprocessable, withLock } from './util.js';
 
 const OUT = 'imprest-out-new', IN = 'imprest-in-new', CONS = 'material-consumption';
 const gkey = (code, batch) => `${sstr(code)}|${sstr(batch)}`;
@@ -258,9 +259,11 @@ export async function register(ctx, type) {
       'Item HSN/SAC': sstr(l.HSN), Rate: rate, 'Group Doc No': sstr(h['Group Doc No']), 'Imprest In Doc No': kind === 'Receipts' ? no : sstr(h['Imprest In Doc No']), 'Consumption Doc No': sstr(h['Consumption Doc No']) || (kind === 'Consumption' ? no : ''), hospital, status: '', ref: base ? sstr(base.DocNo) : '', warehouse: sstr(l.Warehouse) };
   };
   if (type === 'out') {
+    const auditRows = (await ctx.store.read('Audit Logs', { fresh: true })).rows;
     for (const o of outs.filter((x) => sstr(x.DocNo))) {
       const p = position(o, ins, cons); if (!mine(ctx, p)) continue;
-      for (const l of parseLines(o.Lines)) rows.push({ ...line(o, p.ref, p.date, 'Issues', p.hospital, l, null), 'Link Status': p.status === 'Open' ? 'Pending' : 'Closed', status: p.status });
+      const ed = await outEditState(ctx, p.ref, { ins, cons }, auditRows); // creator, inside the 1-hour window, nothing raised against it yet
+      for (const l of parseLines(o.Lines)) rows.push({ ...line(o, p.ref, p.date, 'Issues', p.hospital, l, null), 'Link Status': p.status === 'Open' ? 'Pending' : 'Closed', status: p.status, editable: ed.editable });
     }
   } else if (type === 'in') {
     for (const d of ins.filter((x) => sstr(x.DocNo))) {
@@ -278,4 +281,67 @@ export async function register(ctx, type) {
   }
   rows.sort((a, b) => String(b.date).localeCompare(String(a.date)) || b.no.localeCompare(a.no));
   return { rows, columns: REGISTER_COLUMNS };
+}
+
+// ---- Imprest Out: the person who created it may change items / quantities for one hour --------------------------
+export const EDIT_WINDOW_MIN = 60;
+const EDITABLE_HEADER = ['Surgery', 'Doctor', 'Sales Executive', 'Business Head', 'OT Name', 'Narration / Notes', 'Location'];
+const parseIst = (d, t) => { const ms = Date.parse(`${normDate(d)}T${sstr(t) || '00:00:00'}+05:30`); return Number.isFinite(ms) ? ms : NaN; };
+
+// Creator and time come from the audit trail of the Create, so no column has to be added to the sheet.
+async function createdBy(store, no, auditRows) {
+  const rows = auditRows || (await store.read('Audit Logs', { fresh: true })).rows;
+  const r = [...rows].reverse().find((x) => sstr(x.Document_No) === no && sstr(x.Module) === TABLE_BY_SLUG[OUT].tab && sstr(x.Action) === 'Create');
+  return r ? { user: sstr(r['User ID']), at: parseIst(r.Created_Date, r.Created_Time) } : null;
+}
+// Returns { editable, until, reason }.
+export async function outEditState(ctx, no, loaded, auditRows) {
+  const { ins, cons } = loaded || (await load(ctx));
+  const c = await createdBy(ctx.store, no, auditRows);
+  if (!c) return { editable: false, reason: 'No creation record found for this document' };
+  if (c.user !== ctx.user.id) return { editable: false, reason: 'Only the person who created this Imprest Out can change it' };
+  const until = c.at + EDIT_WINDOW_MIN * 60000;
+  if (!(Date.now() <= until)) return { editable: false, reason: `The ${EDIT_WINDOW_MIN}-minute edit window has passed` };
+  if (ins.some((r) => sstr(r['Imprest Ref']) === no) || cons.some((r) => sstr(r['Imprest Ref']) === no)) return { editable: false, reason: 'An Imprest In or Consumption has already been raised against it' };
+  return { editable: true, until: new Date(until).toISOString() };
+}
+export async function outEditable(ctx, no) {
+  assertCan(ctx, TABLE_BY_SLUG[OUT], 'view');
+  return outEditState(ctx, sstr(no));
+}
+
+// Replaces the lines (and a few header fields). Stock is corrected by reversing what the document posted and posting the new lines in one go.
+export async function editOut(ctx, no, body) {
+  const table = TABLE_BY_SLUG[OUT]; assertCan(ctx, table, 'create'); no = sstr(no);
+  return withLock('stock', async () => {
+    const { store } = ctx;
+    const loaded = await load(ctx);
+    const row = loaded.outs.find((r) => sstr(r.DocNo) === no); if (!row) throw notFound('Imprest Out not found');
+    const st = await outEditState(ctx, no, loaded); if (!st.editable) throw forbidden(st.reason);
+    const header = { ...Object.fromEntries(Object.entries(row).filter(([k, v]) => !k.startsWith('__') && k !== 'Lines' && k !== 'DocNo' && v !== '' && v !== null && v !== undefined)) };
+    const prevHeader = { ...header };
+    for (const k of EDITABLE_HEADER) if (body?.header && k in body.header) { if (sstr(body.header[k])) header[k] = body.header[k]; else delete header[k]; }
+    const vHeader = await validateHeader(ctx, table, header);
+    const stock = await loadStock(store, { fresh: true });
+    const catalog = await itemCatalog(store, stock);
+    const lines = await validateLines(ctx, table, body?.lines, catalog, { strictItems: true });
+    const date = normDate(row.Date) || today();
+    const view = new StockView(stock.balances);
+    const net = new Map(); // what this document has put into the ledger so far (original posting plus any earlier correction)
+    for (const l of loaded.ledger.filter((r) => sstr(r.Doc) === no)) { const k = `${sstr(l.Warehouse).toUpperCase()}|${sstr(l['Item Code'])}|${sstr(l['Batch Number'])}`; const e = net.get(k) || { l, qty: 0 }; e.qty = rq(e.qty + toNum(l.Quantity)); net.set(k, e); }
+    for (const { l, qty } of net.values()) if (Math.abs(qty) > 1e-9) view._push('Imprest Out (edit reversal)', no, date, l.Warehouse, sstr(l['Item Code']), sstr(l['Item Name']), sstr(l['Batch Number']), normDate(l['Expiry Date']), -qty, toNum(l.Rate));
+    const reversed = view.entries.length;
+    const res = POSTERS['imprest-out']({ header: vHeader, lines, view, doc: no, date, catalog });
+    await store.append(TAB.ledger, view.ledgerRows(ctx.user.id));
+    const neg = await findNegatives(store, view.touchedKeys());
+    if (neg.length) {
+      await store.append(TAB.ledger, view.entries.map((x) => ({ Date: x.date, Type: 'Reversal', Doc: no, Warehouse: x.warehouse, 'Item Code': x.code, 'Item Name': x.name, 'Batch Number': x.batch, 'Expiry Date': x.expiry, Quantity: -x.qty, Rate: x.rate, User: ctx.user.id })));
+      throw conflict('Stock changed while saving (another user posted at the same time). Nothing was changed - please retry.');
+    }
+    const patch = { Lines: JSON.stringify(stripInternal(res.lines)) };
+    for (const k of EDITABLE_HEADER) patch[k] = vHeader[k] ?? '';
+    await store.updateRow(table.tab, row.__row, patch, { col: 'DocNo', val: no });
+    await audit(store, { user: ctx.user, module: table.tab, doc: no, action: 'Update', prev: { lines: parseLines(row.Lines).length, ...Object.fromEntries(EDITABLE_HEADER.map((k) => [k, prevHeader[k] || ''])) }, next: { lines: res.lines.length, reversedLedgerRows: reversed, ledgerRows: view.entries.length - reversed }, remarks: 'Edited within the 1-hour window' });
+    return { id: no, lines: res.lines, warnings: view.warnings };
+  });
 }
