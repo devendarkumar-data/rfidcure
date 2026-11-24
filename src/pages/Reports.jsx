@@ -14,7 +14,7 @@ import Modal from '../components/Modal.jsx';
 import NotFound from './NotFound.jsx';
 
 // E-mail the report as it is on screen (same filters) as Excel / CSV / PDF. The mail leaves from the company mailbox; "From" becomes the sender name and the reply address.
-function EmailDialog({ reportKey, title, filters, onClose }) {
+export function EmailDialog({ reportKey, title, filters, onClose }) {
   const toast = useToast(); const [cfg, setCfg] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const [v, setV] = useState({ from: '', to: '', cc: '', subject: title, message: '', format: 'xlsx' });
   useEffect(() => { api.get('/api/mail/config').then((c) => { setCfg(c); setV((s) => ({ ...s, from: c.email || '' })); }).catch((e) => setErr(e.message)); }, []);

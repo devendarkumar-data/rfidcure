@@ -814,3 +814,20 @@ test('item timeline: GRN, imprest out and consumption of one batch in date order
   assert.equal((await sa('GET', '/api/reports/item-timeline?item=A1&batch=TL-1&export=csv')).status, 200);
   assert.equal((await (await app.as('au'))('GET', '/api/reports/item-timeline')).status, 403, 'auditor has no quantities');
 });
+
+test('item timeline exports grouped by item; hospital valuation is date-wise; live stock shows virtual value', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  await sa('POST', '/api/t/grn-mrn', grn('MWH', [{ 'Item Code': 'A1', Quantity: 8, Rate: 100, Batch: 'GV-1', 'Expiry Date': '2031-01-01' }], { Date: '2026-11-02' }));
+  const o = await sa('POST', '/api/t/imprest-out-new', { header: { Date: '2026-11-06', 'Customer Account': 'Value Hospital', Surgery: 'Spine', Doctor: 'Dr V' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 3, Batch: 'GV-1' }] }); assert.equal(o.status, 201, o.text);
+  const all = (await sa('GET', '/api/reports/item-timeline?item=A1&all=1')).json; assert.ok(all.rows.length >= 3 && all.rows.length === all.total, 'unpaged list for the parent/child screen');
+  const csv = (await sa('GET', '/api/reports/item-timeline?items=A1&export=csv')).text;
+  const lines = csv.split('\r\n'); assert.match(lines[1], /^A1 — Item A/, 'item heading row first'); assert.ok(lines.length > 3);
+  assert.equal((await sa('GET', '/api/reports/item-timeline?items=ZZ9&all=1')).json.total, 0, 'only the ticked items');
+  const hv = (await sa('GET', '/api/reports/hospital-stock-valuation?all=1')).json;
+  const sent = hv.rows.filter((r) => r['Virtual Warehouse'].toUpperCase() === 'VALUE HOSPITAL' && r.Event === 'Imprest Out');
+  assert.equal(sent.length, 1); assert.equal(sent[0].Date, '2026-11-06'); assert.equal(sent[0].Value, sent[0].Quantity * sent[0].Rate); assert.equal(sent[0].Quantity, 3);
+  assert.ok(hv.totals.Value > 0, 'net value held at hospitals');
+  assert.equal((await sa('GET', '/api/reports/hospital-stock-valuation?export=pdf')).status, 200);
+  const ss = (await sa('GET', '/api/stock/summary?virtual=1')).json; const v = ss.virtualValues.find((x) => x.warehouse.toUpperCase() === 'VALUE HOSPITAL'); assert.equal(v.qty, 3); assert.ok(v.value > 0);
+});

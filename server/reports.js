@@ -82,12 +82,13 @@ export async function stockSummary(ctx, q = {}) {
     const it = items.get(e.itemCode) || items.set(e.itemCode, { itemCode: e.itemCode, itemName: e.itemName, total: 0, all: 0, value: 0, by: {} }).get(e.itemCode);
     it.by[e.warehouse] = round2((it.by[e.warehouse] || 0) + e.qty); it.all = round2((it.all || 0) + e.qty); if (!virt.has(e.warehouse)) { it.total = round2(it.total + e.qty); it.value = round2(it.value + e.value); } // total / value stay physical; 'all' adds the stock sitting at hospitals
   }
+  const vv = new Map(); for (const e of balances.values()) if (virt.has(e.warehouse) && Math.abs(e.qty) > 1e-9) { const o = vv.get(e.warehouse) || vv.set(e.warehouse, { warehouse: e.warehouse, qty: 0, value: 0 }).get(e.warehouse); o.qty = round2(o.qty + e.qty); o.value = round2(o.value + e.value); }
   const needle = sstr(q.q).toLowerCase();
   let rows = [...items.values()].filter((i) => !needle || `${i.itemCode} ${i.itemName}`.toLowerCase().includes(needle)).sort((a, b) => b.total - a.total);
   const total = rows.length;
   const pageSize = Math.min(100, Math.max(1, parseInt(q.pageSize, 10) || 20));
   const page = Math.max(1, parseInt(q.page, 10) || 1);
-  return { warehouses: [...whs].sort((a, b) => (virt.has(a) - virt.has(b)) || whOrder(a, b)), virtual: [...virt].filter((v) => whs.has(v)), rows: rows.slice((page - 1) * pageSize, page * pageSize), total, page, pageSize, pages: Math.max(1, Math.ceil(total / pageSize)) };
+  return { virtualValues: [...vv.values()].sort((a, b) => b.value - a.value), warehouses: [...whs].sort((a, b) => (virt.has(a) - virt.has(b)) || whOrder(a, b)), virtual: [...virt].filter((v) => whs.has(v)), rows: rows.slice((page - 1) * pageSize, page * pageSize), total, page, pageSize, pages: Math.max(1, Math.ceil(total / pageSize)) };
 }
 
 // FEFO-ordered batches of one item in one warehouse, for the line-item pickers in forms.

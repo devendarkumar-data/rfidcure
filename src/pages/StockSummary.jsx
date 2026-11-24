@@ -1,5 +1,6 @@
 import { useTick } from '../useTick.js';
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import Card from '../components/Card.jsx';
 import FilterBar, { FilterItem } from '../components/FilterBar.jsx';
@@ -23,6 +24,17 @@ export default function StockSummary() {
     <>
       <PageHeader title="Live Stock Overview" subtitle="Quantity per item across the warehouses you can access, with the virtual (hospital) warehouses holding imprest stock shown after them." />
       <FilterBar><FilterItem label="Search item" grow><input className="input" placeholder="Item code or name" value={q} onChange={(e) => setQ(e.target.value)} /></FilterItem><FilterItem label="Virtual warehouses"><label className="flex h-9 items-center gap-2 text-sm"><input type="checkbox" checked={withVirtual} onChange={(e) => { setWithVirtual(e.target.checked); setPage(1); }} /> Include hospital (imprest) stock</label></FilterItem></FilterBar>
+      {d?.virtualValues?.length > 0 && (
+        <Card>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Stock held at hospitals / virtual warehouses — valuation</h3>
+            <Link className="text-sm text-brand-700 hover:underline" to="/reports/hospital-stock-valuation">Date-wise valuation, Excel / PDF / e-mail →</Link>
+          </div>
+          <div className="overflow-x-auto"><table className="min-w-full text-sm"><thead><tr><th className="th">Virtual warehouse</th><th className="th text-right">Quantity</th><th className="th text-right">Value (₹)</th></tr></thead>
+            <tbody className="divide-y divide-slate-100">{d.virtualValues.map((v) => <tr key={v.warehouse}><td className="td"><Link className="text-brand-700 hover:underline" to={`/reports/hospital-stock-valuation?q=${encodeURIComponent(v.warehouse)}`}>{v.warehouse}</Link></td><td className="td text-right tabular-nums">{n(v.qty)}</td><td className="td text-right tabular-nums">{n(v.value)}</td></tr>)}
+              <tr className="bg-slate-50 font-semibold"><td className="td">Total</td><td className="td text-right tabular-nums">{n(d.virtualValues.reduce((s, v) => s + v.qty, 0))}</td><td className="td text-right tabular-nums">{n(d.virtualValues.reduce((s, v) => s + v.value, 0))}</td></tr></tbody></table></div>
+        </Card>
+      )}
       <Card pad={false}>
         {err && <div role="alert" className="p-4 text-sm text-red-600">{err}</div>}
         {busy && !d && <Spinner />}

@@ -42,18 +42,21 @@ function VoucherPicker({ kind, value, onPick }) {
 const NOT_MWH = { exclude: 'MWH' };
 // Imprest Out: choose a Surgery Set and its items are filled into the lines with the set quantities.
 // Stock is checked per line against the chosen warehouse; a line with too little stock blocks saving until the quantity is changed.
-function SurgerySetPicker({ onPick }) {
+function SurgerySetPicker({ onPick, surgery, empty }) {
   const [sets, setSets] = useState([]); const [sel, setSel] = useState(''); const [msg, setMsg] = useState('');
   useEffect(() => { api.get('/api/t/surgery-set-master', { pageSize: 200 }).then((r) => setSets(r.rows || [])).catch(() => {}); }, []);
-  if (!sets.length) return null;
-  const apply = async () => {
-    const row = sets.find((s) => s['Set Id'] === sel); if (!row) return;
+  const apply = async (id = sel) => {
+    const row = sets.find((s) => s['Set Id'] === id); if (!row) return;
     try { const r = await api.get('/api/t/surgery-set-master/record', { id: row['Set Id'] }); onPick({ name: row['Set Name'], lines: r.lines || [] }); setMsg(`${(r.lines || []).length} items added from ${row['Set Name']}. Choose the warehouse and check the quantities.`); setSel(''); } catch (e) { setMsg(e.message); }
   };
+  useEffect(() => { // choosing the Surgery above fills its set when there is exactly one set for it and no items have been entered yet
+    const hit = surgery && empty ? sets.filter((s) => String(s.Surgery || '').toLowerCase() === String(surgery).toLowerCase()) : [];
+    if (hit.length === 1) apply(hit[0]['Set Id']);
+  }, [surgery, sets]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!sets.length) return null;
   return (
     <div className="mb-2 flex flex-wrap items-end gap-2 rounded border border-slate-200 bg-slate-50 p-2 text-sm">
-      <div><label className="label">Surgery Set</label><select className="input min-w-[16rem]" value={sel} onChange={(e) => setSel(e.target.value)}><option value="">— Select a set —</option>{sets.map((s) => <option key={s['Set Id']} value={s['Set Id']}>{s['Set Name']}</option>)}</select></div>
-      <button type="button" className="btn" disabled={!sel} onClick={apply}>Add set items</button>
+      <div><label className="label">Surgery Set</label><select className="input min-w-[16rem]" value={sel} onChange={(e) => { setSel(e.target.value); if (e.target.value) apply(e.target.value); }}><option value="">— Select a set —</option>{sets.map((s) => <option key={s['Set Id']} value={s['Set Id']}>{s['Set Name']}</option>)}</select></div>
       {msg && <span className="text-xs text-slate-600">{msg}</span>}
     </div>
   );
@@ -185,7 +188,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
         <div className="mt-3">
           <h3 className="mb-1 text-sm font-semibold">Line items</h3>
           {(isIn || isCons) && !readOnly && <VoucherPicker kind={isIn ? 'in' : 'cons'} value={values['Imprest Ref']} onPick={(r) => { setValues((st) => ({ ...st, 'Imprest Ref': r ? r.ref : '', ...(r ? { [isIn ? 'To Warehouse' : 'Warehouse']: r.hospital } : {}) })); setLines(r ? r.lines.filter((g) => g.balance > 0).map((g, i) => ({ _k: `v${i}-${Date.now()}`, 'Item Code': g.code, [table.itemField]: g.name, Batch: g.batch, 'Expiry Date': g.expiry || '', ...(isIn ? { Warehouse: g.warehouse } : {}), _avail: g.balance, Quantity: '' })) : [{ _k: `e-${Date.now()}` }]); }} />}
-          {isOut && <SurgerySetPicker onPick={(s) => setLines((ls) => [...ls.filter((l) => l['Item Code'] || l.Quantity), ...s.lines.map((g, i) => ({ _k: `s${i}-${Date.now()}`, Warehouse: defWh || ls[0]?.Warehouse || '', 'Item Code': g['Item Code'], [table.itemField]: g[table.itemField] || g.Items || g.Item, ...(g.Units ? { Units: g.Units } : {}), ...(g.HSN ? { HSN: g.HSN } : {}), Quantity: g.Quantity, 'L-Surgery Item Set': s.name }))])} />}
+          {isOut && <SurgerySetPicker surgery={values.Surgery} empty={!lines.some((l) => l['Item Code'])} onPick={(s) => setLines((ls) => [...ls.filter((l) => l['Item Code'] || l.Quantity), ...s.lines.map((g, i) => ({ _k: `s${i}-${Date.now()}`, Warehouse: defWh || ls[0]?.Warehouse || '', 'Item Code': g['Item Code'], [table.itemField]: g[table.itemField] || g.Items || g.Item, ...(g.Units ? { Units: g.Units } : {}), ...(g.HSN ? { HSN: g.HSN } : {}), Quantity: g.Quantity, 'L-Surgery Item Set': s.name }))])} />}
           {(isOut || isIn || isCons) && <ItemStockPanel codes={lines.map((l) => l['Item Code'])} highlight={isIn ? values['To Warehouse'] : isCons ? values.Warehouse : lines[0]?.Warehouse} />}
           <LinesEditor lineFields={table.lineFields} itemField={table.itemField} lines={lines} onChange={setLines} readOnly={readOnly}
             batchMode={table.posts && !INWARD.has(table.slug) ? 'pick' : 'enter'} getWarehouse={getWarehouse}

@@ -23,6 +23,7 @@ import ImprestRegister from './pages/ImprestRegister.jsx';
 import ConsumptionPage from './pages/ConsumptionPage.jsx';
 import ApprovalSettings from './pages/ApprovalSettings.jsx';
 import Drafts from './pages/Drafts.jsx';
+import ItemTimeline from './pages/ItemTimeline.jsx';
 import ImprestOutEdit from './pages/ImprestOutEdit.jsx';
 import ImprestGroups from './pages/ImprestGroups.jsx';
 import { GrnDetail, GrnForm, GrnRegister, IntentDetail, IntentForm, IntentRegister, PoDetail, PoForm, PoRegister } from './pages/workflow/index.jsx';
@@ -85,6 +86,7 @@ export default function App() {
         <Route path="requisitions/new" element={<Need table="purchase-requisition" action="create"><ReqForm /></Need>} />
         <Route path="requisitions/:id" element={<Need table="purchase-requisition"><ReqDetail /></Need>} />
         <Route path="reports" element={<Need feature="reports"><ReportsIndex /></Need>} />
+        <Route path="reports/item-timeline" element={<Need feature="reports"><ItemTimeline /></Need>} />
         <Route path="reports/:key" element={<Need feature="reports"><ReportPage /></Need>} />
         <Route path="grn" element={<Need table="grn-mrn"><GrnRegister /></Need>} />
         <Route path="grn/special" element={<Need table="grn-mrn"><GrnRegister special /></Need>} />

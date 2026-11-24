@@ -4,7 +4,7 @@ import { TABLE_BY_SLUG } from '../shared/registry.js';
 import { can, fieldAccess } from '../shared/permissions.js';
 import { inScope, parseLines } from './access.js';
 import { listRecords } from './crud.js';
-import { needStockFields, scopedBalances, daysBetween } from './reports.js';
+import { needStockFields, scopedBalances, daysBetween, virtualWarehouses } from './reports.js';
 import { isTransitLoc, loadStock, locations } from './stock.js';
 import { listReqs } from './requisition.js';
 import { listIntents, listPos } from './workflow.js';
@@ -66,7 +66,7 @@ export const REPORTS = [
       return { rows };
     } },
   // One item (or batch) followed through its whole life: indent -> PO -> GRN -> transfers -> Imprest Out -> Imprest In -> Consumption.
-  { key: 'item-timeline', group: 'Stock', title: 'Item Timeline (Indent → PO → GRN → Imprest → Consumption)', stage: 'reports', ok: stockOk, dateCol: 'Date', dateAsc: true, statusCol: 'Event',
+  { key: 'item-timeline', group: 'Stock', title: 'Item Timeline (Indent → PO → GRN → Imprest → Consumption)', stage: 'reports', ok: stockOk, dateCol: 'Date', dateAsc: true, statusCol: 'Event', groupBy: 'Item Code',
     columns: ['Date', 'Event', 'Document', 'Item Code', 'Item Name', 'Batch Number', 'Expiry Date', 'Warehouse', 'Quantity', 'Party', 'Reference'],
     run: async (ctx) => {
       needStockFields(ctx);
@@ -92,6 +92,15 @@ export const REPORTS = [
         push({ Date: r.Date, Event: t, Document: doc, code, name: r['Item Name'], batch, expiry: r['Expiry Date'], wh: r.Warehouse, qty: r.Quantity, party, ref });
       }
       return { rows: rows.filter((r) => r['Item Code']) };
+    } },
+  // Value of the stock sent to each hospital / virtual warehouse, date-wise: + sent (Imprest Out), - taken back (Imprest In) or consumed.
+  { key: 'hospital-stock-valuation', group: 'Stock', title: 'Hospital / Virtual Warehouse Stock Valuation (date-wise)', stage: 'reports', ok: stockOk, dateCol: 'Date', dateAsc: true, statusCol: 'Event',
+    columns: ['Date', 'Virtual Warehouse', 'Event', 'Document', 'Item Code', 'Item Name', 'Batch Number', 'Expiry Date', 'Quantity', 'Rate', 'Value'],
+    run: async (ctx) => {
+      needStockFields(ctx);
+      const virt = await virtualWarehouses(ctx); const upper = new Map([...virt].map((v) => [sstr(v).toUpperCase(), v]));
+      const { rows } = await ctx.store.read('Stock Ledger');
+      return { rows: rows.filter((r) => upper.has(sstr(r.Warehouse).toUpperCase())).map((r) => ({ Date: normDate(r.Date) || '', 'Virtual Warehouse': upper.get(sstr(r.Warehouse).toUpperCase()), Event: sstr(r.Type), Document: sstr(r.Doc), 'Item Code': sstr(r['Item Code']), 'Item Name': sstr(r['Item Name']), 'Batch Number': sstr(r['Batch Number']), 'Expiry Date': normDate(r['Expiry Date']) || '', Quantity: toNum(r.Quantity), Rate: toNum(r.Rate), Value: round2(toNum(r.Quantity) * toNum(r.Rate)) })) };
     } },
   { key: 'virtual-stock', group: 'Stock', title: 'Virtual Warehouse / Hospital Stock (incl. in transit)', stage: 'reports', ok: stockOk, columns: ['Location', 'Location Type', ...stockCols.slice(1)], dateCol: 'Expiry Date', statusCol: 'Flag',
     run: async (ctx) => {
@@ -171,6 +180,7 @@ export async function runReport(ctx, key, q = {}) {
   rows = rows.filter((r) => {
     if (q.warehouse && !whCols.some((c) => lc(r[c]) === lc(q.warehouse)) && !(r['Requesting Warehouse'] || r['Issuing Warehouse'] || r['From Warehouse'] || r['To Warehouse'] ? [r['Requesting Warehouse'], r['Issuing Warehouse'], r['From Warehouse'], r['To Warehouse']].some((w) => lc(w) === lc(q.warehouse)) : false)) return false;
     if (q.batch && !lc(r['Batch Number']).includes(lc(q.batch))) return false;
+    if (q.items && !sstr(q.items).split(',').map((x) => x.trim().toLowerCase()).includes(lc(r['Item Code']))) return false;
     if (q.brand && lc(r.Brand) !== lc(q.brand)) return false;
     if (q.category && lc(r.Category) !== lc(q.category)) return false;
     if (q.item && !(itemCols.some((c) => lc(r[c]).includes(lc(q.item))) || lc(r['Item Summary']).includes(lc(q.item)))) return false;
@@ -186,8 +196,15 @@ export async function runReport(ctx, key, q = {}) {
   const statuses = def.statusCol ? [...new Set(res.rows.map((r) => sstr(r[def.statusCol])).filter(Boolean))].sort() : [];
   const uniq = (c) => (columns.includes(c) ? [...new Set(res.rows.map((r) => sstr(r[c])).filter(Boolean))].sort() : []);
   const meta = { key, title: def.title, group: def.group, columns, hasDate: !!def.dateCol, statuses, statusLabel: def.statusLabel || 'Status', brands: uniq('Brand'), categories: uniq('Category') };
-  if (q.export) return { ...meta, rows: rows.slice(0, 50000), total: rows.length };
-  const pageSize = Math.min(200, Math.max(1, parseInt(q.pageSize, 10) || 25)); const pages = Math.max(1, Math.ceil(rows.length / pageSize)); const page = Math.min(pages, Math.max(1, parseInt(q.page, 10) || 1));
+  if (q.export) { // a grouped report (parent item, child lines) is exported as: item heading row, its lines, blank row, next item
+    if (def.groupBy) {
+      const g = new Map(); for (const r of rows.slice(0, 50000)) (g.get(r[def.groupBy]) || g.set(r[def.groupBy], []).get(r[def.groupBy])).push(r);
+      rows = [...g.entries()].sort(([a], [b]) => String(a).localeCompare(String(b), undefined, { numeric: true })).flatMap(([k, ls], i) => [...(i ? [{}] : []), { [columns[0]]: `${k} — ${sstr(ls[0]['Item Name'])}`.trim() }, ...ls]);
+    }
+    return { ...meta, rows: rows.slice(0, 50000), total: rows.length };
+  }
   const totals = {}; for (const c of columns) if (rows.length && rows.every((r) => typeof r[c] === 'number') && /qty|quantity|value|total|stock|amount/i.test(c) && !/rate|days|level/i.test(c)) totals[c] = round2(rows.reduce((s, r) => s + r[c], 0));
+  if (q.all) return { ...meta, totals, rows: rows.slice(0, 20000), total: rows.length, truncated: rows.length > 20000 };
+  const pageSize = Math.min(200, Math.max(1, parseInt(q.pageSize, 10) || 25)); const pages = Math.max(1, Math.ceil(rows.length / pageSize)); const page = Math.min(pages, Math.max(1, parseInt(q.page, 10) || 1));
   return { ...meta, rows: rows.slice((page - 1) * pageSize, page * pageSize), total: rows.length, page, pageSize, pages, totals };
 }
