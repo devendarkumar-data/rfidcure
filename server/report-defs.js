@@ -5,7 +5,8 @@ import { can, fieldAccess } from '../shared/permissions.js';
 import { inScope, parseLines } from './access.js';
 import { listRecords } from './crud.js';
 import { needStockFields, scopedBalances, daysBetween, virtualWarehouses } from './reports.js';
-import { isTransitLoc, loadStock, locations } from './stock.js';
+import { hospitalSet } from './crud.js';
+import { isTransitLoc, keyOf, loadStock, locations } from './stock.js';
 import { listReqs } from './requisition.js';
 import { listIntents, listPos } from './workflow.js';
 import { listOpening } from './opening.js';
@@ -103,6 +104,38 @@ export const REPORTS = [
       const virt = await virtualWarehouses(ctx); const upper = new Map([...virt].map((v) => [sstr(v).toUpperCase(), v]));
       const { rows } = await ctx.store.read('Stock Ledger');
       return { rows: rows.filter((r) => upper.has(sstr(r.Warehouse).toUpperCase())).map((r) => ({ Date: normDate(r.Date) || '', 'Virtual Warehouse': upper.get(sstr(r.Warehouse).toUpperCase()), Event: sstr(r.Type), Document: sstr(r.Doc), 'Item Code': sstr(r['Item Code']), 'Item Name': sstr(r['Item Name']), 'Batch Number': sstr(r['Batch Number']), 'Expiry Date': normDate(r['Expiry Date']) || '', Quantity: toNum(r.Quantity), Rate: toNum(r.Rate), Value: round2(toNum(r.Quantity) * toNum(r.Rate)) })) };
+    } },
+  // How often and for how much a customer account (hospital) has been dealt with: Imprest Out, Imprest In and Consumption.
+  { key: 'customer-account-summary', group: 'Stock', title: 'Customer Account Summary (Imprest Out / In / Consumption)', stage: 'reports', ok: stockOk, rangeFilter: true,
+    columns: ['Customer Account', 'Imprest Out Vouchers', 'Imprest Out Qty', 'Imprest Out Value', 'Imprest In Vouchers', 'Imprest In Value', 'Consumption Vouchers', 'Consumption Value', 'Value Held', 'First Dealing', 'Last Dealing'],
+    run: async (ctx, q = {}) => {
+      needStockFields(ctx);
+      const virt = await virtualWarehouses(ctx); const upper = new Map([...virt].map((v) => [sstr(v).toUpperCase(), v]));
+      const { rows: led } = await ctx.store.read('Stock Ledger');
+      const by = new Map();
+      for (const r of led) {
+        const wh = upper.get(sstr(r.Warehouse).toUpperCase()); if (!wh) continue;
+        const d = normDate(r.Date) || ''; if ((q.from && d < q.from) || (q.to && d > q.to)) continue;
+        const o = by.get(wh) || by.set(wh, { 'Customer Account': wh, out: new Set(), in: new Set(), con: new Set(), oq: 0, ov: 0, iv: 0, cv: 0, first: '', last: '' }).get(wh);
+        const qty = toNum(r.Quantity); const val = qty * toNum(r.Rate); const t = sstr(r.Type);
+        if (/^Imprest Out/.test(t)) { o.out.add(sstr(r.Doc)); o.oq += qty; o.ov += val; } else if (t === 'Imprest In') { o.in.add(sstr(r.Doc)); o.iv -= val; } else if (t === 'Consumption') { o.con.add(sstr(r.Doc)); o.cv -= val; } else continue;
+        if (d && (!o.first || d < o.first)) o.first = d; if (d && d > o.last) o.last = d;
+      }
+      return { rows: [...by.values()].map((o) => ({ 'Customer Account': o['Customer Account'], 'Imprest Out Vouchers': o.out.size, 'Imprest Out Qty': round2(o.oq), 'Imprest Out Value': round2(o.ov), 'Imprest In Vouchers': o.in.size, 'Imprest In Value': round2(o.iv), 'Consumption Vouchers': o.con.size, 'Consumption Value': round2(o.cv), 'Value Held': round2(o.ov - o.iv - o.cv), 'First Dealing': o.first, 'Last Dealing': o.last })).sort((a, b) => b['Imprest Out Value'] - a['Imprest Out Value']) };
+    } },
+  // The one place to see where every item is held, in warehouses and at hospitals (virtual warehouses): batch, expiry, quantity, value and dates.
+  { key: 'stock-by-location', group: 'Stock', title: 'Stock by Location (warehouses and hospitals) with Value and Dates', stage: 'reports', ok: stockOk, groupBy: 'Item Code', statusCol: 'Location Type', statusLabel: 'Location type',
+    columns: ['Item Code', 'Item Name', 'Location', 'Location Type', 'Batch Number', 'Expiry Date', 'Quantity', 'Rate', 'Stock Value', 'Received On', 'Last Movement'],
+    run: async (ctx) => {
+      needStockFields(ctx);
+      const { balances } = await loadStock(ctx.store); const hosp = await hospitalSet(ctx.store); const virt = await virtualWarehouses(ctx);
+      const { rows: led } = await ctx.store.read('Stock Ledger');
+      const first = new Map(); const last = new Map();
+      for (const r of led) { const k = keyOf(r.Warehouse, r['Item Code'], r['Batch Number']); const d = normDate(r.Date) || ''; if (!d) continue; if (toNum(r.Quantity) > 0 && (!first.has(k) || d < first.get(k))) first.set(k, d); if (!last.has(k) || d > last.get(k)) last.set(k, d); }
+      const rows = [...balances.values()].filter((e) => e.qty > 1e-9 && ((inScope(ctx, e.warehouse) && !hosp.has(e.warehouse)) || virt.has(e.warehouse))).map((e) => { const k = keyOf(e.warehouse, e.itemCode, e.batch); const isV = virt.has(e.warehouse);
+        return { 'Item Code': e.itemCode, 'Item Name': e.itemName, Location: e.warehouse, 'Location Type': isV ? 'Hospital (virtual)' : 'Warehouse', 'Batch Number': e.batch, 'Expiry Date': e.expiry, Quantity: e.qty, Rate: e.qty > 0 ? round2(e.value / e.qty) : 0, 'Stock Value': round2(e.value), 'Received On': first.get(k) || '', 'Last Movement': last.get(k) || '' }; });
+      rows.sort((a, b) => String(a['Item Code']).localeCompare(String(b['Item Code']), undefined, { numeric: true }) || a['Location Type'].localeCompare(b['Location Type']) || a.Location.localeCompare(b.Location));
+      return { rows };
     } },
   { key: 'virtual-stock', group: 'Stock', title: 'Virtual Warehouse / Hospital Stock (incl. in transit)', stage: 'reports', ok: stockOk, columns: ['Location', 'Location Type', ...stockCols.slice(1)], dateCol: 'Expiry Date', statusCol: 'Flag',
     run: async (ctx) => {
@@ -204,7 +237,7 @@ export async function runReport(ctx, key, q = {}) {
   }
   const statuses = def.statusCol ? [...new Set(res.rows.map((r) => sstr(r[def.statusCol])).filter(Boolean))].sort() : [];
   const uniq = (c) => (columns.includes(c) ? [...new Set(res.rows.map((r) => sstr(r[c])).filter(Boolean))].sort() : []);
-  const meta = { key, title: def.title, group: def.group, columns, hasDate: !!def.dateCol, statuses, statusLabel: def.statusLabel || 'Status', summary, hasWithin: !!def.withinDefault, withinDefault: def.withinDefault || null, brands: uniq('Brand'), categories: uniq('Category') };
+  const meta = { key, title: def.title, group: def.group, columns, hasDate: !!def.dateCol || !!def.rangeFilter, statuses, statusLabel: def.statusLabel || 'Status', summary, hasWithin: !!def.withinDefault, withinDefault: def.withinDefault || null, brands: uniq('Brand'), categories: uniq('Category') };
   if (q.export) { // a grouped report (parent item, child lines) is exported as: item heading row, its lines, blank row, next item
     if (def.groupBy) {
       const g = new Map(); for (const r of rows.slice(0, 50000)) (g.get(r[def.groupBy]) || g.set(r[def.groupBy], []).get(r[def.groupBy])).push(r);

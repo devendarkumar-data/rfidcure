@@ -831,3 +831,28 @@ test('item timeline exports grouped by item; hospital valuation is date-wise; li
   assert.equal((await sa('GET', '/api/reports/hospital-stock-valuation?export=pdf')).status, 200);
   const ss = (await sa('GET', '/api/stock/summary?virtual=1')).json; const v = ss.virtualValues.find((x) => x.warehouse.toUpperCase() === 'VALUE HOSPITAL'); assert.equal(v.qty, 3); assert.ok(v.value > 0);
 });
+
+test('customer account summary: vouchers and value per hospital, date range respected', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  await sa('POST', '/api/t/grn-mrn', grn('MWH', [{ 'Item Code': 'A1', Quantity: 20, Rate: 50, Batch: 'CA-1', 'Expiry Date': '2031-01-01' }], { Date: '2026-10-01' }));
+  const mk = (date, qty) => sa('POST', '/api/t/imprest-out-new', { header: { Date: date, 'Customer Account': 'City Care Hospital', Surgery: 'Spine', Doctor: 'Dr C' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: qty, Batch: 'CA-1' }] });
+  const o1 = await mk('2026-10-05', 4); const o2 = await mk('2026-11-05', 2); assert.equal(o1.status, 201, o1.text); assert.equal(o2.status, 201);
+  const r = (await sa('GET', '/api/reports/customer-account-summary')).json.rows.find((x) => x['Customer Account'].toUpperCase() === 'CITY CARE HOSPITAL');
+  assert.equal(r['Imprest Out Vouchers'], 2); assert.equal(r['Imprest Out Qty'], 6); assert.equal(r['Imprest Out Value'], 300); assert.equal(r['Value Held'], 300);
+  assert.equal(r['First Dealing'], '2026-10-05'); assert.equal(r['Last Dealing'], '2026-11-05');
+  const nov = (await sa('GET', '/api/reports/customer-account-summary?from=2026-11-01')).json.rows.find((x) => x['Customer Account'].toUpperCase() === 'CITY CARE HOSPITAL');
+  assert.equal(nov['Imprest Out Vouchers'], 1); assert.equal(nov['Imprest Out Value'], 100);
+});
+
+test('stock by location: warehouses and hospitals together with value and dates, one item per heading when exported', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  await sa('POST', '/api/t/grn-mrn', grn('MWH', [{ 'Item Code': 'A1', Quantity: 10, Rate: 20, Batch: 'LOC-1', 'Expiry Date': '2031-01-01' }], { Date: '2026-10-03' }));
+  await sa('POST', '/api/t/imprest-out-new', { header: { Date: '2026-10-09', 'Customer Account': 'Where Hospital', Surgery: 'Spine', Doctor: 'Dr W' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 4, Batch: 'LOC-1' }] });
+  const rows = (await sa('GET', '/api/reports/stock-by-location?item=A1&all=1')).json.rows.filter((r) => r['Batch Number'] === 'LOC-1');
+  const w = rows.find((r) => r['Location Type'] === 'Warehouse'); const h = rows.find((r) => r['Location Type'] !== 'Warehouse');
+  assert.equal(w.Quantity, 6); assert.equal(w['Stock Value'], 120); assert.equal(w['Received On'], '2026-10-03'); assert.equal(w['Last Movement'], '2026-10-09');
+  assert.equal(h.Location.toUpperCase(), 'WHERE HOSPITAL'); assert.equal(h.Quantity, 4); assert.equal(h['Stock Value'], 80); assert.equal(h['Received On'], '2026-10-09');
+  const csv = (await sa('GET', '/api/reports/stock-by-location?item=A1&export=csv')).text.split('\r\n'); assert.match(csv[1], /^A1 — /);
+});
