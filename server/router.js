@@ -255,7 +255,7 @@ export default async function handler(req, res) {
         const file = `${seg[1]}-${new Date().toISOString().slice(0, 10)}.${fmt}`;
         const content = fmt === 'xlsx' ? await toXlsx(r.title, r.columns, r.rows) : fmt === 'pdf' ? mail.toPdf(r.title, r.columns, r.rows) : Buffer.from(toCsv(r.columns, r.rows));
         const me = (await store.read('Users')).rows.find((u) => sstr(u['User ID']) === ctx.user.id);
-        const out = await mail.sendReport({ to: b.to, cc: b.cc, subject: b.subject || r.title, message: b.message, from: b.from, user: { id: ctx.user.id, name: sstr(me?.['User Name']), email: sstr(me?.Email) }, filename: file, content, contentType: fmt === 'pdf' ? 'application/pdf' : fmt === 'xlsx' ? XLSX_TYPE : 'text/csv' });
+        const out = await mail.sendReport({ to: b.to, cc: b.cc, bcc: b.bcc, subject: b.subject || r.title, message: b.message, from: b.from, user: { id: ctx.user.id, name: sstr(me?.['User Name']), email: sstr(me?.Email) }, filename: file, content, contentType: fmt === 'pdf' ? 'application/pdf' : fmt === 'xlsx' ? XLSX_TYPE : 'text/csv' });
         await audit(store, { user: ctx.user, module: `Report: ${r.title}`, action: 'E-mail', remarks: `${r.total} rows (${fmt}) to ${out.sent} recipient(s)` });
         return ok(out);
       }

@@ -16,7 +16,7 @@ import NotFound from './NotFound.jsx';
 // E-mail the report as it is on screen (same filters) as Excel / CSV / PDF. The mail leaves from the company mailbox; "From" becomes the sender name and the reply address.
 export function EmailDialog({ reportKey, title, filters, onClose }) {
   const toast = useToast(); const [cfg, setCfg] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
-  const [v, setV] = useState({ from: '', to: '', cc: '', subject: title, message: '', format: 'xlsx' });
+  const [v, setV] = useState({ from: '', to: '', cc: '', bcc: '', subject: title, message: '', format: 'xlsx' });
   useEffect(() => { api.get('/api/mail/config').then((c) => { setCfg(c); setV((s) => ({ ...s, from: c.email || '' })); }).catch((e) => setErr(e.message)); }, []);
   const set = (k) => (e) => setV((s) => ({ ...s, [k]: e.target.value }));
   const send = async (e) => {
@@ -29,7 +29,7 @@ export function EmailDialog({ reportKey, title, filters, onClose }) {
       <form onSubmit={send} className="grid gap-2">
         <div><label className="label">From (your name or e-mail)</label><input className="input" value={v.from} onChange={set('from')} placeholder="you@company.com" /></div>
         <div><label className="label">To <span className="text-red-600">*</span></label><input className="input" value={v.to} onChange={set('to')} placeholder="one@x.com, two@y.com" required /></div>
-        <div><label className="label">Cc</label><input className="input" value={v.cc} onChange={set('cc')} /></div>
+        <div className="grid grid-cols-2 gap-2"><div><label className="label">Cc</label><input className="input" value={v.cc} onChange={set('cc')} /></div><div><label className="label">Bcc</label><input className="input" value={v.bcc} onChange={set('bcc')} /></div></div>
         <div><label className="label">Subject</label><input className="input" value={v.subject} onChange={set('subject')} /></div>
         <div><label className="label">Message</label><textarea className="input min-h-[5rem]" value={v.message} onChange={set('message')} /></div>
         <div><label className="label">Attach as</label><select className="input" value={v.format} onChange={set('format')}><option value="xlsx">Excel</option><option value="csv">CSV</option><option value="pdf">PDF</option></select></div>
@@ -96,14 +96,14 @@ export default function ReportPage() {
     api.get(`/api/reports/${key}`, { ...f, page, pageSize, sort, dir }).then((r) => { if (live) setData(r); }).catch((e) => { if (live) { setErr(e.message); setData(null); } }).finally(() => { if (live) setBusy(false); });
     return () => { live = false; };
   }, [key, sp, page, pageSize, sort, dir, tick]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [mailOpen, setMailOpen] = useState(false);
+  const [mailOpen, setMailOpen] = useState(false); const [fmt, setFmt] = useState('xlsx');
   const exp = (fmt) => download(`/api/reports/${key}`, { ...f, export: fmt }, `${key}.${fmt}`).catch((e) => toast.error(e.message));
   if (err && /Unknown report|cannot open/.test(err)) return <NotFound />;
   const cols = data?.columns || [];
   return (
     <>
       <PageHeader back={<Link to="/reports" className="mb-1 inline-block text-sm text-brand-700 hover:underline">← Reports</Link>} title={data?.title || 'Report'}
-        actions={<><button className="btn" disabled={!data} onClick={() => exp('xlsx')}><Icon name="download" className="h-4 w-4" /> Excel</button><button className="btn" disabled={!data} onClick={() => exp('csv')}><Icon name="download" className="h-4 w-4" /> CSV</button><button className="btn" disabled={!data} onClick={() => exp('pdf')}><Icon name="download" className="h-4 w-4" /> PDF</button><button className="btn" disabled={!data} onClick={() => setMailOpen(true)}>E-mail</button></>} />
+        actions={<><select className="input !w-auto" value={fmt} onChange={(e) => setFmt(e.target.value)} aria-label="Export format"><option value="xlsx">Excel</option><option value="pdf">PDF</option><option value="csv">CSV</option></select><button className="btn" disabled={!data} onClick={() => exp(fmt)}><Icon name="download" className="h-4 w-4" /> Export</button><button className="btn" disabled={!data} onClick={() => setMailOpen(true)}>E-mail</button></>} />
       <FilterBar onReset={() => { setSp({}, { replace: true }); setQq(''); setPage(1); }}>
         <FilterItem label="Search" grow><input className="input" value={qq} placeholder="Search anything in this report…" onChange={(e) => setQq(e.target.value)} /></FilterItem>
         <FilterItem label="Warehouse"><select className="input" value={f.warehouse} onChange={(e) => setF({ warehouse: e.target.value })}><option value="">All</option>{whs.map((w) => <option key={w}>{w}</option>)}</select></FilterItem>
