@@ -48,6 +48,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
     const v = { ...(initial?.header || {}) };
     if (mode === 'create' && table.fields.some((f) => f.name === 'Date' && !f.readonly) && !v.Date) v.Date = todayIST();
     if (mode === 'create' && table.slug === 'grn-mrn' && v['Update Stock'] === undefined && table.fields.some((f) => f.name === 'Update Stock')) v['Update Stock'] = 'Yes';
+    if (mode === 'create' && table.slug === 'item-master' && v.Sterile === undefined) v.Sterile = 'Yes';
     if (mode === 'create' && ['imprest-out-new', 'imprest-in-new'].includes(table.slug)) { if (!v.Companies) v.Companies = COMPANY.name; if (!v['Place of Supply']) v['Place of Supply'] = COMPANY.state; } // our own company; place of supply is our state
     return v;
   });

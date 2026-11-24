@@ -17,14 +17,14 @@ function expand(line, allocs) {
 }
 
 export const POSTERS = {
-  grn({ header, lines, view, doc, date }) {
+  grn({ header, lines, view, doc, date, catalog }) {
     if (!yes(header['Update Stock'])) return { lines, posted: false };
     const wh = need(header.Warehouse, 'Select the receiving warehouse');
     lines.forEach((l, i) => {
       const label = `Line ${i + 1} (${l['Item Code']})`;
       const qty = isBlank(l['Accepted Qty']) ? toNum(l.Quantity) : toNum(l['Accepted Qty']);
       if (qty <= 0) return;
-      need(l.Batch, `${label}: batch number is required to update stock`);
+      if (catalog?.get(sstr(l['Item Code']))?.sterile !== false) need(l.Batch, `${label}: batch number is required to update stock`); // non-sterile items are kept without a batch
       view.in({ wh, code: l['Item Code'], name: l._name, qty, batch: l.Batch, expiry: l['Expiry Date'], rate: toNum(l.Rate), date, type: 'GRN', doc, label });
     });
     return { lines, posted: view.entries.length > 0 };

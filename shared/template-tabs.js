@@ -964,7 +964,8 @@ export default [
    "Expiry Date",
    "Warehouse",
    "HSN",
-   "UOM"
+   "UOM",
+   "Sterile"
   ]
  },
  {

@@ -99,6 +99,7 @@ const RFID_LINES = null;
 export const SPECS = [
   { tab: 'Opening Stock', kind: 'stockdata', stage: 'reports', wh: ['Warehouse'] },
   { tab: 'Stock Ledger', kind: 'audit', stage: 'reports', wh: ['Warehouse'], sort: { col: 'Date', dir: 'desc' } },
+  { tab: 'Item Master', kind: 'master', stage: 'admin', form: 'Sterile:Checkbox' }, // Sterile = Yes: batch and expiry are tracked; No: stock is kept without a batch number
   { tab: 'Vendor Master', kind: 'master', stage: 'admin', required: ['Vendor Name'], optional: ['Sup ID'], hide: ['Default Currency'] }, // Default Currency is dropped from the form: a vendor's first Allowed Currency is the default
   { tab: 'Attachment Store', kind: 'log', stage: 'admin', hide: ['Data'] },
   { tab: 'Activity Log', kind: 'audit', stage: 'admin', sort: { col: 'Created_Date', dir: 'desc' } },

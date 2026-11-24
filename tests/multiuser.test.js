@@ -746,3 +746,15 @@ test('Live stock can include the virtual (hospital) warehouses', async (t) => {
   const bal = (await sa('GET', '/api/stock/balances?q=LR1&virtual=1')).json.rows; assert.deepEqual(bal.map((x) => [x.Warehouse, x['Warehouse Type']]).sort(), [['LIVE HOSPITAL', 'Virtual'], ['MWH', 'Physical']]);
   assert.equal((await sa('GET', '/api/stock/virtual')).json.warehouses[0], 'LIVE HOSPITAL');
 });
+
+test('non-sterile items need no batch number; sterile items still do', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  await app.store.append('Item Master', [{ 'Master Id': 'IM-N1', 'Item Name': 'Plain Instrument', Code: 'NS1', Brand: 'ACME', 'Item Category': 'Instruments', Sterile: 'No' }, { 'Master Id': 'IM-N2', 'Item Name': 'Sterile Screw', Code: 'ST1', Brand: 'ACME', 'Item Category': 'Implants', Sterile: 'Yes' }]);
+  const sa = await app.as('sa');
+  const g = (code, extra = {}) => sa('POST', '/api/t/grn-mrn', { header: { Date: '2026-11-10', Warehouse: 'MWH', Location: 'Delhi', 'Update Stock': 'Yes' }, lines: [{ 'Item Code': code, Quantity: 4, Rate: 1, ...extra }] });
+  assert.equal((await g('NS1')).status, 201, 'non-sterile without batch');
+  assert.equal((await g('ST1')).status, 422, 'sterile without batch is refused');
+  assert.equal((await g('ST1', { Batch: 'B1', 'Expiry Date': '2030-01-01' })).status, 201);
+  const out = await sa('POST', '/api/t/imprest-out-new', { header: { Date: '2026-11-11', 'Customer Account': 'Sterile Test Hospital', Surgery: 'Spine', Doctor: 'Dr X' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'NS1', Quantity: 3 }] });
+  assert.equal(out.status, 201, out.text);
+});

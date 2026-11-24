@@ -322,7 +322,7 @@ export async function createRecord(ctx, table, body, idemKey, hooks = {}) {
       }
       if (table.post) {
         view = new StockView(stock.balances);
-        const res = POSTERS[table.post]({ header, lines, view, doc: id, date });
+        const res = POSTERS[table.post]({ header, lines, view, doc: id, date, catalog });
         lines = res.lines; warnings = view.warnings;
       }
     }
