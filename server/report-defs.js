@@ -57,11 +57,13 @@ export const REPORTS = [
     } },
   { key: 'warehouse-stock', group: 'Stock', title: 'Warehouse-wise Live Stock (batch level)', stage: 'reports', ok: stockOk, columns: stockCols, dateCol: 'Expiry Date', statusCol: 'Flag',
     run: async (ctx) => { needStockFields(ctx); const { balances } = await loadStock(ctx.store); const { classify } = await locations(ctx); return { rows: batchRows(ctx, balances, (e) => classify(e.warehouse) === 'Warehouse') }; } },
-  { key: 'expiry-report', group: 'Stock', title: 'Expiry Report', stage: 'reports', ok: stockOk, columns: ['Warehouse', 'Item Code', 'Item Name', 'Category', 'Brand', 'Batch Number', 'Expiry Date', 'Days To Expiry', 'Expiry Tag', 'Quantity', 'Rate', 'Stock Value'], dateCol: 'Expiry Date', dateAsc: true, statusCol: 'Expiry Tag', statusLabel: 'Tag',
-    run: async (ctx) => {
+  { key: 'expiry-report', group: 'Stock', title: 'Expiry Report', stage: 'reports', ok: stockOk, columns: ['Warehouse', 'Item Code', 'Item Name', 'Category', 'Brand', 'Batch Number', 'Expiry Date', 'Days To Expiry', 'Expiry Tag', 'Quantity', 'Rate', 'Stock Value'], dateCol: 'Expiry Date', dateAsc: true, statusCol: 'Expiry Tag', statusLabel: 'Tag', withinDefault: 365, summary: { itemCol: 'Item Code', qtyCol: 'Quantity', valueCol: 'Stock Value' },
+    run: async (ctx, q = {}) => {
       needStockFields(ctx); const { balances } = await loadStock(ctx.store);
-      const tag = (d) => (d === null ? 'No expiry' : d < 0 ? 'Expired' : d <= 30 ? '0-30 days' : d <= 60 ? '31-60 days' : d <= 90 ? '61-90 days' : d <= 180 ? '91-180 days' : 'Over 180 days');
-      const rows = batchRows(ctx, balances, (e) => e.qty > 0).map(({ Flag, ...r }) => ({ ...r, 'Expiry Tag': tag(r['Days To Expiry']) }));
+      const tag = (d) => (d === null ? 'No expiry' : d < 0 ? 'Expired' : d <= 30 ? '0-30 days' : d <= 60 ? '31-60 days' : d <= 90 ? '61-90 days' : d <= 365 ? '91-365 days' : 'Over 365 days');
+      // Default view: everything already expired plus everything expiring from today up to 365 days ahead. within=all shows every batch.
+      const within = q.within === 'all' ? null : Number.isFinite(parseInt(q.within, 10)) ? parseInt(q.within, 10) : 365;
+      const rows = batchRows(ctx, balances, (e) => e.qty > 0).map(({ Flag, ...r }) => ({ ...r, 'Expiry Tag': tag(r['Days To Expiry']) })).filter((r) => within === null || (r['Days To Expiry'] !== null && r['Days To Expiry'] <= within));
       rows.sort((a, b) => (a['Days To Expiry'] ?? 1e9) - (b['Days To Expiry'] ?? 1e9)); // earliest expiry first
       return { rows };
     } },
@@ -193,9 +195,16 @@ export async function runReport(ctx, key, q = {}) {
     const dir = q.dir === 'desc' ? -1 : 1;
     rows = [...rows].sort((a, b) => dir * ((typeof a[q.sort] === 'number' && typeof b[q.sort] === 'number') ? a[q.sort] - b[q.sort] : String(a[q.sort] ?? '').localeCompare(String(b[q.sort] ?? ''), undefined, { numeric: true })));
   } else if (def.dateCol && columns.includes(def.dateCol)) rows = [...rows].sort((a, b) => (def.dateAsc ? (dateOf(a[def.dateCol]) || '9').localeCompare(dateOf(b[def.dateCol]) || '9') : dateOf(b[def.dateCol]).localeCompare(dateOf(a[def.dateCol]))));
+  let summary = null;
+  if (def.summary) { // how many items / batches fall in each tag, for the figures above the table
+    const m = new Map(); const S = def.summary;
+    const all = res.rows; // whole report, so the tag boxes keep their figures when one of them is used as a filter
+    for (const r of all) { const k = sstr(r[def.statusCol]); const o = m.get(k) || m.set(k, { tag: k, items: new Set(), batches: 0, qty: 0, value: 0 }).get(k); o.items.add(r[S.itemCol]); o.batches += 1; o.qty = round2(o.qty + toNum(r[S.qtyCol])); o.value = round2(o.value + toNum(r[S.valueCol])); }
+    summary = { tags: [...m.values()].map((o) => ({ tag: o.tag, items: o.items.size, batches: o.batches, qty: o.qty, value: o.value })), items: new Set(all.map((r) => r[S.itemCol])).size, batches: all.length, value: round2(all.reduce((s, r) => s + toNum(r[S.valueCol]), 0)) };
+  }
   const statuses = def.statusCol ? [...new Set(res.rows.map((r) => sstr(r[def.statusCol])).filter(Boolean))].sort() : [];
   const uniq = (c) => (columns.includes(c) ? [...new Set(res.rows.map((r) => sstr(r[c])).filter(Boolean))].sort() : []);
-  const meta = { key, title: def.title, group: def.group, columns, hasDate: !!def.dateCol, statuses, statusLabel: def.statusLabel || 'Status', brands: uniq('Brand'), categories: uniq('Category') };
+  const meta = { key, title: def.title, group: def.group, columns, hasDate: !!def.dateCol, statuses, statusLabel: def.statusLabel || 'Status', summary, hasWithin: !!def.withinDefault, withinDefault: def.withinDefault || null, brands: uniq('Brand'), categories: uniq('Category') };
   if (q.export) { // a grouped report (parent item, child lines) is exported as: item heading row, its lines, blank row, next item
     if (def.groupBy) {
       const g = new Map(); for (const r of rows.slice(0, 50000)) (g.get(r[def.groupBy]) || g.set(r[def.groupBy], []).get(r[def.groupBy])).push(r);

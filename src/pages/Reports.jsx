@@ -83,7 +83,7 @@ const NO_STATUS = new Set(['Status']);
 
 export default function ReportPage() {
   const { key } = useParams(); const toast = useToast(); const [sp, setSp] = useSearchParams();
-  const f = { q: sp.get('q') || '', warehouse: sp.get('warehouse') || '', item: sp.get('item') || '', status: sp.get('status') || '', brand: sp.get('brand') || '', category: sp.get('category') || '', from: sp.get('from') || '', batch: sp.get('batch') || '', to: sp.get('to') || '' };
+  const f = { q: sp.get('q') || '', warehouse: sp.get('warehouse') || '', item: sp.get('item') || '', status: sp.get('status') || '', within: sp.get('within') || '', brand: sp.get('brand') || '', category: sp.get('category') || '', from: sp.get('from') || '', batch: sp.get('batch') || '', to: sp.get('to') || '' };
   const [page, setPage] = useState(1); const [pageSize, setPageSize] = useState(25); const [sort, setSort] = useState(''); const [dir, setDir] = useState('asc');
   const [data, setData] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(true); const [whs, setWhs] = useState([]); const [qq, setQq] = useState(f.q);
   const setF = (patch) => { const n = { ...f, ...patch }; setSp(Object.fromEntries(Object.entries(n).filter(([, v]) => v)), { replace: true }); setPage(1); };
@@ -111,9 +111,18 @@ export default function ReportPage() {
         {cols.includes('Batch Number') && !cols.includes('Opening Qty') && <FilterItem label="Batch"><input className="input" value={f.batch} placeholder="batch no." onChange={(e) => setF({ batch: e.target.value })} /></FilterItem>}
         {!!data?.brands?.length && <FilterItem label="Brand"><select className="input" value={f.brand} onChange={(e) => setF({ brand: e.target.value })}><option value="">All</option>{data.brands.map((s) => <option key={s}>{s}</option>)}</select></FilterItem>}
         {!!data?.categories?.length && <FilterItem label="Category"><select className="input" value={f.category} onChange={(e) => setF({ category: e.target.value })}><option value="">All</option>{data.categories.map((s) => <option key={s}>{s}</option>)}</select></FilterItem>}
+        {data?.hasWithin && <FilterItem label="Expiring within"><select className="input" value={f.within || String(data.withinDefault)} onChange={(e) => setF({ within: e.target.value })}>{['30', '60', '90', '180', '365', 'all'].map((d) => <option key={d} value={d}>{d === 'all' ? 'All batches' : `${d} days (incl. expired)`}</option>)}</select></FilterItem>}
         {!!data?.statuses?.length && <FilterItem label={data.statusLabel || 'Status'}><select className="input" value={f.status} onChange={(e) => setF({ status: e.target.value })}><option value="">All</option>{data.statuses.map((s) => <option key={s}>{s}</option>)}</select></FilterItem>}
         {data?.hasDate && <><FilterItem label="From"><input type="date" className="input" value={f.from} onChange={(e) => setF({ from: e.target.value })} /></FilterItem><FilterItem label="To"><input type="date" className="input" value={f.to} onChange={(e) => setF({ to: e.target.value })} /></FilterItem></>}
       </FilterBar>
+      {data?.summary && (
+        <div className="mb-3 flex flex-wrap gap-2 text-sm" aria-label="Summary">
+          <div className="rounded border border-slate-200 bg-white px-3 py-2"><div className="text-xs text-slate-500">Items</div><div className="text-lg font-semibold">{data.summary.items}</div></div>
+          <div className="rounded border border-slate-200 bg-white px-3 py-2"><div className="text-xs text-slate-500">Batches</div><div className="text-lg font-semibold">{data.summary.batches}</div></div>
+          <div className="rounded border border-slate-200 bg-white px-3 py-2"><div className="text-xs text-slate-500">Stock value (₹)</div><div className="text-lg font-semibold">{Number(data.summary.value).toLocaleString('en-IN')}</div></div>
+          {data.summary.tags.map((t) => <button key={t.tag} type="button" className="rounded border border-slate-200 bg-white px-3 py-2 text-left hover:bg-slate-50" onClick={() => setF({ status: f.status === t.tag ? '' : t.tag })}><div className="text-xs text-slate-500"><StatusBadge value={t.tag} /></div><div className="mt-1 text-sm"><b>{t.items}</b> items · {t.batches} batches</div></button>)}
+        </div>
+      )}
       {mailOpen && <EmailDialog reportKey={key} title={data?.title || 'Report'} filters={f} onClose={() => setMailOpen(false)} />}
       <div className="card overflow-hidden">
         <div className="relative overflow-x-auto">

@@ -24,6 +24,11 @@ test('report engine: filters, scope, export, virtual stock', async (t) => {
     const tag = all.statuses[0]; const one = (await rep(sa, 'expiry-report', `?status=${encodeURIComponent(tag)}&pageSize=200`)).json;
     assert.ok(one.total > 0 && one.rows.every((r) => r['Expiry Tag'] === tag));
     if (all.brands.length) assert.ok((await rep(sa, 'expiry-report', `?brand=${encodeURIComponent(all.brands[0])}`)).json.rows.every((r) => r.Brand === all.brands[0]));
+    assert.ok(all.statuses.every((t) => ['Expired', '0-30 days', '31-60 days', '61-90 days', '91-365 days', 'Over 365 days', 'No expiry'].includes(t)), '365-day bands, no 180');
+    assert.ok(all.rows.every((r) => r['Days To Expiry'] !== null && r['Days To Expiry'] <= 365), 'default view: expired + the next 365 days');
+    assert.ok(all.summary.items > 0 && all.summary.tags.length > 0);
+    const wide = (await rep(sa, 'expiry-report', '?within=all&pageSize=200')).json; assert.ok(wide.total >= all.total);
+    const m30 = (await rep(sa, 'expiry-report', '?within=30&pageSize=200')).json; assert.ok(m30.rows.every((r) => r['Days To Expiry'] <= 30));
     assert.equal((await rep(au, 'expiry-report')).status, 403);
   });
   await t.test('every report exports to PDF and can be e-mailed (refused cleanly until SMTP is configured)', async () => {
