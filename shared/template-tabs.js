@@ -204,6 +204,19 @@ export default [
   ]
  },
  {
+  "tab": "Surgery Set Master",
+  "module": "M06",
+  "moduleName": "Imprest Management",
+  "type": "Document",
+  "headers": [
+   "Set Id",
+   "Set Name",
+   "Surgery",
+   "Narration / Notes",
+   "Lines"
+  ]
+ },
+ {
   "tab": "Imprest Out — New",
   "module": "M06",
   "moduleName": "Imprest Management",

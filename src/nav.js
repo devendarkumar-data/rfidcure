@@ -59,6 +59,7 @@ export function buildNav(meta) {
     it(has(tables['material-consumption'], 'view'), '/consumption/pending', 'Consumption Pending'),
     it(has(tables['material-consumption'], 'view'), '/consumption/register', 'Consumption Register'),
     it(has(tables['imprest-out-new'], 'view'), '/imprest/groups', 'Imprest Group Register'),
+    it(has(tables['surgery-set-master'], 'view'), '/t/surgery-set-master', 'Surgery Sets'),
   ]);
 
   const ewo = tables['e-way-bill-outward']; const ewi = tables['e-way-bill-inward'];

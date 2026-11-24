@@ -758,3 +758,21 @@ test('non-sterile items need no batch number; sterile items still do', async (t)
   const out = await sa('POST', '/api/t/imprest-out-new', { header: { Date: '2026-11-11', 'Customer Account': 'Sterile Test Hospital', Surgery: 'Spine', Doctor: 'Dr X' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'NS1', Quantity: 3 }] });
   assert.equal(out.status, 201, out.text);
 });
+
+test('surgery set: saved with items, readable by warehouse users, short stock blocks the imprest out', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  await app.store.append('Item Master', [{ 'Master Id': 'IM-B1', 'Item Name': 'Item B', Code: 'B1', Brand: 'ACME', 'Item Category': 'Implants' }]);
+  const sa = await app.as('sa');
+  await sa('POST', '/api/t/grn-mrn', grn('MWH', [{ 'Item Code': 'A1', Quantity: 5, Rate: 1, Batch: 'SET-1', 'Expiry Date': '2031-01-01' }]));
+  const s = await sa('POST', '/api/t/surgery-set-master', { header: { 'Set Name': 'Lumbar Fusion A', Surgery: 'Spine' }, lines: [{ 'Item Code': 'A1', Quantity: 2 }, { 'Item Code': 'B1', Quantity: 9 }] });
+  assert.equal(s.status, 201, s.text); assert.match(s.json.id, /^SS\//);
+  const rec = (await sa('GET', `/api/t/surgery-set-master/record?id=${encodeURIComponent(s.json.id)}`)).json;
+  assert.equal(rec.lines.length, 2); assert.equal(rec.lines[0].Quantity, 2);
+  const wm = await app.as('wm');
+  assert.equal((await wm('GET', '/api/t/surgery-set-master')).json.rows.length, 1, 'a warehouse user can pick the set');
+  const hdr = { Date: '2026-11-11', 'Customer Account': 'Set Hospital', Surgery: 'Spine', Doctor: 'Dr X' };
+  const bad = await sa('POST', '/api/t/imprest-out-new', { header: hdr, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 2 }, { Warehouse: 'MWH', 'Item Code': 'B1', Quantity: 9 }] });
+  assert.equal(bad.status, 422, 'set quantity larger than the stock is refused until the quantity is changed');
+  const ok = await sa('POST', '/api/t/imprest-out-new', { header: hdr, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 2 }] });
+  assert.equal(ok.status, 201, ok.text);
+});

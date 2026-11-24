@@ -122,6 +122,7 @@ export const SPECS = [
     form: 'Update Stock:Checkbox|Raise Receipt:Checkbox|Attachment:Upload|Receipt Type:Dropdown:GRN,Special GRN',
     lines: 'Items:Dropdown|PO No:Dropdown|Description:Autofill|Quantity:Number|Rate:Number|Batch:Text|Expiry Date:Date|Gross:Calculated|Other Discount:Number|Taxable Value:Number|CGST:Number|IGST:Number|Brand:Dropdown|Item Category:Dropdown|Item Group:Dropdown|Division:Dropdown|Price Book Rate:Number|Special Rate:Number|MRP:Number|Price Type:Text|No. of PCS/Box:Number|Ordered Qty:Number|Received Qty:Number|Accepted Qty:Number|Rejected / Damaged Qty:Number|Excess Decision:Dropdown:Amend PO,Reject Excess,Arrange Return|Short Close:Dropdown:Keep Open,Close Balance (authorized)|PO Line:Number' },
 
+  { tab: 'Surgery Set Master', kind: 'doc', stage: 'imprest', prefix: 'SS', required: ['Set Name'], lines: 'Items:Dropdown|Units:Autofill|Quantity:Number' }, // a set = a named group of items; picking it on Imprest Out pre-fills the lines
   { tab: 'Imprest Out — New', kind: 'doc', stage: 'imprest', prefix: 'IIO', post: 'imprest-out', wh: ['To Warehouse'], required: ['Date'], form: IMH_OUT, lines: IML_OUT, hide: ['Delivery Date', 'Return Closed', 'To Warehouse', 'Location', 'Is IGST', 'Ref. Date', 'Supplier', 'Ref. Doc', 'Dispatch Name', 'Dispatch City', 'Dispatch Address', 'Dispatch Pincode', 'Dispatch State'] },
   { tab: 'Imprest Out Register', kind: 'list', stage: 'imprest', wh: ['To Warehouse'] },
   { tab: 'Imprest Out Pending', kind: 'list', stage: 'imprest', wh: ['To Warehouse'] },
