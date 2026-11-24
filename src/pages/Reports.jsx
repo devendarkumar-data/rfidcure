@@ -55,7 +55,7 @@ const NO_STATUS = new Set(['Status']);
 
 export default function ReportPage() {
   const { key } = useParams(); const toast = useToast(); const [sp, setSp] = useSearchParams();
-  const f = { q: sp.get('q') || '', warehouse: sp.get('warehouse') || '', item: sp.get('item') || '', status: sp.get('status') || '', brand: sp.get('brand') || '', category: sp.get('category') || '', from: sp.get('from') || '', to: sp.get('to') || '' };
+  const f = { q: sp.get('q') || '', warehouse: sp.get('warehouse') || '', item: sp.get('item') || '', status: sp.get('status') || '', brand: sp.get('brand') || '', category: sp.get('category') || '', from: sp.get('from') || '', batch: sp.get('batch') || '', to: sp.get('to') || '' };
   const [page, setPage] = useState(1); const [pageSize, setPageSize] = useState(25); const [sort, setSort] = useState(''); const [dir, setDir] = useState('asc');
   const [data, setData] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(true); const [whs, setWhs] = useState([]); const [qq, setQq] = useState(f.q);
   const setF = (patch) => { const n = { ...f, ...patch }; setSp(Object.fromEntries(Object.entries(n).filter(([, v]) => v)), { replace: true }); setPage(1); };
@@ -79,6 +79,7 @@ export default function ReportPage() {
         <FilterItem label="Search" grow><input className="input" value={qq} placeholder="Search anything in this report…" onChange={(e) => setQq(e.target.value)} /></FilterItem>
         <FilterItem label="Warehouse"><select className="input" value={f.warehouse} onChange={(e) => setF({ warehouse: e.target.value })}><option value="">All</option>{whs.map((w) => <option key={w}>{w}</option>)}</select></FilterItem>
         <FilterItem label="Item"><input className="input" value={f.item} placeholder="code or name" onChange={(e) => setF({ item: e.target.value })} /></FilterItem>
+        {cols.includes('Batch Number') && !cols.includes('Opening Qty') && <FilterItem label="Batch"><input className="input" value={f.batch} placeholder="batch no." onChange={(e) => setF({ batch: e.target.value })} /></FilterItem>}
         {!!data?.brands?.length && <FilterItem label="Brand"><select className="input" value={f.brand} onChange={(e) => setF({ brand: e.target.value })}><option value="">All</option>{data.brands.map((s) => <option key={s}>{s}</option>)}</select></FilterItem>}
         {!!data?.categories?.length && <FilterItem label="Category"><select className="input" value={f.category} onChange={(e) => setF({ category: e.target.value })}><option value="">All</option>{data.categories.map((s) => <option key={s}>{s}</option>)}</select></FilterItem>}
         {!!data?.statuses?.length && <FilterItem label={data.statusLabel || 'Status'}><select className="input" value={f.status} onChange={(e) => setF({ status: e.target.value })}><option value="">All</option>{data.statuses.map((s) => <option key={s}>{s}</option>)}</select></FilterItem>}

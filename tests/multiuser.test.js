@@ -801,3 +801,16 @@ test('imprest out: creator may change quantities for one hour, others and later 
   const late = await sa('PUT', `/api/imprest/out/edit?id=${encodeURIComponent(o.json.id)}`, { lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 1 }] });
   assert.equal(late.status, 403, 'window closed');
 });
+
+test('item timeline: GRN, imprest out and consumption of one batch in date order, filterable by item and batch', async (t) => {
+  const app = await makeApp(); t.after(() => app.close());
+  const sa = await app.as('sa');
+  const g = await sa('POST', '/api/t/grn-mrn', grn('MWH', [{ 'Item Code': 'A1', Quantity: 6, Rate: 1, Batch: 'TL-1', 'Expiry Date': '2031-01-01' }], { Date: '2026-11-02' })); assert.equal(g.status, 201, g.text);
+  const o = await sa('POST', '/api/t/imprest-out-new', { header: { Date: '2026-11-05', 'Customer Account': 'Timeline Hospital', Surgery: 'Spine', Doctor: 'Dr T' }, lines: [{ Warehouse: 'MWH', 'Item Code': 'A1', Quantity: 3, Batch: 'TL-1' }] }); assert.equal(o.status, 201, o.text);
+  const tl = (await sa('GET', '/api/reports/item-timeline?item=A1&batch=TL-1&pageSize=200')).json;
+  assert.deepEqual(tl.rows.map((r) => r.Event).filter((e) => e !== 'Imprest Out' || true).slice(0, 3), ['GRN', 'Imprest Out', 'Imprest Out']);
+  assert.ok(tl.rows.every((r, i, a) => !i || a[i - 1].Date <= r.Date), 'oldest first');
+  assert.equal(tl.rows[0].Document, g.json.id); assert.equal(tl.rows[1].Party, 'Timeline Hospital'); assert.match(tl.rows[1].Reference, /Dr T/);
+  assert.equal((await sa('GET', '/api/reports/item-timeline?item=A1&batch=TL-1&export=csv')).status, 200);
+  assert.equal((await (await app.as('au'))('GET', '/api/reports/item-timeline')).status, 403, 'auditor has no quantities');
+});

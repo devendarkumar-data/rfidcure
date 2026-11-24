@@ -2,7 +2,7 @@
 // then filtered, sorted, paginated or exported (CSV / Excel) by one generic wrapper.
 import { TABLE_BY_SLUG } from '../shared/registry.js';
 import { can, fieldAccess } from '../shared/permissions.js';
-import { inScope } from './access.js';
+import { inScope, parseLines } from './access.js';
 import { listRecords } from './crud.js';
 import { needStockFields, scopedBalances, daysBetween } from './reports.js';
 import { isTransitLoc, loadStock, locations } from './stock.js';
@@ -64,6 +64,34 @@ export const REPORTS = [
       const rows = batchRows(ctx, balances, (e) => e.qty > 0).map(({ Flag, ...r }) => ({ ...r, 'Expiry Tag': tag(r['Days To Expiry']) }));
       rows.sort((a, b) => (a['Days To Expiry'] ?? 1e9) - (b['Days To Expiry'] ?? 1e9)); // earliest expiry first
       return { rows };
+    } },
+  // One item (or batch) followed through its whole life: indent -> PO -> GRN -> transfers -> Imprest Out -> Imprest In -> Consumption.
+  { key: 'item-timeline', group: 'Stock', title: 'Item Timeline (Indent → PO → GRN → Imprest → Consumption)', stage: 'reports', ok: stockOk, dateCol: 'Date', dateAsc: true, statusCol: 'Event',
+    columns: ['Date', 'Event', 'Document', 'Item Code', 'Item Name', 'Batch Number', 'Expiry Date', 'Warehouse', 'Quantity', 'Party', 'Reference'],
+    run: async (ctx) => {
+      needStockFields(ctx);
+      const { store } = ctx; const rd = async (tab) => (await store.read(tab)).rows;
+      const [led, grns, outs, ins, cons, xfers] = await Promise.all([rd('Stock Ledger'), rd('GRN  MRN'), rd('Imprest Out — New'), rd('Imprest In — New'), rd('Material Consumption'), rd('Stock Transfer')]);
+      const hosp = ctx.user.scope.mode === 'assigned' ? await (await import('./imprest.js')).visibleHospitals(ctx) : null;
+      const seen = (w) => (isTransitLoc(w) ? ctx.user.scope.mode !== 'assigned' : inScope(ctx, w) || !!hosp?.has(sstr(w)));
+      const rows = []; const nameOf = new Map();
+      const push = (o) => rows.push({ Date: normDate(o.Date) || '', Event: o.Event, Document: o.Document, 'Item Code': sstr(o.code), 'Item Name': sstr(o.name) || nameOf.get(sstr(o.code)) || '', 'Batch Number': sstr(o.batch), 'Expiry Date': normDate(o.expiry) || '', Warehouse: sstr(o.wh), Quantity: toNum(o.qty), Party: sstr(o.party), Reference: sstr(o.ref) });
+      for (const r of led) { if (sstr(r['Item Code'])) nameOf.set(sstr(r['Item Code']), sstr(r['Item Name'])); }
+      if (can(ctx.user.role, 'intent', 'view')) for (const d of await rd('Purchase Indent')) for (const l of parseLines(d.Lines)) { const c = sstr(l['Item Code']); if (c) push({ Date: d.Date, Event: 'Purchase Indent', Document: sstr(d['Document No.']), code: c, name: l.Items, qty: l.Quantity, wh: d['Requesting Warehouse'], party: d.Status }); }
+      if (can(ctx.user.role, 'po', 'view')) for (const tab of ['Purchase Order — Domestic', 'Purchase Order — Import']) for (const d of await rd(tab)) for (const l of parseLines(d.Lines)) { const c = sstr(l['Item Code']); if (c) push({ Date: d.Date, Event: 'Purchase Order', Document: sstr(d['Document No.']), code: c, name: l.Items, qty: l.Quantity, wh: d.Destination || d.Location, party: d['Vendor Account'], ref: l['Intent No'] }); }
+      const grnBy = new Map(grns.map((g) => [sstr(g['Document No.']), g])); const outBy = new Map(outs.map((g) => [sstr(g.DocNo), g]));
+      const inBy = new Map(ins.map((g) => [sstr(g.DocNo), g])); const consBy = new Map(cons.map((g) => [sstr(g['Document No']), g])); const xBy = new Map(xfers.map((g) => [sstr(g['Document No.']), g]));
+      for (const r of led.filter((x) => seen(x.Warehouse))) {
+        const doc = sstr(r.Doc); const t = sstr(r.Type); const code = sstr(r['Item Code']); const batch = sstr(r['Batch Number']);
+        let party = '', ref = '';
+        if (t === 'GRN') { const g = grnBy.get(doc); party = sstr(g?.['Vendor Account']); ref = sstr(parseLines(g?.Lines).find((l) => sstr(l['Item Code']) === code && sstr(l.Batch) === batch)?.['PO No'] || g?.['Supplier Ref No']); }
+        else if (/^Imprest Out/.test(t)) { const g = outBy.get(doc); party = sstr(g?.['Customer Account']); ref = [g?.Surgery, g?.Doctor].map(sstr).filter(Boolean).join(' / '); }
+        else if (t === 'Imprest In') { const g = inBy.get(doc); party = sstr(g?.['To Warehouse']); ref = sstr(g?.['Imprest Ref']); }
+        else if (t === 'Consumption') { const g = consBy.get(doc); party = sstr(g?.['Customer Account'] || g?.Warehouse); ref = sstr(g?.['Imprest Ref']); }
+        else if (t === 'Stock Transfer') { const g = xBy.get(doc); party = `${sstr(g?.['From Warehouse'])} → ${sstr(g?.['To Warehouse'])}`; }
+        push({ Date: r.Date, Event: t, Document: doc, code, name: r['Item Name'], batch, expiry: r['Expiry Date'], wh: r.Warehouse, qty: r.Quantity, party, ref });
+      }
+      return { rows: rows.filter((r) => r['Item Code']) };
     } },
   { key: 'virtual-stock', group: 'Stock', title: 'Virtual Warehouse / Hospital Stock (incl. in transit)', stage: 'reports', ok: stockOk, columns: ['Location', 'Location Type', ...stockCols.slice(1)], dateCol: 'Expiry Date', statusCol: 'Flag',
     run: async (ctx) => {
@@ -142,6 +170,7 @@ export async function runReport(ctx, key, q = {}) {
   const needle = lc(q.q);
   rows = rows.filter((r) => {
     if (q.warehouse && !whCols.some((c) => lc(r[c]) === lc(q.warehouse)) && !(r['Requesting Warehouse'] || r['Issuing Warehouse'] || r['From Warehouse'] || r['To Warehouse'] ? [r['Requesting Warehouse'], r['Issuing Warehouse'], r['From Warehouse'], r['To Warehouse']].some((w) => lc(w) === lc(q.warehouse)) : false)) return false;
+    if (q.batch && !lc(r['Batch Number']).includes(lc(q.batch))) return false;
     if (q.brand && lc(r.Brand) !== lc(q.brand)) return false;
     if (q.category && lc(r.Category) !== lc(q.category)) return false;
     if (q.item && !(itemCols.some((c) => lc(r[c]).includes(lc(q.item))) || lc(r['Item Summary']).includes(lc(q.item)))) return false;
