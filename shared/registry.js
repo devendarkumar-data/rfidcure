@@ -119,7 +119,7 @@ export const SPECS = [
   { tab: 'GRN  MRN', kind: 'doc', stage: 'grn', workflow: 'grn', prefix: 'GRN', post: 'grn', wh: ['Warehouse'], required: ['Date', 'Warehouse'],
     hideLines: ['PO Line', 'Ordered Qty', 'Received Qty', 'Accepted Qty', 'Rejected / Damaged Qty', 'Excess Decision', 'Short Close'],
     hide: ['Receipt Type'],
-    form: 'Update Stock:Checkbox|Raise Receipt:Checkbox|Attachment:Upload|Receipt Type:Dropdown:GRN,Special GRN',
+    form: 'Update Stock:Checkbox|Raise Receipt:Checkbox|Attachment:Upload|Receipt Type:Dropdown:GRN,Special GRN|Trial Type:Dropdown:Trial,Non-Trial',
     lines: 'Items:Dropdown|PO No:Dropdown|Description:Autofill|Quantity:Number|Rate:Number|Batch:Text|Expiry Date:Date|Gross:Calculated|Other Discount:Number|Taxable Value:Number|CGST:Number|IGST:Number|Brand:Dropdown|Item Category:Dropdown|Item Group:Dropdown|Division:Dropdown|Price Book Rate:Number|Special Rate:Number|MRP:Number|Price Type:Text|No. of PCS/Box:Number|Ordered Qty:Number|Received Qty:Number|Accepted Qty:Number|Rejected / Damaged Qty:Number|Excess Decision:Dropdown:Amend PO,Reject Excess,Arrange Return|Short Close:Dropdown:Keep Open,Close Balance (authorized)|PO Line:Number' },
 
   { tab: 'Surgery Set Master', kind: 'doc', stage: 'imprest', prefix: 'SS', required: ['Set Name'], lines: 'Items:Dropdown|Units:Autofill|Quantity:Number' }, // a set = a named group of items; picking it on Imprest Out pre-fills the lines

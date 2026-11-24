@@ -295,6 +295,7 @@ export async function createRecord(ctx, table, body, idemKey, hooks = {}) {
       rawHeader = { ...rawHeader, 'To Warehouse': hosp };
     }
     const header = await validateHeader(ctx, table, rawHeader);
+    if (table.slug === 'grn-mrn' && sstr(header['Receipt Type']) === 'Special GRN' && !['Trial', 'Non-Trial'].includes(sstr(header['Trial Type']))) throw bad('Trial Type: choose Trial or Non-Trial for a Special GRN'); // goods keyed by hand are marked trial / non-trial
     const date = header.Date || today();
     let id = null, lines = [], warnings = [], view = null;
 

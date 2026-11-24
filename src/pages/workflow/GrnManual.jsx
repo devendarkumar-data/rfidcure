@@ -27,7 +27,7 @@ export default function GrnManual() {
   // (accounting belongs to Create GRN, which is received against a PO)
   const NO_HEAD = new Set(['Supplier Ref No', 'Raise Receipt', 'Invoice Value', 'Invoice Date', 'Is IGST', 'Terms of Delivery', 'Type Of Purchase', 'Invoice No.', 'Place of Supply', 'Submit For Approval', 'Destination', 'Update Stock']);
   const NO_LINE = new Set(['PO No', 'PO Line', 'Ordered Qty', 'Received Qty', 'Short Close', 'Excess Decision', 'Rate', 'Gross', 'Other Discount', 'Taxable Value', 'CGST', 'IGST', 'Price Book Rate', 'Special Rate', 'MRP', 'Price Type', 'Division', 'Item Group']);
-  const special = { ...table, noAccounts: true, fields: table.fields.filter((f) => !NO_HEAD.has(f.name)), lineFields: table.lineFields.filter((f) => !NO_LINE.has(f.name)) };
+  const special = { ...table, noAccounts: true, showTrial: true, required: [...(table.required || []), 'Trial Type'], fields: table.fields.filter((f) => !NO_HEAD.has(f.name)), lineFields: table.lineFields.filter((f) => !NO_LINE.has(f.name)) };
   const create = async (payload, key) => {
     const r = await api.post('/api/t/grn-mrn', { ...payload, header: { 'Update Stock': 'Yes', ...payload.header, 'Receipt Type': 'Special GRN' } }, { headers: { 'Idempotency-Key': key || idemKey() } });
     toast.success(r.duplicate ? 'Already saved — duplicate ignored' : `Special GRN ${r.id} posted; stock updated`);

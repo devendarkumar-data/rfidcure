@@ -99,7 +99,7 @@ export default function RecordForm({ table, mode = 'create', initial, onSubmit, 
   const isGrn = table.slug === 'grn-mrn';
   const ACCT = new Set(['place of supply', 'ship to name', 'ship to address', 'ship to city', 'ship to state', 'ship to pin code', 'bill code', 'is igst', 'ref. doc', 'ref. date']); // account / GST details can be folded away on Imprest forms
   const fields = useMemo(() => {
-    const f = table.fields.filter((x) => !(mode === 'create' && (x.type === 'auto' && !table.idCol)));
+    const f = table.fields.filter((x) => !(mode === 'create' && (x.type === 'auto' && !table.idCol)) && (x.name !== 'Trial Type' || table.showTrial)); // Trial / Non-Trial is asked on Special GRN only
     if (!isGrn) return f;
     const at = (n) => { const i = GRN_ORDER.findIndex((o) => o.toLowerCase() === n.toLowerCase()); return i < 0 ? 99 : i; }; // GRN header in fixed rows of 4 so every column lines up
     return [...f].sort((a, b) => at(a.name) - at(b.name));

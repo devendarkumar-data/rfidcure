@@ -200,7 +200,8 @@ export default [
    "Warehouse",
    "Attachment",
    "Lines",
-   "Receipt Type"
+   "Receipt Type",
+   "Trial Type"
   ]
  },
  {
