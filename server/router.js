@@ -6,7 +6,7 @@ import { mayRaiseIntent } from './workflow.js';
 import { fieldAccess, STAGE_LABELS, VIEW_ALL_STOCK, roleKey } from '../shared/permissions.js';
 import { config } from './config.js';
 import { getStore } from './store/index.js';
-import { HttpError, bad, forbidden, notFound, today } from './util.js';
+import { HttpError, bad, forbidden, notFound, sstr, today } from './util.js';
 import { assertCan } from './access.js';
 import { authenticate, changePassword, clearCookie, login, logout, sessionCookie } from './auth.js';
 import * as crud from './crud.js';
@@ -21,6 +21,7 @@ import * as tableIo from './table-io.js';
 import * as opening from './opening.js';
 import * as reqs from './requisition.js';
 import * as repdefs from './report-defs.js';
+import * as mail from './mail.js';
 import { toXlsx, XLSX_TYPE } from './xlsx.js';
 import { audit } from './audit.js';
 
@@ -244,10 +245,23 @@ export default async function handler(req, res) {
         await audit(store, { user: ctx.user, module: `Report: ${r.title}`, action: 'Export', remarks: `${r.total} rows (${q.export})` });
         const file = `${seg[1]}-${new Date().toISOString().slice(0, 10)}`;
         if (q.export === 'xlsx') return send(res, 200, await toXlsx(r.title, r.columns, r.rows), { ...outHeaders, 'Content-Disposition': `attachment; filename="${file}.xlsx"` });
+        if (q.export === 'pdf') return send(res, 200, mail.toPdf(r.title, r.columns, r.rows), { ...outHeaders, 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${file}.pdf"` });
         return send(res, 200, toCsv(r.columns, r.rows), { ...outHeaders, 'Content-Disposition': `attachment; filename="${file}.csv"` });
+      }
+      if (seg.length === 3 && seg[2] === 'email' && req.method === 'POST') { // e-mail the report (with the filters on screen) as Excel / CSV / PDF
+        const b = await readBody(req); const fmt = ['xlsx', 'csv', 'pdf'].includes(b.format) ? b.format : 'xlsx';
+        if (!mail.mailConfigured()) throw new HttpError(503, 'E-mail is not set up on the server. Ask the administrator to add the SMTP settings (SMTP_HOST, SMTP_USER, SMTP_PASS) in Vercel.');
+        const r = await repdefs.runReport(ctx, seg[1], { ...(b.filters || {}), export: fmt });
+        const file = `${seg[1]}-${new Date().toISOString().slice(0, 10)}.${fmt}`;
+        const content = fmt === 'xlsx' ? await toXlsx(r.title, r.columns, r.rows) : fmt === 'pdf' ? mail.toPdf(r.title, r.columns, r.rows) : Buffer.from(toCsv(r.columns, r.rows));
+        const me = (await store.read('Users')).rows.find((u) => sstr(u['User ID']) === ctx.user.id);
+        const out = await mail.sendReport({ to: b.to, cc: b.cc, subject: b.subject || r.title, message: b.message, from: b.from, user: { id: ctx.user.id, name: sstr(me?.['User Name']), email: sstr(me?.Email) }, filename: file, content, contentType: fmt === 'pdf' ? 'application/pdf' : fmt === 'xlsx' ? XLSX_TYPE : 'text/csv' });
+        await audit(store, { user: ctx.user, module: `Report: ${r.title}`, action: 'E-mail', remarks: `${r.total} rows (${fmt}) to ${out.sent} recipient(s)` });
+        return ok(out);
       }
       throw notFound('Unknown endpoint');
     }
+    if (path === 'mail/config' && req.method === 'GET') { const me = (await store.read('Users')).rows.find((u) => sstr(u['User ID']) === ctx.user.id); return ok({ enabled: mail.mailConfigured(), email: sstr(me?.Email) }); }
     if (path === 'lookup' && req.method === 'GET') return ok(await crud.lookup(ctx, q.field, q.q, 30, q.scopeOnly === '1', { warehouse: q.warehouse, all: q.all, imprest: q.imprest, exclude: q.exclude, purchaseType: q.purchaseType, vendor: q.vendor, item: q.item }));
     if (path === 'imprest/consumption' && req.method === 'GET') return ok(await imprest.consumptionList(ctx, q.status));
     if (path === 'imprest/bill' && req.method === 'POST') return ok(await imprest.updateBill(ctx, await readBody(req)));

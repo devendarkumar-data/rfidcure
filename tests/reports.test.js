@@ -26,6 +26,13 @@ test('report engine: filters, scope, export, virtual stock', async (t) => {
     if (all.brands.length) assert.ok((await rep(sa, 'expiry-report', `?brand=${encodeURIComponent(all.brands[0])}`)).json.rows.every((r) => r.Brand === all.brands[0]));
     assert.equal((await rep(au, 'expiry-report')).status, 403);
   });
+  await t.test('every report exports to PDF and can be e-mailed (refused cleanly until SMTP is configured)', async () => {
+    const pdf = await rep(sa, 'warehouse-stock', '?export=pdf'); assert.equal(pdf.status, 200);
+    assert.equal((await rep(au, 'warehouse-stock', '?export=pdf')).status, 403);
+    const cfg = (await sa('GET', '/api/mail/config')).json; assert.equal(cfg.enabled, false);
+    const m = await sa('POST', '/api/reports/warehouse-stock/email', { to: 'a@b.com', format: 'pdf', filters: {} });
+    assert.equal(m.status, 503); assert.match(m.json.error, /not set up/);
+  });
   await t.test('warehouse stock: scope, warehouse + item + status filters, pagination, totals', async () => {
     const r = (await rep(sa, 'warehouse-stock', '?pageSize=2')).json; assert.equal(r.total, 6); assert.equal(r.rows.length, 2); assert.equal(r.pages, 3);
     assert.equal((await rep(sa, 'warehouse-stock', '?warehouse=DWH')).json.total, 2);

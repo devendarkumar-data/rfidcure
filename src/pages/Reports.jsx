@@ -10,7 +10,35 @@ import Pagination from '../components/Pagination.jsx';
 import Spinner from '../components/Spinner.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import { useToast } from '../components/Toast.jsx';
+import Modal from '../components/Modal.jsx';
 import NotFound from './NotFound.jsx';
+
+// E-mail the report as it is on screen (same filters) as Excel / CSV / PDF. The mail leaves from the company mailbox; "From" becomes the sender name and the reply address.
+function EmailDialog({ reportKey, title, filters, onClose }) {
+  const toast = useToast(); const [cfg, setCfg] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+  const [v, setV] = useState({ from: '', to: '', cc: '', subject: title, message: '', format: 'xlsx' });
+  useEffect(() => { api.get('/api/mail/config').then((c) => { setCfg(c); setV((s) => ({ ...s, from: c.email || '' })); }).catch((e) => setErr(e.message)); }, []);
+  const set = (k) => (e) => setV((s) => ({ ...s, [k]: e.target.value }));
+  const send = async (e) => {
+    e.preventDefault(); setErr(''); setBusy(true);
+    try { const r = await api.post(`/api/reports/${reportKey}/email`, { ...v, filters }); toast.success(`Sent to ${r.sent} recipient(s)`); onClose(); } catch (x) { setErr(x.message); } finally { setBusy(false); }
+  };
+  return (
+    <Modal title={`E-mail — ${title}`} onClose={onClose}>
+      {cfg && !cfg.enabled && <p role="alert" className="mb-2 rounded bg-amber-50 p-2 text-sm text-amber-800">E-mail is not set up on the server yet (SMTP settings missing). The administrator has to add them in Vercel before this can send.</p>}
+      <form onSubmit={send} className="grid gap-2">
+        <div><label className="label">From (your name or e-mail)</label><input className="input" value={v.from} onChange={set('from')} placeholder="you@company.com" /></div>
+        <div><label className="label">To <span className="text-red-600">*</span></label><input className="input" value={v.to} onChange={set('to')} placeholder="one@x.com, two@y.com" required /></div>
+        <div><label className="label">Cc</label><input className="input" value={v.cc} onChange={set('cc')} /></div>
+        <div><label className="label">Subject</label><input className="input" value={v.subject} onChange={set('subject')} /></div>
+        <div><label className="label">Message</label><textarea className="input min-h-[5rem]" value={v.message} onChange={set('message')} /></div>
+        <div><label className="label">Attach as</label><select className="input" value={v.format} onChange={set('format')}><option value="xlsx">Excel</option><option value="csv">CSV</option><option value="pdf">PDF</option></select></div>
+        {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
+        <div className="flex justify-end gap-2"><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy || (cfg && !cfg.enabled)}>{busy ? 'Sending…' : 'Send'}</button></div>
+      </form>
+    </Modal>
+  );
+}
 
 const GROUPS = ['Stock', 'Purchasing', 'Warehouse'];
 const GROUP_LABEL = { Stock: 'Stock reports', Purchasing: 'Purchase reports', Warehouse: 'Warehouse & consumption reports' };
@@ -68,13 +96,14 @@ export default function ReportPage() {
     api.get(`/api/reports/${key}`, { ...f, page, pageSize, sort, dir }).then((r) => { if (live) setData(r); }).catch((e) => { if (live) { setErr(e.message); setData(null); } }).finally(() => { if (live) setBusy(false); });
     return () => { live = false; };
   }, [key, sp, page, pageSize, sort, dir, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [mailOpen, setMailOpen] = useState(false);
   const exp = (fmt) => download(`/api/reports/${key}`, { ...f, export: fmt }, `${key}.${fmt}`).catch((e) => toast.error(e.message));
   if (err && /Unknown report|cannot open/.test(err)) return <NotFound />;
   const cols = data?.columns || [];
   return (
     <>
       <PageHeader back={<Link to="/reports" className="mb-1 inline-block text-sm text-brand-700 hover:underline">← Reports</Link>} title={data?.title || 'Report'}
-        actions={<><button className="btn" disabled={!data} onClick={() => exp('xlsx')}><Icon name="download" className="h-4 w-4" /> Excel</button><button className="btn" disabled={!data} onClick={() => exp('csv')}><Icon name="download" className="h-4 w-4" /> CSV</button></>} />
+        actions={<><button className="btn" disabled={!data} onClick={() => exp('xlsx')}><Icon name="download" className="h-4 w-4" /> Excel</button><button className="btn" disabled={!data} onClick={() => exp('csv')}><Icon name="download" className="h-4 w-4" /> CSV</button><button className="btn" disabled={!data} onClick={() => exp('pdf')}><Icon name="download" className="h-4 w-4" /> PDF</button><button className="btn" disabled={!data} onClick={() => setMailOpen(true)}>E-mail</button></>} />
       <FilterBar onReset={() => { setSp({}, { replace: true }); setQq(''); setPage(1); }}>
         <FilterItem label="Search" grow><input className="input" value={qq} placeholder="Search anything in this report…" onChange={(e) => setQq(e.target.value)} /></FilterItem>
         <FilterItem label="Warehouse"><select className="input" value={f.warehouse} onChange={(e) => setF({ warehouse: e.target.value })}><option value="">All</option>{whs.map((w) => <option key={w}>{w}</option>)}</select></FilterItem>
@@ -85,6 +114,7 @@ export default function ReportPage() {
         {!!data?.statuses?.length && <FilterItem label={data.statusLabel || 'Status'}><select className="input" value={f.status} onChange={(e) => setF({ status: e.target.value })}><option value="">All</option>{data.statuses.map((s) => <option key={s}>{s}</option>)}</select></FilterItem>}
         {data?.hasDate && <><FilterItem label="From"><input type="date" className="input" value={f.from} onChange={(e) => setF({ from: e.target.value })} /></FilterItem><FilterItem label="To"><input type="date" className="input" value={f.to} onChange={(e) => setF({ to: e.target.value })} /></FilterItem></>}
       </FilterBar>
+      {mailOpen && <EmailDialog reportKey={key} title={data?.title || 'Report'} filters={f} onClose={() => setMailOpen(false)} />}
       <div className="card overflow-hidden">
         <div className="relative overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200">
